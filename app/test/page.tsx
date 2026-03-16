@@ -1,0 +1,16 @@
+import { createClient } from '../../lib/supabase/server'
+
+export default async function TestPage() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  return (
+    <main style={{ padding: '24px' }}>
+      <h1>Supabase Test</h1>
+      <pre>{JSON.stringify({ user }, null, 2)}</pre>
+    </main>
+  )
+}

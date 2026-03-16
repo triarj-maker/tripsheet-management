@@ -24,3 +24,72 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.trip-sheet-calendar .fc {
+  --fc-border-color: #e4e4e7;
+  --fc-neutral-bg-color: #fafafa;
+  --fc-page-bg-color: #ffffff;
+  --fc-button-bg-color: #18181b;
+  --fc-button-border-color: #18181b;
+  --fc-button-hover-bg-color: #27272a;
+  --fc-button-hover-border-color: #27272a;
+  --fc-button-active-bg-color: #27272a;
+  --fc-button-active-border-color: #27272a;
+  --fc-event-bg-color: #18181b;
+  --fc-event-border-color: #18181b;
+  --fc-event-text-color: #ffffff;
+  color: #111827;
+}
+
+.trip-sheet-calendar .fc .fc-toolbar-title {
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.trip-sheet-calendar .fc .fc-button {
+  font-size: 0.875rem;
+}
+
+.trip-sheet-calendar .fc .fc-col-header-cell-cushion,
+.trip-sheet-calendar .fc .fc-daygrid-day-number {
+  color: #111827;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-event {
+  white-space: normal;
+}
+
+.trip-calendar-event {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+  padding: 3px 4px;
+}
+
+.trip-calendar-event-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trip-calendar-event-context,
+.trip-calendar-event-assignment {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trip-calendar-event-status {
+  align-self: flex-start;
+  border-radius: 9999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
