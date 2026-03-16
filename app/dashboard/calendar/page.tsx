@@ -2,6 +2,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdmin } from '@/app/dashboard/lib'
 
 import TripSheetCalendar from './TripSheetCalendar'
+import type { CalendarEvent } from './TripSheetCalendar'
 
 type TripSheet = {
   id: string
@@ -24,7 +25,7 @@ type ResourceProfile = {
 
 function addOneDay(dateString: string | null) {
   if (!dateString) {
-    return null
+    return undefined
   }
 
   const [year, month, day] = dateString.split('-').map(Number)
@@ -93,7 +94,7 @@ export default async function CalendarPage() {
     return `${names[0]}, ${names[1]} +${names.length - 2}`
   }
 
-  const events = tripSheets
+  const events: CalendarEvent[] = tripSheets
     .filter((tripSheet) => tripSheet.start_date && tripSheet.end_date)
     .map((tripSheet) => {
       const assignedNames = assignedNamesByTripSheetId.get(tripSheet.id) ?? []

@@ -5,7 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import type { EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core'
 import { useRouter } from 'next/navigation'
 
-type CalendarEvent = EventInput & {
+export type CalendarEvent = EventInput & {
   extendedProps: {
     destination: string
     guestName: string

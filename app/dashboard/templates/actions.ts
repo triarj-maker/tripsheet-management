@@ -47,7 +47,7 @@ export async function createTemplate(formData: FormData) {
   const result = validateTemplateInput(formData)
 
   if ('error' in result) {
-    redirect(buildNewTemplateRedirect(result.error))
+    redirect(buildNewTemplateRedirect(result.error ?? 'Invalid template input.'))
   }
 
   const { error } = await supabase.from('trip_templates').insert({
@@ -74,7 +74,7 @@ export async function updateTemplate(formData: FormData) {
   const result = validateTemplateInput(formData)
 
   if ('error' in result) {
-    redirect(buildEditTemplateRedirect(id, result.error))
+    redirect(buildEditTemplateRedirect(id, result.error ?? 'Invalid template input.'))
   }
 
   const { error } = await supabase
