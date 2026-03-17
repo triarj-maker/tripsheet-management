@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Suspense } from 'react'
 
 import ActionToastViewport from './components/ActionToastViewport'
 import './globals.css'
@@ -28,7 +29,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
-        <ActionToastViewport />
+        <Suspense fallback={null}>
+          <ActionToastViewport />
+        </Suspense>
       </body>
     </html>
   )

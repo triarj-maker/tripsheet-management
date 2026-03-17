@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
@@ -278,7 +279,12 @@ export default async function TripSheetsPage({
 
                   <div>
                     <p className="mb-1 text-sm font-medium text-gray-700">Archived</p>
-                    <ArchivedToggle checked={showArchived} className="rounded bg-white px-3 py-2" />
+                    <Suspense fallback={null}>
+                      <ArchivedToggle
+                        checked={showArchived}
+                        className="rounded bg-white px-3 py-2"
+                      />
+                    </Suspense>
                   </div>
                 </div>
               </section>
@@ -303,7 +309,9 @@ export default async function TripSheetsPage({
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
                 Sort
               </h2>
-              <SortSelect value={sortValue} />
+              <Suspense fallback={null}>
+                <SortSelect value={sortValue} />
+              </Suspense>
             </section>
           </div>
         </div>
