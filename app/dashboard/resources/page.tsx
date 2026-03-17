@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import ActionLinkButton from '@/app/components/ActionLinkButton'
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
 
 import { toggleResourceActive } from './actions'
@@ -72,12 +74,12 @@ export default async function ResourcesPage({
         <div className="mb-6 flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold text-gray-900">Resources</h1>
 
-          <Link
+          <ActionLinkButton
             href="/dashboard/resources/new"
+            idleLabel="Create Resource"
+            pendingLabel="Creating…"
             className="rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-gray-900"
-          >
-            Create Resource
-          </Link>
+          />
         </div>
 
         {params.error ? (
@@ -145,12 +147,13 @@ export default async function ResourcesPage({
                           name="next_is_active"
                           value={resource.is_active ? 'false' : 'true'}
                         />
-                        <button
-                          type="submit"
+                        <ActionSubmitButton
+                          idleLabel={resource.is_active ? 'Deactivate' : 'Activate'}
+                          pendingLabel={
+                            resource.is_active ? 'Saving…' : 'Saving…'
+                          }
                           className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
-                        >
-                          {resource.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
+                        />
                       </form>
                     </div>
                   </td>

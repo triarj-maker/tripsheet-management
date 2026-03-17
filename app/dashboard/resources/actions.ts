@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { requireAdmin } from '@/app/dashboard/lib'
+import { appendToastParam } from '@/app/lib/action-feedback'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 function buildResourcesRedirect(error: string) {
@@ -41,7 +42,7 @@ export async function toggleResourceActive(formData: FormData) {
     redirect(buildResourcesRedirect(error.message))
   }
 
-  redirect('/dashboard/resources')
+  redirect(appendToastParam('/dashboard/resources'))
 }
 
 export async function createResource(formData: FormData) {
@@ -95,7 +96,7 @@ export async function createResource(formData: FormData) {
     )
   }
 
-  redirect('/dashboard/resources')
+  redirect(appendToastParam('/dashboard/resources'))
 }
 
 export async function updateResource(formData: FormData) {
@@ -127,5 +128,5 @@ export async function updateResource(formData: FormData) {
     redirect(buildEditResourceRedirect(id, error.message))
   }
 
-  redirect('/dashboard/resources')
+  redirect(appendToastParam('/dashboard/resources'))
 }

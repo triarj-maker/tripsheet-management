@@ -1,15 +1,16 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import {
   assignResourceToTripSheet,
   removeResourceFromTripSheet,
-  updateTripSheet,
 } from '../../actions'
 import { requireAdmin } from '../../lib'
+import { guestOrCompanyRequiredMessage } from '../../validation'
 
 import ArchiveTripSheetButton from './ArchiveTripSheetButton'
+import EditTripSheetForm from './EditTripSheetForm'
 
 type EditTripSheetPageProps = {
   params: Promise<{
@@ -121,7 +122,7 @@ export default async function EditTripSheetPage({
           <h1 className="text-2xl font-semibold text-gray-900">Edit Trip Sheet</h1>
         </div>
 
-        {query.error ? (
+        {query.error && query.error !== guestOrCompanyRequiredMessage ? (
           <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {query.error}
           </p>
@@ -133,152 +134,7 @@ export default async function EditTripSheetPage({
           </p>
         ) : null}
 
-        <form action={updateTripSheet} className="space-y-4">
-          <input type="hidden" name="id" value={tripSheet.id} />
-
-          <div>
-            <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
-              Title
-            </label>
-            <input
-              id="title"
-              name="title"
-              type="text"
-              defaultValue={tripSheet.title ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="destination"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Destination
-            </label>
-            <input
-              id="destination"
-              name="destination"
-              type="text"
-              defaultValue={tripSheet.destination ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="start_date"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Start Date
-            </label>
-            <input
-              id="start_date"
-              name="start_date"
-              type="date"
-              defaultValue={tripSheet.start_date ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="end_date" className="mb-1 block text-sm font-medium text-gray-700">
-              End Date
-            </label>
-            <input
-              id="end_date"
-              name="end_date"
-              type="date"
-              defaultValue={tripSheet.end_date ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="guest_name"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Guest Name
-            </label>
-            <input
-              id="guest_name"
-              name="guest_name"
-              type="text"
-              defaultValue={tripSheet.guest_name ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="company" className="mb-1 block text-sm font-medium text-gray-700">
-              Company
-            </label>
-            <input
-              id="company"
-              name="company"
-              type="text"
-              defaultValue={tripSheet.company ?? ''}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="phone_number"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Phone Number
-            </label>
-            <input
-              id="phone_number"
-              name="phone_number"
-              type="tel"
-              defaultValue={tripSheet.phone_number ?? ''}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="body" className="mb-1 block text-sm font-medium text-gray-700">
-              Body
-            </label>
-            <textarea
-              id="body"
-              name="body"
-              rows={14}
-              defaultValue={tripSheet.body_text ?? ''}
-              required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            >
-              Save Changes
-            </button>
-            <Link
-              href={`/dashboard/trip-sheets/new?duplicateFrom=${tripSheet.id}`}
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            >
-              Duplicate
-            </Link>
-            <Link
-              href="/dashboard/trip-sheets"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+        <EditTripSheetForm tripSheet={tripSheet} errorMessage={query.error} />
 
         <div className="mt-6 border-t border-zinc-200 pt-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
@@ -303,12 +159,11 @@ export default async function EditTripSheetPage({
                   <form action={removeResourceFromTripSheet}>
                     <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
                     <input type="hidden" name="assignment_id" value={assignmentId} />
-                    <button
-                      type="submit"
+                    <ActionSubmitButton
+                      idleLabel="Remove"
+                      pendingLabel="Removing…"
                       className="rounded border border-zinc-300 px-3 py-1 text-sm font-medium text-gray-900"
-                    >
-                      Remove
-                    </button>
+                    />
                   </form>
                 </div>
               ))
@@ -340,12 +195,11 @@ export default async function EditTripSheetPage({
               </select>
             </div>
 
-            <button
-              type="submit"
+            <ActionSubmitButton
+              idleLabel="Assign Resource"
+              pendingLabel="Assigning…"
               className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            >
-              Assign Resource
-            </button>
+            />
           </form>
         </div>
 

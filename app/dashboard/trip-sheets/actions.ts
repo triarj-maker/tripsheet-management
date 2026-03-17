@@ -2,7 +2,13 @@
 
 import { redirect } from 'next/navigation'
 
+import { appendToastParam } from '@/app/lib/action-feedback'
+
 import { requireAdmin } from './lib'
+import {
+  guestOrCompanyRequiredMessage,
+  hasGuestOrCompany,
+} from './validation'
 
 function buildNewTripSheetRedirect(error: string) {
   const params = new URLSearchParams({ error })
@@ -31,6 +37,14 @@ export async function createTripSheet(formData: FormData) {
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
   const templateId = String(formData.get('template_id') ?? '').trim()
   const body = String(formData.get('body') ?? '')
+  const resourceUserIds = Array.from(
+    new Set(
+      formData
+        .getAll('resource_user_ids')
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+    )
+  )
 
   if (
     !title ||
@@ -47,26 +61,59 @@ export async function createTripSheet(formData: FormData) {
     )
   }
 
-  const { error } = await supabase.from('trip_sheets').insert({
-    title,
-    destination,
-    start_date: startDate,
-    end_date: endDate,
-    guest_name: guestName || null,
-    company: company || null,
-    phone_number: phoneNumber || null,
-    template_id: templateId,
-    body_text: body,
-    is_archived: false,
-    created_by: user.id,
-    last_updated_by: user.id,
-  })
+  if (!hasGuestOrCompany(guestName, company)) {
+    redirect(buildNewTripSheetRedirect(guestOrCompanyRequiredMessage))
+  }
+
+  const { data: tripSheet, error } = await supabase
+    .from('trip_sheets')
+    .insert({
+      title,
+      destination,
+      start_date: startDate,
+      end_date: endDate,
+      guest_name: guestName || null,
+      company: company || null,
+      phone_number: phoneNumber || null,
+      template_id: templateId,
+      body_text: body,
+      is_archived: false,
+      created_by: user.id,
+      last_updated_by: user.id,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     redirect(buildNewTripSheetRedirect(error.message))
   }
 
-  redirect('/dashboard/trip-sheets')
+  if (!tripSheet) {
+    redirect(buildNewTripSheetRedirect('Trip sheet could not be created.'))
+  }
+
+  if (resourceUserIds.length > 0) {
+    const { error: assignmentError } = await supabase
+      .from('trip_sheet_assignments')
+      .insert(
+        resourceUserIds.map((resourceUserId) => ({
+          trip_sheet_id: tripSheet.id,
+          resource_user_id: resourceUserId,
+          assigned_by: user.id,
+        }))
+      )
+
+    if (assignmentError) {
+      redirect(
+        buildEditTripSheetRedirect(
+          tripSheet.id,
+          `Trip sheet was created, but assignments could not be saved: ${assignmentError.message}`
+        )
+      )
+    }
+  }
+
+  redirect(appendToastParam('/dashboard/trip-sheets'))
 }
 
 export async function updateTripSheet(formData: FormData) {
@@ -86,13 +133,17 @@ export async function updateTripSheet(formData: FormData) {
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
   const body = String(formData.get('body') ?? '')
 
-  if (!title || !destination || !startDate || !endDate || !guestName || !body.trim()) {
+  if (!title || !destination || !startDate || !endDate || !body.trim()) {
     redirect(
       buildEditTripSheetRedirect(
         id,
-        'Title, destination, dates, guest name, and body are required.'
+        'Title, destination, dates, and body are required.'
       )
     )
+  }
+
+  if (!hasGuestOrCompany(guestName, company)) {
+    redirect(buildEditTripSheetRedirect(id, guestOrCompanyRequiredMessage))
   }
 
   const { error } = await supabase
@@ -102,7 +153,7 @@ export async function updateTripSheet(formData: FormData) {
       destination,
       start_date: startDate,
       end_date: endDate,
-      guest_name: guestName,
+      guest_name: guestName || null,
       company: company || null,
       phone_number: phoneNumber || null,
       body_text: body,
@@ -114,7 +165,7 @@ export async function updateTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(id, error.message))
   }
 
-  redirect('/dashboard/trip-sheets')
+  redirect(appendToastParam('/dashboard/trip-sheets'))
 }
 
 export async function archiveTripSheet(formData: FormData) {
@@ -137,7 +188,77 @@ export async function archiveTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(id, error.message))
   }
 
-  redirect('/dashboard/trip-sheets')
+  redirect(appendToastParam('/dashboard/trip-sheets'))
+}
+
+export async function unarchiveTripSheet(formData: FormData) {
+  const { supabase, user } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+
+  if (!id) {
+    redirect(buildTripSheetsRedirect('Trip sheet not found.'))
+  }
+
+  const { error } = await supabase
+    .from('trip_sheets')
+    .update({
+      is_archived: false,
+      last_updated_by: user.id,
+    })
+    .eq('id', id)
+
+  if (error) {
+    redirect(buildTripSheetsRedirect(error.message))
+  }
+
+  redirect(appendToastParam('/dashboard/trip-sheets?showArchived=true'))
+}
+
+export async function deleteArchivedTripSheet(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+
+  if (!id) {
+    redirect(buildTripSheetsRedirect('Trip sheet not found.'))
+  }
+
+  const { data: tripSheet, error: tripSheetError } = await supabase
+    .from('trip_sheets')
+    .select('id, is_archived')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (tripSheetError) {
+    redirect(buildTripSheetsRedirect(tripSheetError.message))
+  }
+
+  if (!tripSheet) {
+    redirect(buildTripSheetsRedirect('Trip sheet not found.'))
+  }
+
+  if (!tripSheet.is_archived) {
+    redirect(buildTripSheetsRedirect('Only archived trip sheets can be deleted.'))
+  }
+
+  const { error: assignmentsError } = await supabase
+    .from('trip_sheet_assignments')
+    .delete()
+    .eq('trip_sheet_id', id)
+
+  if (assignmentsError) {
+    redirect(buildTripSheetsRedirect(assignmentsError.message))
+  }
+
+  const { error: deleteError } = await supabase
+    .from('trip_sheets')
+    .delete()
+    .eq('id', id)
+
+  if (deleteError) {
+    redirect(buildTripSheetsRedirect(deleteError.message))
+  }
+
+  redirect(appendToastParam('/dashboard/trip-sheets?showArchived=true'))
 }
 
 export async function assignResourceToTripSheet(formData: FormData) {
@@ -175,7 +296,7 @@ export async function assignResourceToTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
   }
 
-  redirect(`/dashboard/trip-sheets/${tripSheetId}/edit`)
+  redirect(appendToastParam(`/dashboard/trip-sheets/${tripSheetId}/edit`))
 }
 
 export async function removeResourceFromTripSheet(formData: FormData) {
@@ -197,5 +318,5 @@ export async function removeResourceFromTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
   }
 
-  redirect(`/dashboard/trip-sheets/${tripSheetId}/edit`)
+  redirect(appendToastParam(`/dashboard/trip-sheets/${tripSheetId}/edit`))
 }

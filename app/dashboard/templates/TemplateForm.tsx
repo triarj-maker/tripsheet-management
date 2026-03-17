@@ -1,3 +1,5 @@
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
+
 type TemplateFormProps = {
   action: (formData: FormData) => void | Promise<void>
   submitLabel: string
@@ -47,12 +49,11 @@ export default function TemplateForm({
         />
       </div>
 
-      <button
-        type="submit"
+      <ActionSubmitButton
+        idleLabel={submitLabel}
+        pendingLabel="Saving…"
         className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-      >
-        {submitLabel}
-      </button>
+      />
     </form>
   )
 }

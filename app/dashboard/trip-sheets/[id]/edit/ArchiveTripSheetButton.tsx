@@ -1,5 +1,6 @@
 'use client'
 
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { archiveTripSheet } from '@/app/dashboard/trip-sheets/actions'
 
 type ArchiveTripSheetButtonProps = {
@@ -19,12 +20,11 @@ export default function ArchiveTripSheetButton({
       }}
     >
       <input type="hidden" name="id" value={tripSheetId} />
-      <button
-        type="submit"
+      <ActionSubmitButton
+        idleLabel="Archive"
+        pendingLabel="Archiving…"
         className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-      >
-        Archive
-      </button>
+      />
     </form>
   )
 }

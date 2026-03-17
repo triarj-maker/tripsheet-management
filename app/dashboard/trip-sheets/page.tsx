@@ -1,9 +1,12 @@
 import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import ActionLinkButton from '@/app/components/ActionLinkButton'
 
 import ArchivedToggle from './ArchivedToggle'
+import DeleteArchivedTripSheetButton from './DeleteArchivedTripSheetButton'
 import SortSelect from './SortSelect'
+import UnarchiveTripSheetButton from './UnarchiveTripSheetButton'
 import { requireAdmin } from './lib'
 
 type TripSheet = {
@@ -13,6 +16,7 @@ type TripSheet = {
   start_date: string | null
   end_date: string | null
   guest_name: string | null
+  is_archived: boolean | null
   created_at: string | null
   updated_at: string | null
 }
@@ -77,7 +81,9 @@ export default async function TripSheetsPage({
 
   let query = supabase
     .from('trip_sheets')
-    .select('id, title, destination, start_date, end_date, guest_name, created_at, updated_at')
+    .select(
+      'id, title, destination, start_date, end_date, guest_name, is_archived, created_at, updated_at'
+    )
 
   if (!showArchived) {
     query = query.eq('is_archived', false)
@@ -179,12 +185,12 @@ export default async function TripSheetsPage({
         <div className="mb-6 flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold text-gray-900">Trip Sheets</h1>
 
-          <Link
+          <ActionLinkButton
             href="/dashboard/trip-sheets/new"
+            idleLabel="Create Trip Sheet"
+            pendingLabel="Creating…"
             className="rounded border border-gray-900 bg-gray-900 px-3 py-2 text-sm font-medium text-white"
-          >
-            Create Trip Sheet
-          </Link>
+          />
         </div>
 
         {error ? (
@@ -368,24 +374,39 @@ export default async function TripSheetsPage({
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap items-center gap-3">
-                          <Link
-                            href={`/dashboard/trip-sheets/${tripSheet.id}/edit`}
-                            className="rounded border border-gray-900 bg-gray-900 px-3 py-1 text-sm font-medium text-white"
-                          >
-                            Edit
-                          </Link>
-                          <Link
-                            href={`/trip-sheets/${tripSheet.id}`}
-                            className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
-                          >
-                            View
-                          </Link>
-                          <Link
-                            href={`/dashboard/trip-sheets/new?duplicateFrom=${tripSheet.id}`}
-                            className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
-                          >
-                            Duplicate
-                          </Link>
+                          {tripSheet.is_archived ? (
+                            <>
+                              <Link
+                                href={`/trip-sheets/${tripSheet.id}`}
+                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                              >
+                                View
+                              </Link>
+                              <UnarchiveTripSheetButton tripSheetId={tripSheet.id} />
+                              <DeleteArchivedTripSheetButton tripSheetId={tripSheet.id} />
+                            </>
+                          ) : (
+                            <>
+                              <Link
+                                href={`/dashboard/trip-sheets/${tripSheet.id}/edit`}
+                                className="rounded border border-gray-900 bg-gray-900 px-3 py-1 text-sm font-medium text-white"
+                              >
+                                Edit
+                              </Link>
+                              <Link
+                                href={`/trip-sheets/${tripSheet.id}`}
+                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                              >
+                                View
+                              </Link>
+                              <ActionLinkButton
+                                href={`/dashboard/trip-sheets/new?duplicateFrom=${tripSheet.id}`}
+                                idleLabel="Duplicate"
+                                pendingLabel="Duplicating…"
+                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                              />
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

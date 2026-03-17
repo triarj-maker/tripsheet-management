@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation'
 
+import { appendToastParam } from '@/app/lib/action-feedback'
+
 import { requireAdmin } from './lib'
 
 function buildTemplatesRedirect(error: string) {
@@ -60,7 +62,7 @@ export async function createTemplate(formData: FormData) {
     redirect(buildNewTemplateRedirect(error.message))
   }
 
-  redirect('/dashboard/templates')
+  redirect(appendToastParam('/dashboard/templates'))
 }
 
 export async function updateTemplate(formData: FormData) {
@@ -89,7 +91,7 @@ export async function updateTemplate(formData: FormData) {
     redirect(buildEditTemplateRedirect(id, error.message))
   }
 
-  redirect('/dashboard/templates')
+  redirect(appendToastParam('/dashboard/templates'))
 }
 
 export async function deleteTemplate(formData: FormData) {
@@ -106,5 +108,5 @@ export async function deleteTemplate(formData: FormData) {
     redirect(buildTemplatesRedirect(error.message))
   }
 
-  redirect('/dashboard/templates')
+  redirect(appendToastParam('/dashboard/templates'))
 }

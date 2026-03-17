@@ -2,6 +2,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 
 import TripSheetForm from './TripSheetForm'
 import { requireAdmin } from '../lib'
+import { guestOrCompanyRequiredMessage } from '../validation'
 
 type NewTripSheetPageProps = {
   searchParams: Promise<{
@@ -14,6 +15,13 @@ type TripTemplate = {
   id: string
   title: string | null
   body: string | null
+}
+
+type ResourceProfile = {
+  id: string
+  full_name: string | null
+  email: string | null
+  phone: string | null
 }
 
 type DuplicateTripSheet = {
@@ -40,6 +48,14 @@ export default async function NewTripSheetPage({
     .order('title', { ascending: true })
 
   const tripTemplates = (data as TripTemplate[] | null) ?? []
+  const { data: resourceData, error: resourceError } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, phone')
+    .eq('role', 'resource')
+    .eq('is_active', true)
+    .order('full_name', { ascending: true })
+
+  const availableResources = (resourceData as ResourceProfile[] | null) ?? []
   let duplicateError: string | null = null
   let initialValues: {
     title: string
@@ -94,7 +110,7 @@ export default async function NewTripSheetPage({
           </h1>
         </div>
 
-        {params.error ? (
+        {params.error && params.error !== guestOrCompanyRequiredMessage ? (
           <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {params.error}
           </p>
@@ -103,6 +119,12 @@ export default async function NewTripSheetPage({
         {error ? (
           <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error.message}
+          </p>
+        ) : null}
+
+        {resourceError ? (
+          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {resourceError.message}
           </p>
         ) : null}
 
@@ -119,6 +141,8 @@ export default async function NewTripSheetPage({
         ) : (
           <TripSheetForm
             tripTemplates={tripTemplates}
+            availableResources={availableResources}
+            errorMessage={params.error}
             initialValues={initialValues}
           />
         )}

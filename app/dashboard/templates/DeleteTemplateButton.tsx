@@ -1,5 +1,6 @@
 'use client'
 
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { deleteTemplate } from '@/app/dashboard/templates/actions'
 
 type DeleteTemplateButtonProps = {
@@ -19,12 +20,11 @@ export default function DeleteTemplateButton({
       }}
     >
       <input type="hidden" name="id" value={templateId} />
-      <button
-        type="submit"
+      <ActionSubmitButton
+        idleLabel="Delete"
+        pendingLabel="Deleting…"
         className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
-      >
-        Delete
-      </button>
+      />
     </form>
   )
 }

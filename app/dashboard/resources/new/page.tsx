@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
 
 import { createResource } from '../actions'
@@ -102,12 +103,11 @@ export default async function NewResourcePage({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
+            <ActionSubmitButton
+              idleLabel="Save Resource"
+              pendingLabel="Saving…"
               className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            >
-              Save Resource
-            </button>
+            />
             <Link
               href="/dashboard/resources"
               className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
