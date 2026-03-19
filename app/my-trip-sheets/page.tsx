@@ -46,14 +46,14 @@ export default async function MyTripSheetsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto max-w-5xl rounded-2xl bg-white p-8 shadow-sm">
-        <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-4 shadow-sm sm:p-5 md:max-w-5xl md:p-8">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
           <AdminNav current="my-trip-sheets" role="resource" />
 
           <form action={logout}>
             <button
               type="submit"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+              className="w-full rounded border border-zinc-300 px-4 py-2.5 text-base font-medium text-gray-900 md:w-auto md:py-2 md:text-sm"
             >
               Logout
             </button>
@@ -70,7 +70,65 @@ export default async function MyTripSheetsPage() {
           </p>
         ) : null}
 
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {tripSheets.length === 0 ? (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-base text-gray-700">
+              No trip sheets assigned yet.
+            </div>
+          ) : (
+            tripSheets.map((tripSheet) => (
+              <article
+                key={tripSheet.id}
+                className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4"
+              >
+                <div className="space-y-2">
+                  <p className="text-lg font-bold leading-7 text-gray-900">
+                    {formatValue(tripSheet.title)}
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Destination</p>
+                    <p className="text-base text-gray-900">
+                      {formatValue(tripSheet.destination)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Start</p>
+                    <p className="text-base text-gray-900">
+                      {formatValue(tripSheet.start_date)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">End</p>
+                    <p className="text-base text-gray-900">
+                      {formatValue(tripSheet.end_date)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Customer</p>
+                    <p className="text-base text-gray-900">
+                      {formatValue(tripSheet.guest_name)}
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/trip-sheets/${tripSheet.id}`}
+                  className="block w-full rounded border border-zinc-300 bg-white px-4 py-2.5 text-center text-base text-gray-900"
+                >
+                  View
+                </Link>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full table-fixed border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200">
