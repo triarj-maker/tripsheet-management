@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
+import { sendAssignmentEmail } from '@/lib/email'
 
 import { requireAdmin } from './lib'
 import {
@@ -23,6 +24,98 @@ function buildTripSheetsRedirect(error: string) {
 function buildEditTripSheetRedirect(id: string, error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/trip-sheets/${id}/edit?${params.toString()}`
+}
+
+async function notifyAssignmentIfNeeded({
+  supabase,
+  tripSheetId,
+  resourceUserId,
+}: {
+  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase']
+  tripSheetId: string
+  resourceUserId: string
+}) {
+  // 1. Check if notification already exists
+  const { data: existingNotification } = await supabase
+    .from('trip_sheet_notifications')
+    .select('id')
+    .eq('trip_sheet_id', tripSheetId)
+    .eq('resource_user_id', resourceUserId)
+    .eq('notification_type', 'assignment')
+    .maybeSingle()
+
+  if (existingNotification) {
+    return
+  }
+
+  // 2. Get resource details
+  const { data: resource, error: resourceError } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .eq('id', resourceUserId)
+    .maybeSingle()
+
+  if (resourceError || !resource || !resource.email) {
+    await supabase.from('trip_sheet_notifications').insert({
+      trip_sheet_id: tripSheetId,
+      resource_user_id: resourceUserId,
+      notification_type: 'assignment',
+      email: resource?.email ?? '',
+      status: 'failed',
+      error_message: resourceError?.message ?? 'Assigned resource email not found.',
+    })
+    return
+  }
+
+  // 3. Get trip details
+  const { data: tripSheet, error: tripSheetError } = await supabase
+    .from('trip_sheets')
+    .select('id, title, start_date, end_date, guest_name, company')
+    .eq('id', tripSheetId)
+    .maybeSingle()
+
+  if (tripSheetError || !tripSheet) {
+    await supabase.from('trip_sheet_notifications').insert({
+      trip_sheet_id: tripSheetId,
+      resource_user_id: resourceUserId,
+      notification_type: 'assignment',
+      email: resource.email,
+      status: 'failed',
+      error_message: tripSheetError?.message ?? 'Trip sheet not found for notification.',
+    })
+    return
+  }
+
+  // 4. Send email and log result
+  try {
+    await sendAssignmentEmail({
+      to: resource.email,
+      resourceName: resource.full_name,
+      tripTitle: tripSheet.title,
+      startDate: tripSheet.start_date,
+      endDate: tripSheet.end_date,
+      customer: tripSheet.guest_name || tripSheet.company,
+      tripId: tripSheet.id,
+    })
+
+    await supabase.from('trip_sheet_notifications').insert({
+      trip_sheet_id: tripSheet.id,
+      resource_user_id: resource.id,
+      notification_type: 'assignment',
+      email: resource.email,
+      status: 'sent',
+    })
+  } catch (err: unknown) {
+    await supabase.from('trip_sheet_notifications').insert({
+      trip_sheet_id: tripSheet.id,
+      resource_user_id: resource.id,
+      notification_type: 'assignment',
+      email: resource.email,
+      status: 'failed',
+      error_message:
+        err instanceof Error ? err.message : 'Unknown email sending error.',
+    })
+  }
 }
 
 export async function createTripSheet(formData: FormData) {
@@ -81,7 +174,7 @@ export async function createTripSheet(formData: FormData) {
       created_by: user.id,
       last_updated_by: user.id,
     })
-    .select('id')
+    .select('id, title, start_date, end_date, guest_name, company')
     .single()
 
   if (error) {
@@ -110,6 +203,14 @@ export async function createTripSheet(formData: FormData) {
           `Trip sheet was created, but assignments could not be saved: ${assignmentError.message}`
         )
       )
+    }
+
+    for (const resourceUserId of resourceUserIds) {
+      await notifyAssignmentIfNeeded({
+        supabase,
+        tripSheetId: tripSheet.id,
+        resourceUserId,
+      })
     }
   }
 
@@ -295,6 +396,12 @@ export async function assignResourceToTripSheet(formData: FormData) {
   if (error) {
     redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
   }
+
+  await notifyAssignmentIfNeeded({
+    supabase,
+    tripSheetId,
+    resourceUserId,
+  })
 
   redirect(appendToastParam(`/dashboard/trip-sheets/${tripSheetId}/edit`))
 }

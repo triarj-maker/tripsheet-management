@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow-sm">
+      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
         <AdminNav current="profile" />
 
         <div className="mb-6">
