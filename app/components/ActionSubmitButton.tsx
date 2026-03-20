@@ -8,13 +8,13 @@ import { dispatchPendingToast } from '@/app/lib/action-feedback'
 type ActionSubmitButtonProps = {
   idleLabel: string
   pendingLabel: string
-  className: string
+  className?: string
 }
 
 export default function ActionSubmitButton({
   idleLabel,
   pendingLabel,
-  className,
+  className = 'ui-button-secondary',
 }: ActionSubmitButtonProps) {
   const { pending } = useFormStatus()
   const previousPending = useRef(false)
@@ -31,7 +31,7 @@ export default function ActionSubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+      className={`ui-button ${className}`}
     >
       {pending ? pendingLabel : idleLabel}
     </button>

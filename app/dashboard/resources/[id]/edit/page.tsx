@@ -49,69 +49,58 @@ export default async function EditResourcePage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="resources" />
+    <>
+      <AdminNav current="resources" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Edit Resource</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Edit Resource</h1>
+            <p className="app-page-subtitle">
+              Update profile details and active status.
+            </p>
+          </div>
         </div>
 
         {query.error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {query.error}
           </p>
         ) : null}
 
-        <form action={updateResource} className="space-y-4">
+        <form action={updateResource} className="app-section-card space-y-4">
           <input type="hidden" name="id" value={resource.id} />
 
           <div>
-            <label
-              htmlFor="full_name"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Full Name
-            </label>
+            <label htmlFor="full_name" className="ui-label">Full Name</label>
             <input
               id="full_name"
               name="full_name"
               type="text"
               defaultValue={resource.full_name ?? ''}
               required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
+              className="ui-input"
             />
           </div>
 
           <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Email
-            </label>
+            <label htmlFor="email" className="ui-label">Email</label>
             <input
               id="email"
               value={resource.email ?? ''}
               readOnly
               disabled
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
+              className="ui-input"
             />
           </div>
 
           <div>
-            <label
-              htmlFor="phone"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Phone
-            </label>
+            <label htmlFor="phone" className="ui-label">Phone</label>
             <input
               id="phone"
               name="phone"
               type="tel"
               defaultValue={resource.phone ?? ''}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
+              className="ui-input"
             />
           </div>
 
@@ -128,17 +117,16 @@ export default async function EditResourcePage({
             <ActionSubmitButton
               idleLabel="Save Changes"
               pendingLabel="Saving…"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+              className="ui-button-primary"
             />
             <Link
               href="/dashboard/resources"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+              className="ui-button ui-button-secondary"
             >
               Cancel
             </Link>
           </div>
         </form>
-      </div>
-    </main>
+    </>
   )
 }

@@ -179,161 +179,153 @@ export default async function TripSheetsPage({
   const assignmentVisibilityError = assignmentError?.message || resourceError?.message || null
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="trip-sheets" />
+    <>
+      <AdminNav current="trip-sheets" />
 
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Trip Sheets</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Trip Sheets</h1>
+            <p className="app-page-subtitle">
+              Track trips, assignments, and archived records in one place.
+            </p>
+          </div>
 
           <ActionLinkButton
             href="/dashboard/trip-sheets/new"
             idleLabel="Create Trip Sheet"
             pendingLabel="Creating…"
-            className="rounded border border-gray-900 bg-gray-900 px-3 py-2 text-sm font-medium text-white"
+            className="ui-button-primary"
           />
         </div>
 
         {error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {error.message}
           </p>
         ) : null}
 
         {params.error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {params.error}
           </p>
         ) : null}
 
         {assignmentVisibilityError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {assignmentVisibilityError}
           </p>
         ) : null}
 
-        <div className="mb-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-            <form className="space-y-5">
+        <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <form className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[minmax(18rem,2fr)_11rem_12rem_auto_auto]">
               {showArchived ? (
                 <input type="hidden" name="showArchived" value="true" />
               ) : null}
 
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+              <div className="sm:col-span-2 lg:col-span-4 xl:col-span-1">
+                <label htmlFor="q" className="ui-label-compact">
                   Search
-                </h2>
+                </label>
                 <input
                   id="q"
                   name="q"
                   type="search"
                   aria-label="Search"
                   defaultValue={searchTerm}
-                  placeholder="Search title, guest, or destination"
-                  className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400"
+                  placeholder="Search trip, customer, or destination"
+                  className="ui-input ui-input-compact"
                 />
-              </section>
+              </div>
 
-              <section className="space-y-3 border-t border-zinc-200 pt-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label
-                      htmlFor="assignment"
-                      className="mb-1 block text-sm font-medium text-gray-700"
-                    >
-                      Assignment
-                    </label>
-                    <select
-                      id="assignment"
-                      name="assignment"
-                      defaultValue={assignmentFilter}
-                      className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-gray-900"
-                    >
-                      <option value="all">All</option>
-                      <option value="assigned">Assigned</option>
-                      <option value="unassigned">Unassigned</option>
-                    </select>
-                  </div>
+              <div>
+                <label htmlFor="assignment" className="ui-label-compact">
+                  Assignment
+                </label>
+                <select
+                  id="assignment"
+                  name="assignment"
+                  defaultValue={assignmentFilter}
+                  className="ui-select ui-select-compact"
+                >
+                  <option value="all">All</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="unassigned">Unassigned</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label
-                      htmlFor="resourceId"
-                      className="mb-1 block text-sm font-medium text-gray-700"
-                    >
-                      Resource
-                    </label>
-                    <select
-                      id="resourceId"
-                      name="resourceId"
-                      defaultValue={resourceFilterId}
-                      className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-gray-900"
-                    >
-                      <option value="">All resources</option>
-                      {resources.map((resource) => (
-                        <option key={resource.id} value={resource.id}>
-                          {resource.full_name ?? 'Unnamed resource'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div>
+                <label htmlFor="resourceId" className="ui-label-compact">
+                  Resource
+                </label>
+                <select
+                  id="resourceId"
+                  name="resourceId"
+                  defaultValue={resourceFilterId}
+                  className="ui-select ui-select-compact"
+                >
+                  <option value="">All resources</option>
+                  {resources.map((resource) => (
+                    <option key={resource.id} value={resource.id}>
+                      {resource.full_name ?? 'Unnamed resource'}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  <div>
-                    <p className="mb-1 text-sm font-medium text-gray-700">Archived</p>
-                    <Suspense fallback={null}>
-                      <ArchivedToggle
-                        checked={showArchived}
-                        className="rounded bg-white px-3 py-2"
-                      />
-                    </Suspense>
-                  </div>
-                </div>
-              </section>
-
-              <div className="flex items-center gap-2">
+              <div className="flex items-end gap-2">
                 <button
                   type="submit"
-                  className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-gray-900"
+                  className="ui-button ui-button-secondary ui-button-compact w-full sm:w-auto"
                 >
                   Apply Filters
                 </button>
                 <Link
                   href={showArchived ? '/dashboard/trip-sheets?showArchived=true' : '/dashboard/trip-sheets'}
-                  className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-gray-900"
+                  className="ui-button ui-button-secondary ui-button-compact w-full sm:w-auto"
                 >
                   Clear
                 </Link>
               </div>
             </form>
 
-            <section className="space-y-3 border-t border-zinc-200 pt-4 lg:border-t-0 lg:border-l lg:pl-6">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-                Sort
-              </h2>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[12.5rem_auto]">
               <Suspense fallback={null}>
-                <SortSelect value={sortValue} />
+                <SortSelect value={sortValue} compact />
               </Suspense>
-            </section>
+
+              <div>
+                <p className="ui-label-compact">Archived</p>
+                <Suspense fallback={null}>
+                  <ArchivedToggle
+                    checked={showArchived}
+                    compact
+                    className="min-h-[2.375rem] rounded-lg border border-zinc-200 bg-white px-3 py-2"
+                  />
+                </Suspense>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-sm">
+        <div className="app-table-wrap">
+          <table className="app-table table-fixed">
             <thead>
-              <tr className="border-b border-zinc-200">
-                <th className="w-[18rem] px-4 py-3 font-medium text-gray-700">Trip</th>
-                <th className="w-[16rem] px-4 py-3 font-medium text-gray-700">Destination</th>
-                <th className="w-[9rem] px-4 py-3 font-medium text-gray-700">Start</th>
-                <th className="w-[14rem] px-4 py-3 font-medium text-gray-700">Customer</th>
-                <th className="min-w-[20rem] px-4 py-3 font-medium text-gray-700">
+              <tr>
+                <th className="w-[21%] px-3 py-2.5 font-medium text-gray-700">Trip</th>
+                <th className="w-[13%] px-3 py-2.5 font-medium text-gray-700">Destination</th>
+                <th className="w-[9%] px-3 py-2.5 font-medium text-gray-700">Start</th>
+                <th className="w-[16%] px-3 py-2.5 font-medium text-gray-700">Customer</th>
+                <th className="w-[24%] px-3 py-2.5 font-medium text-gray-700">
                   Staff
                 </th>
-                <th className="w-[15rem] px-4 py-3 font-medium text-gray-700">Actions</th>
+                <th className="w-[17%] px-3 py-2.5 font-medium text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredTripSheets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-5 text-gray-700">
+                  <td colSpan={6} className="px-3 py-4 text-gray-700">
                     No trip sheets found.
                   </td>
                 </tr>
@@ -342,51 +334,58 @@ export default async function TripSheetsPage({
                   const assignmentSummary = assignmentSummaryByTripSheetId.get(tripSheet.id)
 
                   return (
-                  <tr
-                    key={tripSheet.id}
-                    className="border-b border-zinc-100 align-top transition-colors hover:bg-zinc-50"
-                  >
-                    <td className="px-4 py-4 text-gray-900">
-                      <div className="max-w-full space-y-1">
-                        <p className="text-[15px] font-semibold leading-6 whitespace-normal break-words text-gray-900">
-                          {formatValue(tripSheet.title)}
+                    <tr key={tripSheet.id} className="align-top">
+                      <td className="px-3 py-3 text-gray-900">
+                        <div className="min-w-0">
+                          <p
+                            className="truncate text-[15px] font-semibold leading-5 text-gray-900"
+                            title={formatValue(tripSheet.title)}
+                          >
+                            {formatValue(tripSheet.title)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-gray-900">
+                        <p className="truncate" title={formatValue(tripSheet.destination)}>
+                          {formatValue(tripSheet.destination)}
                         </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-gray-900">
-                      {formatValue(tripSheet.destination)}
-                    </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-gray-900">
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-gray-900">
                         {formatValue(tripSheet.start_date)}
                       </td>
-                      <td className="px-4 py-4 text-gray-900">
-                        {formatValue(tripSheet.guest_name)}
+                      <td className="px-3 py-3 text-gray-900">
+                        <p className="truncate" title={formatValue(tripSheet.guest_name)}>
+                          {formatValue(tripSheet.guest_name)}
+                        </p>
                       </td>
-                      <td className="px-4 py-4 text-gray-900">
+                      <td className="px-3 py-3 text-gray-900">
                         {assignmentSummary ? (
-                          <div className="space-y-1">
-                            <p>
-                              <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                          <div className="min-w-0 space-y-1">
+                            <p className="leading-none">
+                              <span className="ui-badge ui-badge-green">
                                 {assignmentSummary.count} assigned
                               </span>
                             </p>
-                            <p className="text-sm leading-6 text-gray-700">
+                            <p
+                              className="truncate text-sm leading-5 text-gray-700"
+                              title={assignmentSummary.names.join(', ')}
+                            >
                               {assignmentSummary.names.join(', ')}
                             </p>
                           </div>
                         ) : (
-                          <span className="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+                          <span className="ui-badge ui-badge-red">
                             Unassigned
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-3">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           {tripSheet.is_archived ? (
                             <>
                               <Link
                                 href={`/trip-sheets/${tripSheet.id}`}
-                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                                className="ui-button ui-button-neutral ui-button-compact"
                               >
                                 View
                               </Link>
@@ -397,13 +396,13 @@ export default async function TripSheetsPage({
                             <>
                               <Link
                                 href={`/dashboard/trip-sheets/${tripSheet.id}/edit`}
-                                className="rounded border border-gray-900 bg-gray-900 px-3 py-1 text-sm font-medium text-white"
+                                className="ui-button ui-button-primary ui-button-compact"
                               >
                                 Edit
                               </Link>
                               <Link
                                 href={`/trip-sheets/${tripSheet.id}`}
-                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                                className="ui-button ui-button-neutral ui-button-compact"
                               >
                                 View
                               </Link>
@@ -411,7 +410,7 @@ export default async function TripSheetsPage({
                                 href={`/dashboard/trip-sheets/new?duplicateFrom=${tripSheet.id}`}
                                 idleLabel="Duplicate"
                                 pendingLabel="Duplicating…"
-                                className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                                className="ui-button-secondary ui-button-compact"
                               />
                             </>
                           )}
@@ -424,7 +423,6 @@ export default async function TripSheetsPage({
             </tbody>
           </table>
         </div>
-      </div>
-    </main>
+    </>
   )
 }

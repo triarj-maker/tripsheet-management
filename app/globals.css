@@ -12,42 +12,559 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: #ffffff;
+  color: #171717;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.app-page {
+  min-height: 100vh;
+  background: #f4f4f5;
+  padding: 3rem 1rem;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.app-card {
+  border: 0;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
+}
+
+.app-section-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: none;
+  padding: 1.25rem;
+}
+
+.app-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.app-page-title {
+  color: #111827;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.app-page-subtitle {
+  margin-top: 0.25rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.app-banner-error {
+  margin-bottom: 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.875rem;
+  background: #fef2f2;
+  padding: 0.75rem 0.875rem;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.app-filter-panel {
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 1rem;
+}
+
+.app-table-wrap {
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.app-table thead th {
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 0.875rem 1.25rem;
+}
+
+.app-table tbody td {
+  border-top: 1px solid #f4f4f5;
+  color: #111827;
+  line-height: 1.5;
+  padding: 1rem 1.25rem;
+  vertical-align: top;
+}
+
+.app-table tbody tr:hover td {
+  background: #fafafa;
+}
+
+.ui-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.ui-label-compact {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.ui-input,
+.ui-select,
+.ui-textarea {
+  width: 100%;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #111827;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.625rem 0.875rem;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.ui-input:focus,
+.ui-select:focus,
+.ui-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  outline: none;
+}
+
+.ui-textarea {
+  resize: vertical;
+}
+
+.ui-input-compact,
+.ui-select-compact,
+.ui-textarea-compact {
+  min-height: 2.375rem;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.625rem 1rem;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.ui-button:hover {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+.ui-button-primary {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.ui-button-primary:hover {
+  border-color: #27272a;
+  background: #27272a;
+}
+
+.ui-button-secondary {
+  border-color: #d4d4d8;
+  background: #ffffff;
+  color: #111827;
+}
+
+.ui-button-secondary:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.ui-button-neutral {
+  border-color: #d4d4d8;
+  background: #ffffff;
+  color: #111827;
+}
+
+.ui-button-neutral:hover {
+  border-color: #cbd5e1;
+  background: #fafafa;
+  color: #111827;
+}
+
+.ui-button-danger {
+  border-color: #fecaca;
+  background: #ffffff;
+  color: #b91c1c;
+}
+
+.ui-button-danger:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.ui-button-compact {
+  border-radius: 0.625rem;
+  padding: 0.5rem 0.875rem;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.375rem 0.625rem;
+}
+
+.ui-badge-blue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ui-badge-neutral {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.ui-badge-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ui-badge-red {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+@media (min-width: 640px) {
+  .app-page {
+    padding: 3rem 1rem;
+  }
+
+  .app-card {
+    padding: 2rem;
+  }
+
+  .app-section-card {
+    padding: 1.25rem;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (min-width: 1024px) {
+  .app-page {
+    padding: 3rem 1rem;
+  }
+
+  .app-card {
+    padding: 2rem;
+  }
 }
 
 .trip-sheet-calendar .fc {
-  --fc-border-color: #e4e4e7;
-  --fc-neutral-bg-color: #fafafa;
+  --fc-border-color: #f1f5f9;
+  --fc-neutral-bg-color: #fcfcfd;
   --fc-page-bg-color: #ffffff;
-  --fc-button-bg-color: #18181b;
-  --fc-button-border-color: #18181b;
-  --fc-button-hover-bg-color: #27272a;
-  --fc-button-hover-border-color: #27272a;
-  --fc-button-active-bg-color: #27272a;
-  --fc-button-active-border-color: #27272a;
+  --fc-button-text-color: #111827;
+  --fc-button-bg-color: #ffffff;
+  --fc-button-border-color: #d4d4d8;
+  --fc-button-hover-bg-color: #f4f4f5;
+  --fc-button-hover-border-color: #d4d4d8;
+  --fc-button-active-bg-color: #f4f4f5;
+  --fc-button-active-border-color: #d4d4d8;
   --fc-event-bg-color: #18181b;
   --fc-event-border-color: #18181b;
   --fc-event-text-color: #ffffff;
   color: #111827;
 }
 
-.trip-sheet-calendar .fc .fc-toolbar-title {
-  color: #111827;
-  font-size: 1.25rem;
+.trip-calendar-toolbar {
+  margin-bottom: 0;
+  margin-left: auto;
 }
 
-.trip-sheet-calendar .fc .fc-button {
+.trip-calendar-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-bottom: 0;
+}
+
+.trip-calendar-header {
+  align-items: center;
+}
+
+.trip-calendar-header-copy {
+  min-width: 0;
+}
+
+.trip-calendar-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #d7dde5;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.trip-calendar-nav-button:hover {
+  background: #fafafa;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.trip-calendar-month-picker {
+  flex: 0 0 auto;
+}
+
+.trip-calendar-month-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 12rem;
+  border: 1px solid #d7dde5;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  color: #111827;
+  cursor: pointer;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.6rem 1rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.trip-calendar-month-trigger:hover {
+  background: #fafafa;
+}
+
+.trip-calendar-month-trigger-icon {
+  color: #6b7280;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.trip-calendar-month-dropdown {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.14);
+  padding: 1rem;
+}
+
+.trip-calendar-month-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: transparent;
+}
+
+.trip-calendar-month-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.625rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.875rem;
+  background: #fbfdff;
+  padding: 0.375rem;
+}
+
+.trip-calendar-month-year-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
   font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.trip-calendar-month-year-button:hover {
+  background: #fafafa;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.trip-calendar-month-year-label {
+  flex: 1;
+  color: #111827;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.trip-calendar-month-grid-panel {
+  border: 1px solid #eef2f7;
+  border-radius: 0.875rem;
+  background: #fbfdff;
+  padding: 0.5rem;
+}
+
+.trip-calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.trip-calendar-month-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.trip-calendar-month-option:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.trip-calendar-month-option--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow:
+    inset 0 0 0 1px rgba(37, 99, 235, 0.08),
+    0 1px 2px rgba(37, 99, 235, 0.1);
+}
+
+.trip-calendar-month-year-button:focus-visible,
+.trip-calendar-month-option:focus-visible,
+.trip-calendar-month-trigger:focus-visible,
+.trip-calendar-nav-button:focus-visible,
+.trip-calendar-today-button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.trip-calendar-today-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #d7dde5;
+  border-radius: 0.875rem;
+  background: #fcfcfd;
+  color: #111827;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.trip-calendar-today-button:hover {
+  background: #fafafa;
+  border-color: #cbd5e1;
+}
+
+.trip-calendar-grid-shell {
+  min-height: 0;
 }
 
 .trip-sheet-calendar .fc .fc-col-header-cell-cushion,
@@ -55,41 +572,236 @@ body {
   color: #111827;
 }
 
+.trip-sheet-calendar .fc .fc-scrollgrid {
+  border-radius: 0.875rem;
+  overflow: hidden;
+}
+
+.trip-sheet-calendar .fc .fc-view-harness {
+  min-height: 0;
+}
+
+.trip-sheet-calendar .fc .fc-col-header-cell {
+  background: #fdfdfe;
+}
+
+.trip-sheet-calendar .fc .fc-col-header-cell-cushion {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.4rem 0.2rem;
+  text-transform: uppercase;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-day-frame {
+  min-height: 7.55rem;
+  height: 7.55rem;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-day-top {
+  padding: 0.1rem 0.3rem 0;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-day-number {
+  font-size: 0.75rem;
+  line-height: 1.1;
+  padding: 0.1rem 0.2rem;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin-top: 0.12rem;
+  margin-bottom: 0;
+  min-height: 0;
+  padding: 0 0.22rem 0.24rem;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-event-harness {
+  margin-top: 0 !important;
+}
+
 .trip-sheet-calendar .fc .fc-daygrid-event {
   white-space: normal;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 2.15rem;
+  max-height: 2.15rem;
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease,
+    opacity 150ms ease;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-event:hover {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+.trip-sheet-calendar .fc .fc-event-main {
+  padding: 0;
+}
+
+.trip-sheet-calendar .fc .fc-daygrid-more-link {
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.14rem;
+  padding: 0 0.22rem 0.12rem;
+}
+
+.trip-sheet-calendar .fc .fc-popover {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.trip-sheet-calendar .fc .fc-popover-header {
+  background: #fafafa;
+  border-bottom: 1px solid #ececf1;
+  padding: 0.625rem 0.875rem;
+}
+
+.trip-sheet-calendar .fc .fc-popover-body {
+  padding: 0.375rem;
 }
 
 .trip-calendar-event {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
-  line-height: 1.35;
-  padding: 3px 4px;
+  gap: 0.08rem;
+  justify-content: center;
+  line-height: 1.3;
+  height: 2.15rem;
+  padding: 0.22rem 0.42rem;
+  text-align: left;
+}
+
+.trip-calendar-event--archived {
+  opacity: 0.8;
 }
 
 .trip-calendar-event-title {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.trip-calendar-event-context,
 .trip-calendar-event-assignment {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.trip-calendar-event-status {
-  align-self: flex-start;
-  border-radius: 9999px;
-  background: #fee2e2;
+.trip-calendar-event-assignment {
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.trip-calendar-event-assignment--unassigned {
   color: #b91c1c;
-  font-size: 0.625rem;
-  font-weight: 600;
-  line-height: 1;
-  padding: 0.25rem 0.5rem;
+  opacity: 0.92;
+}
+
+.trip-sheet-calendar .fc .fc-day-today {
+  background: #f8fbff;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22);
+}
+
+.trip-sheet-calendar .fc .fc-day-today .fc-daygrid-day-number {
+  border: 1px solid #93c5fd;
+  border-radius: 9999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 700;
+  padding: 0.14rem 0.42rem;
+}
+
+@media (max-width: 640px) {
+  .trip-calendar-header {
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .trip-calendar-toolbar {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .trip-calendar-toolbar-row {
+    justify-content: flex-start;
+  }
+
+  .trip-calendar-month-picker {
+    flex: 1 1 auto;
+  }
+
+  .trip-calendar-month-trigger {
+    min-width: 0;
+    width: 100%;
+    font-size: 1rem;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .trip-calendar-nav-button,
+  .trip-calendar-today-button {
+    min-height: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .trip-sheet-calendar .fc .fc-col-header-cell-cushion {
+    font-size: 0.6875rem;
+    padding: 0.32rem 0.15rem;
+  }
+
+  .trip-sheet-calendar .fc .fc-daygrid-day-number {
+    font-size: 0.6875rem;
+  }
+
+  .trip-sheet-calendar .fc .fc-daygrid-day-frame {
+    min-height: 6.9rem;
+    height: 6.9rem;
+  }
+
+  .trip-sheet-calendar .fc .fc-daygrid-event {
+    min-height: 2rem;
+    max-height: 2rem;
+  }
+
+  .trip-calendar-event {
+    height: 2rem;
+    padding: 0.18rem 0.32rem;
+  }
+
+  .trip-calendar-month-dropdown {
+    width: min(16rem, calc(100vw - 1.5rem)) !important;
+    gap: 0.625rem;
+    padding: 0.75rem;
+  }
+
+  .trip-calendar-month-dropdown-header {
+    padding-bottom: 0.625rem;
+  }
+
+  .trip-calendar-month-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .trip-calendar-month-option {
+    min-height: 2.35rem;
+    padding: 0.45rem 0.5rem;
+  }
 }

@@ -100,36 +100,40 @@ export default async function NewTripSheetPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="trip-sheets" />
+    <>
+      <AdminNav current="trip-sheets" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {params.duplicateFrom ? 'Duplicate Trip Sheet' : 'Create Trip Sheet'}
-          </h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">
+              {params.duplicateFrom ? 'Duplicate Trip Sheet' : 'Create Trip Sheet'}
+            </h1>
+            <p className="app-page-subtitle">
+              Capture trip details, template content, and optional assignments.
+            </p>
+          </div>
         </div>
 
         {params.error && params.error !== guestOrCompanyRequiredMessage ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {params.error}
           </p>
         ) : null}
 
         {error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {error.message}
           </p>
         ) : null}
 
         {resourceError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {resourceError.message}
           </p>
         ) : null}
 
         {duplicateError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {duplicateError}
           </p>
         ) : null}
@@ -146,7 +150,6 @@ export default async function NewTripSheetPage({
             initialValues={initialValues}
           />
         )}
-      </div>
-    </main>
+    </>
   )
 }

@@ -112,10 +112,10 @@ export default function ActionToastViewport() {
     <div className="pointer-events-none fixed right-4 top-4 z-50">
       <div
         className={[
-          'rounded-lg px-4 py-2 text-sm font-medium shadow-lg',
+          'rounded-lg border px-4 py-2 text-sm font-medium shadow-lg',
           toast.tone === 'pending'
-            ? 'bg-gray-900 text-white'
-            : 'bg-green-600 text-white',
+            ? 'border-zinc-200 bg-white text-gray-900'
+            : 'border-green-200 bg-green-600 text-white',
         ].join(' ')}
       >
         {toast.message}

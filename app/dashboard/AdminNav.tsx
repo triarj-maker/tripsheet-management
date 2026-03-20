@@ -11,6 +11,7 @@ type Section =
 type AdminNavProps = {
   current: Section
   role?: string | null
+  className?: string
 }
 
 const adminNavItems: Array<{
@@ -34,15 +35,19 @@ const resourceNavItems: Array<{
 function linkClass(isCurrent: boolean) {
   return [
     'rounded border border-zinc-300 px-3 py-2 text-sm font-medium',
-    isCurrent ? 'bg-zinc-100 text-gray-900' : 'text-gray-900',
+    isCurrent ? 'bg-zinc-100 text-gray-900' : 'bg-white text-gray-900',
   ].join(' ')
 }
 
-export default function AdminNav({ current, role = 'admin' }: AdminNavProps) {
+export default function AdminNav({
+  current,
+  role = 'admin',
+  className = '',
+}: AdminNavProps) {
   const navItems = role === 'resource' ? resourceNavItems : adminNavItems
 
   return (
-    <nav className="mb-6 flex flex-wrap gap-2">
+    <nav className={`mb-6 flex flex-wrap gap-2 ${className}`}>
       {navItems.map((item) => (
         <Link
           key={item.key}

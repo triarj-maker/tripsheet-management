@@ -8,53 +8,55 @@ function formatText(value: string | null) {
 
 function badgeClass(isPositive: boolean) {
   return isPositive
-    ? 'inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700'
-    : 'inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700'
+    ? 'ui-badge ui-badge-green'
+    : 'ui-badge ui-badge-red'
 }
 
 export default async function DashboardPage() {
   const { user, profile: currentProfile, error } = await requireAdmin()
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="profile" />
+    <>
+      <AdminNav current="profile" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Profile</h1>
+            <p className="app-page-subtitle">
+              Manage your account details and access status.
+            </p>
+          </div>
         </div>
 
         {error ? (
-          <p className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {error.message}
           </p>
         ) : null}
 
         <div className="space-y-4">
-          <section className="rounded-xl border border-zinc-200 p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">
-              Account Info
-            </h2>
+          <section className="app-section-card">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">Account Info</h2>
 
             <dl className="grid gap-4 sm:grid-cols-2">
               <div>
-                <dt className="text-sm font-medium text-gray-700">Name</dt>
-                <dd className="mt-1 text-base text-gray-900">
+                <dt className="text-xs font-medium text-gray-500">Name</dt>
+                <dd className="mt-1 text-sm text-gray-900">
                   {formatText(currentProfile?.full_name ?? null)}
                 </dd>
               </div>
 
               <div>
-                <dt className="text-sm font-medium text-gray-700">Email</dt>
-                <dd className="mt-1 text-base text-gray-900">
+                <dt className="text-xs font-medium text-gray-500">Email</dt>
+                <dd className="mt-1 text-sm text-gray-900">
                   {formatText(currentProfile?.email ?? user.email ?? null)}
                 </dd>
               </div>
 
               <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-700">Role</dt>
+                <dt className="text-xs font-medium text-gray-500">Role</dt>
                 <dd className="mt-2">
-                  <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-gray-900">
+                  <span className="ui-badge ui-badge-blue">
                     {formatText(currentProfile?.role ?? null)}
                   </span>
                 </dd>
@@ -62,13 +64,11 @@ export default async function DashboardPage() {
             </dl>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">
-              Status
-            </h2>
+          <section className="app-section-card">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">Status</h2>
 
             <div>
-              <p className="text-sm font-medium text-gray-700">Status</p>
+              <p className="text-xs font-medium text-gray-500">Status</p>
               <div className="mt-2">
                 <span className={badgeClass(currentProfile?.is_active !== false)}>
                   {currentProfile?.is_active === false ? 'Inactive' : 'Active'}
@@ -77,22 +77,19 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-700">
-              Actions
-            </h2>
+          <section className="app-section-card">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">Actions</h2>
 
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-zinc-50"
+                className="ui-button ui-button-secondary"
               >
                 Logout
               </button>
             </form>
           </section>
         </div>
-      </div>
-    </main>
+    </>
   )
 }

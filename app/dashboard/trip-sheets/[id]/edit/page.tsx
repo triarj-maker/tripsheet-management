@@ -30,6 +30,7 @@ type TripSheet = {
   guest_name: string | null
   company: string | null
   phone_number: string | null
+  template_id: string | null
   body_text: string | null
 }
 
@@ -137,7 +138,7 @@ export default async function EditTripSheetPage({
   const { data, error } = await supabase
     .from('trip_sheets')
     .select(
-      'id, title, destination, start_date, end_date, guest_name, company, phone_number, body_text'
+      'id, title, destination, start_date, end_date, guest_name, company, phone_number, template_id, body_text'
     )
     .eq('id', id)
     .maybeSingle()
@@ -147,6 +148,17 @@ export default async function EditTripSheetPage({
   if (!tripSheet) {
     redirect(buildTripSheetsRedirect(error?.message ?? 'Trip sheet not found.'))
   }
+
+  const { data: templateData } = tripSheet.template_id
+    ? await supabase
+        .from('trip_templates')
+        .select('title')
+        .eq('id', tripSheet.template_id)
+        .maybeSingle()
+    : { data: null }
+
+  const templateName =
+    ((templateData as { title: string | null } | null)?.title ?? null) || 'Locked template'
 
   const { data: assignmentData, error: assignmentError } = await supabase
     .from('trip_sheet_assignments')
@@ -218,184 +230,194 @@ export default async function EditTripSheetPage({
   const notificationsSectionError = notificationsError?.message || null
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="trip-sheets" />
+    <>
+      <AdminNav current="trip-sheets" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Edit Trip Sheet</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Edit Trip Sheet</h1>
+            <p className="app-page-subtitle">
+              Update trip details, assignments, and notification visibility.
+            </p>
+          </div>
         </div>
 
         {query.error && query.error !== guestOrCompanyRequiredMessage ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {query.error}
           </p>
         ) : null}
 
         {assignmentSectionError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {assignmentSectionError}
           </p>
         ) : null}
 
-        <EditTripSheetForm tripSheet={tripSheet} errorMessage={query.error} />
+        <div className="space-y-5">
+          <EditTripSheetForm
+            tripSheet={tripSheet}
+            templateName={templateName}
+            errorMessage={query.error}
+          />
 
-        <div className="mt-6 border-t border-zinc-200 pt-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Assigned Resources
-          </h2>
+          <section className="app-section-card space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Assigned Resources</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Manage the resources currently assigned to this trip sheet.
+              </p>
+            </div>
 
-          <div className="mb-6 space-y-3">
+            <div className="space-y-2.5">
+              {assignedResources.length === 0 ? (
+                <p className="text-sm text-gray-700">No resources assigned yet.</p>
+              ) : (
+                assignedResources.map(({ assignmentId, profile }) => (
+                  <div
+                    key={assignmentId}
+                    className="flex items-start justify-between gap-4 rounded-lg border border-zinc-200 px-3 py-2.5"
+                  >
+                    <div className="space-y-0.5 text-sm text-gray-900">
+                      <p>{profile?.full_name ?? '-'}</p>
+                      <p>{profile?.email ?? '-'}</p>
+                      <p>{profile?.phone ?? '-'}</p>
+                    </div>
+
+                    <form action={removeResourceFromTripSheet}>
+                      <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
+                      <input type="hidden" name="assignment_id" value={assignmentId} />
+                      <ActionSubmitButton
+                        idleLabel="Remove"
+                        pendingLabel="Removing…"
+                        className="ui-button-secondary ui-button-compact"
+                      />
+                    </form>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form
+              action={assignResourceToTripSheet}
+              className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+            >
+              <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
+
+              <div>
+                <label htmlFor="resource_user_id" className="ui-label">Assign Resource</label>
+                <select
+                  id="resource_user_id"
+                  name="resource_user_id"
+                  required
+                  className="ui-select ui-select-compact"
+                >
+                  <option value="">Select a resource</option>
+                  {availableResources.map((resource) => (
+                    <option key={resource.id} value={resource.id}>
+                      {resource.full_name ?? resource.email ?? resource.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <ActionSubmitButton
+                idleLabel="Assign Resource"
+                pendingLabel="Assigning…"
+                className="ui-button-primary ui-button-compact md:min-w-[9rem]"
+              />
+            </form>
+          </section>
+
+          <section className="app-section-card space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Notification Status</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Review the current assignment and reminder notification states.
+              </p>
+            </div>
+
+            {notificationsSectionError ? (
+              <p className="app-banner-error">
+                {notificationsSectionError}
+              </p>
+            ) : null}
+
             {assignedResources.length === 0 ? (
               <p className="text-sm text-gray-700">No resources assigned yet.</p>
             ) : (
-              assignedResources.map(({ assignmentId, profile }) => (
-                <div
-                  key={assignmentId}
-                  className="flex items-start justify-between gap-4 rounded border border-zinc-200 px-4 py-3"
-                >
-                  <div className="space-y-1 text-sm text-gray-900">
-                    <p>{profile?.full_name ?? '-'}</p>
-                    <p>{profile?.email ?? '-'}</p>
-                    <p>{profile?.phone ?? '-'}</p>
-                  </div>
+              <div className="space-y-3">
+                {assignedResources.map(({ assignmentId, resourceUserId, profile }) => {
+                  const assignmentNotification = buildNotificationSummary(
+                    notificationsByResourceAndType.get(`${resourceUserId}:assignment`) ??
+                      []
+                  )
+                  const reminderNotification = buildNotificationSummary(
+                    notificationsByResourceAndType.get(
+                      `${resourceUserId}:reminder_3_day`
+                    ) ?? []
+                  )
 
-                  <form action={removeResourceFromTripSheet}>
-                    <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
-                    <input type="hidden" name="assignment_id" value={assignmentId} />
-                    <ActionSubmitButton
-                      idleLabel="Remove"
-                      pendingLabel="Removing…"
-                      className="rounded border border-zinc-300 px-3 py-1 text-sm font-medium text-gray-900"
-                    />
-                  </form>
-                </div>
-              ))
-            )}
-          </div>
+                  return (
+                    <div key={assignmentId} className="rounded-lg border border-zinc-200 p-3.5">
+                      <p className="mb-3 text-sm font-medium text-gray-900">
+                        {profile?.full_name ?? 'Unknown resource'}
+                      </p>
 
-          <form action={assignResourceToTripSheet} className="space-y-4">
-            <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          {
+                            label: 'Assignment',
+                            notification: assignmentNotification,
+                          },
+                          {
+                            label: '3-Day Reminder',
+                            notification: reminderNotification,
+                          },
+                        ].map(({ label, notification }) => {
+                          const formattedSentAt = formatSentAt(notification.sentAt)
 
-            <div>
-              <label
-                htmlFor="resource_user_id"
-                className="mb-1 block text-sm font-medium text-gray-700"
-              >
-                Assign Resource
-              </label>
-              <select
-                id="resource_user_id"
-                name="resource_user_id"
-                required
-                className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900"
-              >
-                <option value="">Select a resource</option>
-                {availableResources.map((resource) => (
-                  <option key={resource.id} value={resource.id}>
-                    {resource.full_name ?? resource.email ?? resource.id}
-                  </option>
-                ))}
-              </select>
-            </div>
+                          return (
+                            <div
+                              key={label}
+                              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3"
+                            >
+                              <div className="mb-2.5 flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium text-gray-900">{label}</p>
+                                <span
+                                  className={`ui-badge ${statusBadgeClass(notification.statusLabel)}`}
+                                >
+                                  {notification.statusLabel}
+                                </span>
+                              </div>
 
-            <ActionSubmitButton
-              idleLabel="Assign Resource"
-              pendingLabel="Assigning…"
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
-            />
-          </form>
-        </div>
+                              {formattedSentAt ? (
+                                <p className="text-sm text-gray-700">
+                                  Sent at: {formattedSentAt}
+                                </p>
+                              ) : null}
 
-        <div className="mt-6 border-t border-zinc-200 pt-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Notification Status
-          </h2>
-
-          {notificationsSectionError ? (
-            <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {notificationsSectionError}
-            </p>
-          ) : null}
-
-          {assignedResources.length === 0 ? (
-            <p className="text-sm text-gray-700">No resources assigned yet.</p>
-          ) : (
-            <div className="space-y-4">
-              {assignedResources.map(({ assignmentId, resourceUserId, profile }) => {
-                const assignmentNotification = buildNotificationSummary(
-                  notificationsByResourceAndType.get(`${resourceUserId}:assignment`) ??
-                    []
-                )
-                const reminderNotification = buildNotificationSummary(
-                  notificationsByResourceAndType.get(
-                    `${resourceUserId}:reminder_3_day`
-                  ) ?? []
-                )
-
-                return (
-                  <div
-                    key={assignmentId}
-                    className="rounded border border-zinc-200 px-4 py-4"
-                  >
-                    <p className="mb-4 text-sm font-medium text-gray-900">
-                      {profile?.full_name ?? 'Unknown resource'}
-                    </p>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {[
-                        {
-                          label: 'Assignment',
-                          notification: assignmentNotification,
-                        },
-                        {
-                          label: '3-Day Reminder',
-                          notification: reminderNotification,
-                        },
-                      ].map(({ label, notification }) => {
-                        const formattedSentAt = formatSentAt(notification.sentAt)
-
-                        return (
-                          <div
-                            key={label}
-                            className="rounded border border-zinc-200 bg-zinc-50 px-4 py-3"
-                          >
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <p className="text-sm font-medium text-gray-900">{label}</p>
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(notification.statusLabel)}`}
-                              >
-                                {notification.statusLabel}
-                              </span>
+                              {notification.statusLabel === 'Failed' &&
+                              notification.errorMessage ? (
+                                <p className="mt-2 text-sm text-red-700">
+                                  Error: {notification.errorMessage}
+                                </p>
+                              ) : null}
                             </div>
-
-                            {formattedSentAt ? (
-                              <p className="text-sm text-gray-700">
-                                Sent at: {formattedSentAt}
-                              </p>
-                            ) : null}
-
-                            {notification.statusLabel === 'Failed' &&
-                            notification.errorMessage ? (
-                              <p className="mt-2 text-sm text-red-700">
-                                Error: {notification.errorMessage}
-                              </p>
-                            ) : null}
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </div>
 
-        <div className="mt-6 border-t border-zinc-200 pt-6">
+        <div className="mt-5">
           <ArchiveTripSheetButton tripSheetId={tripSheet.id} />
         </div>
-      </div>
-    </main>
+    </>
   )
 }

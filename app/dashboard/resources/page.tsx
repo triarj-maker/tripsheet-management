@@ -46,10 +46,8 @@ function formatCreatedAt(value: string | null) {
 
 function statusBadgeClass(isActive: boolean | null) {
   return [
-    'inline-flex rounded-full px-2.5 py-1 text-xs font-medium',
-    isActive
-      ? 'bg-green-100 text-green-800'
-      : 'bg-zinc-100 text-zinc-700',
+    'ui-badge',
+    isActive ? 'ui-badge-green' : 'ui-badge-neutral',
   ].join(' ')
 }
 
@@ -67,42 +65,47 @@ export default async function ResourcesPage({
   const resources = (data as ResourceProfile[] | null) ?? []
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="resources" />
+    <>
+      <AdminNav current="resources" />
 
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Resources</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Resources</h1>
+            <p className="app-page-subtitle">
+              Manage resource accounts and availability.
+            </p>
+          </div>
 
           <ActionLinkButton
             href="/dashboard/resources/new"
             idleLabel="Create Resource"
             pendingLabel="Creating…"
-            className="rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-gray-900"
+            className="ui-button-primary"
           />
         </div>
 
         {params.error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {params.error}
           </p>
         ) : null}
 
         {error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {error.message}
           </p>
         ) : null}
 
-        <table className="w-full border-collapse text-left text-sm">
+        <div className="app-table-wrap">
+          <table className="app-table">
           <thead>
-            <tr className="border-b border-zinc-200">
+            <tr>
               <th className="px-3 py-2 font-medium text-gray-700">Name</th>
               <th className="px-3 py-2 font-medium text-gray-700">Email</th>
               <th className="px-3 py-2 font-medium text-gray-700">Phone</th>
               <th className="px-3 py-2 font-medium text-gray-700">Status</th>
               <th className="px-3 py-2 font-medium text-gray-700">Created At</th>
-              <th className="px-3 py-2 font-medium text-gray-700">actions</th>
+              <th className="px-3 py-2 font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -112,9 +115,9 @@ export default async function ResourcesPage({
                   No resources found.
                 </td>
               </tr>
-            ) : (
+              ) : (
               resources.map((resource) => (
-                <tr key={resource.id} className="border-b border-zinc-100">
+                <tr key={resource.id}>
                   <td className="px-3 py-2 text-gray-900">
                     {formatValue(resource.full_name)}
                   </td>
@@ -136,7 +139,7 @@ export default async function ResourcesPage({
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/dashboard/resources/${resource.id}/edit`}
-                        className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
+                        className="ui-button ui-button-secondary"
                       >
                         Edit
                       </Link>
@@ -149,10 +152,8 @@ export default async function ResourcesPage({
                         />
                         <ActionSubmitButton
                           idleLabel={resource.is_active ? 'Deactivate' : 'Activate'}
-                          pendingLabel={
-                            resource.is_active ? 'Saving…' : 'Saving…'
-                          }
-                          className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
+                          pendingLabel="Saving…"
+                          className="ui-button-secondary"
                         />
                       </form>
                     </div>
@@ -161,8 +162,8 @@ export default async function ResourcesPage({
               ))
             )}
           </tbody>
-        </table>
-      </div>
-    </main>
+          </table>
+        </div>
+    </>
   )
 }

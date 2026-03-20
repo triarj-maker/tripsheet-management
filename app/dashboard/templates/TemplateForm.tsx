@@ -16,11 +16,11 @@ export default function TemplateForm({
   templateId,
 }: TemplateFormProps) {
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="app-section-card space-y-4">
       {templateId ? <input type="hidden" name="id" value={templateId} /> : null}
 
       <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
+        <label htmlFor="title" className="ui-label">
           Title
         </label>
         <input
@@ -30,12 +30,12 @@ export default function TemplateForm({
           defaultValue={initialTitle}
           required
           maxLength={30}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
+          className="ui-input"
         />
       </div>
 
       <div>
-        <label htmlFor="body" className="mb-1 block text-sm font-medium text-gray-700">
+        <label htmlFor="body" className="ui-label">
           Body
         </label>
         <textarea
@@ -45,14 +45,14 @@ export default function TemplateForm({
           defaultValue={initialBody}
           required
           maxLength={3000}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
+          className="ui-textarea"
         />
       </div>
 
       <ActionSubmitButton
         idleLabel={submitLabel}
         pendingLabel="Saving…"
-        className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+        className="ui-button-primary"
       />
     </form>
   )

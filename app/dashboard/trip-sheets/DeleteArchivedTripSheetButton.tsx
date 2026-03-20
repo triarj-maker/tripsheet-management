@@ -27,7 +27,7 @@ export default function DeleteArchivedTripSheetButton({
       <ActionSubmitButton
         idleLabel="Delete"
         pendingLabel="Deleting…"
-        className="rounded border border-red-200 bg-white px-3 py-1 text-sm text-red-700"
+        className="ui-button-danger ui-button-compact"
       />
     </form>
   )

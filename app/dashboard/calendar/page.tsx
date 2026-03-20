@@ -11,6 +11,7 @@ type TripSheet = {
   guest_name: string | null
   start_date: string | null
   end_date: string | null
+  is_archived: boolean | null
 }
 
 type Assignment = {
@@ -34,13 +35,41 @@ function addOneDay(dateString: string | null) {
   return date.toISOString().slice(0, 10)
 }
 
+const destinationPalette = [
+  '#1f2937',
+  '#0f766e',
+  '#0369a1',
+  '#166534',
+  '#9a3412',
+  '#7f1d1d',
+]
+
+function getDestinationColor(destination: string | null) {
+  const value = (destination ?? 'Unknown destination').trim() || 'Unknown destination'
+  let hash = 0
+
+  for (const character of value) {
+    hash = (hash * 31 + character.charCodeAt(0)) % destinationPalette.length
+  }
+
+  return destinationPalette[hash]
+}
+
+function toRgba(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace('#', '')
+  const r = Number.parseInt(normalized.slice(0, 2), 16)
+  const g = Number.parseInt(normalized.slice(2, 4), 16)
+  const b = Number.parseInt(normalized.slice(4, 6), 16)
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 export default async function CalendarPage() {
   const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('trip_sheets')
-    .select('id, title, destination, guest_name, start_date, end_date')
-    .eq('is_archived', false)
+    .select('id, title, destination, guest_name, start_date, end_date, is_archived')
     .not('start_date', 'is', null)
     .not('end_date', 'is', null)
     .order('start_date', { ascending: true })
@@ -98,6 +127,8 @@ export default async function CalendarPage() {
     .filter((tripSheet) => tripSheet.start_date && tripSheet.end_date)
     .map((tripSheet) => {
       const assignedNames = assignedNamesByTripSheetId.get(tripSheet.id) ?? []
+      const destinationColor = getDestinationColor(tripSheet.destination)
+      const isArchived = tripSheet.is_archived === true
 
       return {
         id: tripSheet.id,
@@ -105,14 +136,19 @@ export default async function CalendarPage() {
         start: tripSheet.start_date ?? '',
         end: addOneDay(tripSheet.end_date),
         allDay: true,
-        url: `/trip-sheets/${tripSheet.id}`,
-        backgroundColor: '#18181b',
-        borderColor: '#18181b',
+        url: `/dashboard/trip-sheets/${tripSheet.id}/edit`,
+        backgroundColor: isArchived
+          ? toRgba(destinationColor, 0.14)
+          : destinationColor,
+        borderColor: isArchived
+          ? toRgba(destinationColor, 0.35)
+          : destinationColor,
         extendedProps: {
           destination: tripSheet.destination ?? 'No destination',
           guestName: tripSheet.guest_name ?? 'No guest name',
           assignedLabel: formatAssignedLabel(assignedNames),
           isUnassigned: assignedNames.length === 0,
+          isArchived,
         },
       }
     })
@@ -121,22 +157,20 @@ export default async function CalendarPage() {
     error?.message || assignmentError?.message || resourceError?.message || null
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="calendar" />
+    <>
+      <AdminNav current="calendar" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Calendar</h1>
-        </div>
+      {calendarError ? (
+        <p className="app-banner-error">
+          {calendarError}
+        </p>
+      ) : null}
 
-        {calendarError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {calendarError}
-          </p>
-        ) : null}
-
-        <TripSheetCalendar events={events} />
-      </div>
-    </main>
+      <TripSheetCalendar
+        events={events}
+        title="Calendar"
+        subtitle="See all trips across their scheduled date ranges."
+      />
+    </>
   )
 }

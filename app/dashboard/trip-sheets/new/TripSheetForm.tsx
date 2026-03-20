@@ -51,10 +51,37 @@ type TripSheetDraft = {
   phone_number: string
 }
 
+function formatDateForGeneratedBody(dateString: string) {
+  if (!dateString) {
+    return ''
+  }
+
+  const [year, month, day] = dateString.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return dateString
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
 function buildGeneratedBody(templateBody: string, draft: TripSheetDraft) {
+  const formattedStartDate = formatDateForGeneratedBody(draft.start_date)
+  const formattedEndDate = formatDateForGeneratedBody(draft.end_date)
+  const formattedDateRange = [formattedStartDate, formattedEndDate]
+    .filter(Boolean)
+    .join(' to ')
+
   const headerBlock = [
     `TRIP: ${draft.title}`,
-    `DATES: ${draft.start_date} to ${draft.end_date}`,
+    `DATES: ${formattedDateRange}`,
     `CUSTOMER: ${draft.guest_name}`,
     `CONTACT: ${draft.phone_number}`,
     `COMPANY: ${draft.company}`,
@@ -164,168 +191,170 @@ export default function TripSheetForm({
   )
 
   return (
-    <form action={createTripSheet} onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
-          Title
-        </label>
-        <input
-          id="title"
-          name="title"
-          type="text"
-          value={draft.title}
-          onChange={updateDraftField}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+    <form
+      action={createTripSheet}
+      onSubmit={handleSubmit}
+      className="space-y-5"
+    >
+      <section className="app-section-card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Trip Details</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Enter the core trip information before generating or editing the trip sheet body.
+          </p>
+        </div>
 
-      <div>
-        <label
-          htmlFor="destination"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
-          Destination
-        </label>
-        <input
-          id="destination"
-          name="destination"
-          type="text"
-          value={draft.destination}
-          onChange={updateDraftField}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="title" className="ui-label">Title</label>
+            <input
+              id="title"
+              name="title"
+              type="text"
+              value={draft.title}
+              onChange={updateDraftField}
+              required
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="start_date" className="mb-1 block text-sm font-medium text-gray-700">
-          Start Date
-        </label>
-        <input
-          id="start_date"
-          name="start_date"
-          type="date"
-          value={draft.start_date}
-          onChange={updateDraftField}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+          <div>
+            <label htmlFor="destination" className="ui-label">Destination</label>
+            <input
+              id="destination"
+              name="destination"
+              type="text"
+              value={draft.destination}
+              onChange={updateDraftField}
+              required
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="end_date" className="mb-1 block text-sm font-medium text-gray-700">
-          End Date
-        </label>
-        <input
-          id="end_date"
-          name="end_date"
-          type="date"
-          value={draft.end_date}
-          onChange={updateDraftField}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+          <div>
+            <label htmlFor="start_date" className="ui-label">Start Date</label>
+            <input
+              id="start_date"
+              name="start_date"
+              type="date"
+              value={draft.start_date}
+              onChange={updateDraftField}
+              required
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="guest_name" className="mb-1 block text-sm font-medium text-gray-700">
-          Guest / School Name
-        </label>
-        <input
-          id="guest_name"
-          name="guest_name"
-          type="text"
-          value={draft.guest_name}
-          onChange={updateDraftField}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+          <div>
+            <label htmlFor="end_date" className="ui-label">End Date</label>
+            <input
+              id="end_date"
+              name="end_date"
+              type="date"
+              value={draft.end_date}
+              onChange={updateDraftField}
+              required
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="company" className="mb-1 block text-sm font-medium text-gray-700">
-          Company
-        </label>
-        <input
-          id="company"
-          name="company"
-          type="text"
-          value={draft.company}
-          onChange={updateDraftField}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-        {fieldError ? (
-          <p className="mt-2 text-sm text-red-700">{fieldError}</p>
-        ) : null}
-      </div>
+          <div>
+            <label htmlFor="guest_name" className="ui-label">Guest / School Name</label>
+            <input
+              id="guest_name"
+              name="guest_name"
+              type="text"
+              value={draft.guest_name}
+              onChange={updateDraftField}
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label
-          htmlFor="phone_number"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
-          Phone Number
-        </label>
-        <input
-          id="phone_number"
-          name="phone_number"
-          type="tel"
-          value={draft.phone_number}
-          onChange={updateDraftField}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+          <div>
+            <label htmlFor="company" className="ui-label">Company</label>
+            <input
+              id="company"
+              name="company"
+              type="text"
+              value={draft.company}
+              onChange={updateDraftField}
+              className="ui-input ui-input-compact"
+            />
+            {fieldError ? (
+              <p className="mt-2 text-sm text-red-700">{fieldError}</p>
+            ) : null}
+          </div>
 
-      <div>
-        <label
-          htmlFor="template_id"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
-          Template
-        </label>
-        <select
-          id="template_id"
-          name="template_id"
-          value={templateId}
-          onChange={handleTemplateChange}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900"
-        >
-          <option value="">Select a template</option>
-          {tripTemplates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.title ?? template.id}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div>
+            <label htmlFor="phone_number" className="ui-label">Phone Number</label>
+            <input
+              id="phone_number"
+              name="phone_number"
+              type="tel"
+              value={draft.phone_number}
+              onChange={updateDraftField}
+              className="ui-input ui-input-compact"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="body" className="mb-1 block text-sm font-medium text-gray-700">
-          Body
-        </label>
-        <textarea
-          id="body"
-          name="body"
-          rows={12}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          required
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900 placeholder:text-gray-400"
-        />
-      </div>
+          <div>
+            <label htmlFor="template_id" className="ui-label">Template</label>
+            <select
+              id="template_id"
+              name="template_id"
+              value={templateId}
+              onChange={handleTemplateChange}
+              required
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Select a template</option>
+              {tripTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.title ?? template.id}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
 
-      <div className="border-t border-zinc-200 pt-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Assigned Resources</h2>
+      <section className="app-section-card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Body</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            This content is prefilled once from the selected template and can be edited before save.
+          </p>
+        </div>
 
-        <div className="mb-6 space-y-3">
+        <div>
+          <label htmlFor="body" className="ui-label">Body</label>
+          <textarea
+            id="body"
+            name="body"
+            rows={14}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            required
+            className="ui-textarea"
+          />
+        </div>
+      </section>
+
+      <section className="app-section-card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Assigned Resources</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Optional. Add resource assignments now, or leave this blank and assign later.
+          </p>
+        </div>
+
+        <div className="space-y-2.5">
           {selectedResources.length === 0 ? (
             <p className="text-sm text-gray-700">No resources selected yet.</p>
           ) : (
             selectedResources.map((resource) => (
               <div
                 key={resource.id}
-                className="flex items-start justify-between gap-4 rounded border border-zinc-200 px-4 py-3"
+                className="flex items-start justify-between gap-4 rounded-lg border border-zinc-200 px-3 py-2.5"
               >
                 <div className="space-y-1 text-sm text-gray-900">
                   <p>{resource.full_name ?? '-'}</p>
@@ -336,7 +365,7 @@ export default function TripSheetForm({
                 <button
                   type="button"
                   onClick={() => handleRemoveResource(resource.id)}
-                  className="rounded border border-zinc-300 px-3 py-1 text-sm font-medium text-gray-900"
+                  className="ui-button ui-button-secondary ui-button-compact"
                 >
                   Remove
                 </button>
@@ -354,19 +383,14 @@ export default function TripSheetForm({
           />
         ))}
 
-        <div className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <div>
-            <label
-              htmlFor="resource_user_id"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Assign Resource
-            </label>
+            <label htmlFor="resource_user_id" className="ui-label">Assign Resource</label>
             <select
               id="resource_user_id"
               value={nextResourceId}
               onChange={(event) => setNextResourceId(event.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900"
+              className="ui-select ui-select-compact"
             >
               <option value="">Select a resource</option>
               {unselectedResources.map((resource) => (
@@ -380,17 +404,17 @@ export default function TripSheetForm({
           <button
             type="button"
             onClick={handleAddResource}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+            className="ui-button ui-button-secondary ui-button-compact md:min-w-[9rem]"
           >
             Assign Resource
           </button>
         </div>
-      </div>
+      </section>
 
       <ActionSubmitButton
         idleLabel="Save Trip Sheet"
         pendingLabel="Saving…"
-        className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-gray-900"
+        className="ui-button-primary"
       />
     </form>
   )

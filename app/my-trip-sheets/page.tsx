@@ -45,41 +45,46 @@ export default async function MyTripSheetsPage() {
   const errorMessage = assignmentError?.message || tripSheetError?.message || null
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-4 shadow-sm sm:p-5 md:max-w-5xl md:p-8">
+    <main className="app-page">
+      <div className="app-shell app-card">
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
           <AdminNav current="my-trip-sheets" role="resource" />
 
           <form action={logout}>
             <button
               type="submit"
-              className="w-full rounded border border-zinc-300 px-4 py-2.5 text-base font-medium text-gray-900 md:w-auto md:py-2 md:text-sm"
+              className="ui-button ui-button-secondary w-full md:w-auto"
             >
               Logout
             </button>
           </form>
         </div>
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">My Trip Sheets</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">My Trip Sheets</h1>
+            <p className="app-page-subtitle">
+              View the trip sheets currently assigned to you.
+            </p>
+          </div>
         </div>
 
         {errorMessage ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {errorMessage}
           </p>
         ) : null}
 
         <div className="space-y-4 md:hidden">
           {tripSheets.length === 0 ? (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-base text-gray-700">
+            <div className="app-section-card text-base text-gray-700">
               No trip sheets assigned yet.
             </div>
           ) : (
             tripSheets.map((tripSheet) => (
               <article
                 key={tripSheet.id}
-                className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4"
+                className="app-section-card space-y-3"
               >
                 <div className="space-y-2">
                   <p className="text-lg font-bold leading-7 text-gray-900">
@@ -119,7 +124,7 @@ export default async function MyTripSheetsPage() {
 
                 <Link
                   href={`/trip-sheets/${tripSheet.id}`}
-                  className="block w-full rounded border border-zinc-300 bg-white px-4 py-2.5 text-center text-base text-gray-900"
+                  className="ui-button ui-button-neutral block w-full text-base"
                 >
                   View
                 </Link>
@@ -128,10 +133,10 @@ export default async function MyTripSheetsPage() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full table-fixed border-collapse text-left text-sm">
+        <div className="app-table-wrap hidden md:block">
+          <table className="app-table min-w-full table-fixed">
             <thead>
-              <tr className="border-b border-zinc-200">
+              <tr>
                 <th className="w-[30%] px-5 py-3 font-medium text-gray-700">Trip</th>
                 <th className="w-[15%] px-5 py-3 font-medium text-gray-700">Destination</th>
                 <th className="w-[12%] px-5 py-3 font-medium text-gray-700">Start</th>
@@ -149,10 +154,7 @@ export default async function MyTripSheetsPage() {
                 </tr>
               ) : (
                 tripSheets.map((tripSheet) => (
-                  <tr
-                    key={tripSheet.id}
-                    className="border-b border-zinc-100 align-top transition-colors hover:bg-zinc-50"
-                  >
+                  <tr key={tripSheet.id} className="align-top">
                     <td className="px-5 py-4 text-gray-900">
                       <div className="max-w-full space-y-1">
                         <p className="text-[15px] font-semibold leading-6 whitespace-normal break-words text-gray-900">
@@ -175,7 +177,7 @@ export default async function MyTripSheetsPage() {
                     <td className="px-5 py-4">
                       <Link
                         href={`/trip-sheets/${tripSheet.id}`}
-                        className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+                        className="ui-button ui-button-neutral"
                       >
                         View
                       </Link>

@@ -54,15 +54,15 @@ export default async function TripSheetViewPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-3 py-6 sm:px-4 sm:py-10">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+    <main className="app-page">
+      <div className="app-shell app-card">
         <AdminNav
           current={role === 'resource' ? 'my-trip-sheets' : 'trip-sheets'}
           role={role}
         />
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-3 sm:p-4">
-          <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900 sm:text-[15px] sm:leading-6">
+        <div className="app-section-card p-3 sm:p-4">
+          <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
             {tripSheet.body_text ?? ''}
           </div>
         </div>

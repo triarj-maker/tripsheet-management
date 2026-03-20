@@ -58,37 +58,41 @@ export default async function TemplatesPage({
   const tripTemplates = (data as TripTemplate[] | null) ?? []
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="templates" />
+    <>
+      <AdminNav current="templates" />
 
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Templates</h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">Templates</h1>
+            <p className="app-page-subtitle">
+              Create and maintain reusable trip templates.
+            </p>
+          </div>
 
           <ActionLinkButton
             href="/dashboard/templates/new"
             idleLabel="Create Template"
             pendingLabel="Creating…"
-            className="rounded border border-zinc-300 px-3 py-2 text-sm font-medium text-gray-900"
+            className="ui-button-primary"
           />
         </div>
 
         {params.error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {params.error}
           </p>
         ) : null}
 
         {error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {error.message}
           </p>
         ) : null}
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-sm">
+        <div className="app-table-wrap">
+          <table className="app-table">
             <thead>
-              <tr className="border-b border-zinc-200">
+              <tr>
                 <th className="w-[26rem] px-4 py-3 font-medium text-gray-700">
                   Template Name
                 </th>
@@ -109,10 +113,7 @@ export default async function TemplatesPage({
                 </tr>
               ) : (
                 tripTemplates.map((template) => (
-                  <tr
-                    key={template.id}
-                    className="border-b border-zinc-100 align-top transition-colors hover:bg-zinc-50"
-                  >
+                  <tr key={template.id} className="align-top">
                     <td className="px-4 py-4 text-gray-900">
                       <div className="max-w-full space-y-1">
                         <p className="text-[15px] font-semibold leading-6 whitespace-normal break-words text-gray-900">
@@ -127,7 +128,7 @@ export default async function TemplatesPage({
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
                           href={`/dashboard/templates/${template.id}/edit`}
-                          className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
+                          className="ui-button ui-button-secondary"
                         >
                           Edit
                         </Link>
@@ -135,7 +136,7 @@ export default async function TemplatesPage({
                           href={`/dashboard/templates/new?duplicateFrom=${template.id}`}
                           idleLabel="Duplicate"
                           pendingLabel="Duplicating…"
-                          className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
+                          className="ui-button-secondary"
                         />
                         <DeleteTemplateButton templateId={template.id} />
                       </div>
@@ -146,7 +147,6 @@ export default async function TemplatesPage({
             </tbody>
           </table>
         </div>
-      </div>
-    </main>
+    </>
   )
 }

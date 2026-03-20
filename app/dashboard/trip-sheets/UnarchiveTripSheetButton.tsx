@@ -16,7 +16,7 @@ export default function UnarchiveTripSheetButton({
       <ActionSubmitButton
         idleLabel="Unarchive"
         pendingLabel="Saving…"
-        className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-gray-900"
+        className="ui-button-secondary ui-button-compact"
       />
     </form>
   )

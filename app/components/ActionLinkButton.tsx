@@ -12,14 +12,14 @@ type ActionLinkButtonProps = {
   href: string
   idleLabel: string
   pendingLabel: string
-  className: string
+  className?: string
 }
 
 export default function ActionLinkButton({
   href,
   idleLabel,
   pendingLabel,
-  className,
+  className = 'ui-button-secondary',
 }: ActionLinkButtonProps) {
   const router = useRouter()
   const [isPending, setIsPending] = useState(false)
@@ -42,7 +42,7 @@ export default function ActionLinkButton({
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+      className={`ui-button ${className}`}
     >
       {isPending ? pendingLabel : idleLabel}
     </button>

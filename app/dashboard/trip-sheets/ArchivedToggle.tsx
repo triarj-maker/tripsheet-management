@@ -6,11 +6,13 @@ import { startTransition } from 'react'
 type ArchivedToggleProps = {
   checked: boolean
   className?: string
+  compact?: boolean
 }
 
 export default function ArchivedToggle({
   checked,
   className = '',
+  compact = false,
 }: ArchivedToggleProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -33,13 +35,20 @@ export default function ArchivedToggle({
   }
 
   return (
-    <label className={`inline-flex items-center gap-2 text-sm text-gray-700 ${className}`}>
+    <label
+      className={`inline-flex items-center ${
+        compact ? 'gap-2 text-sm' : 'gap-2 text-sm'
+      } text-gray-700 ${className}`}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => handleChange(event.target.checked)}
+        className={`rounded border-zinc-300 text-blue-600 focus:ring-blue-500 ${
+          compact ? 'h-4 w-4' : ''
+        }`}
       />
-      <span>Show Archived</span>
+      <span className={compact ? 'leading-none' : ''}>Show Archived</span>
     </label>
   )
 }

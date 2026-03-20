@@ -44,24 +44,28 @@ export default async function NewTemplatePage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-12">
-      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-white p-8 shadow-sm">
-        <AdminNav current="templates" />
+    <>
+      <AdminNav current="templates" />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {params.duplicateFrom ? 'Duplicate Template' : 'Create Template'}
-          </h1>
+        <div className="app-page-header">
+          <div>
+            <h1 className="app-page-title">
+              {params.duplicateFrom ? 'Duplicate Template' : 'Create Template'}
+            </h1>
+            <p className="app-page-subtitle">
+              Write and save reusable template content for trip sheets.
+            </p>
+          </div>
         </div>
 
         {params.error ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {params.error}
           </p>
         ) : null}
 
         {duplicateError ? (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="app-banner-error">
             {duplicateError}
           </p>
         ) : null}
@@ -72,7 +76,6 @@ export default async function NewTemplatePage({
           initialTitle={initialTitle}
           initialBody={initialBody}
         />
-      </div>
-    </main>
+    </>
   )
 }

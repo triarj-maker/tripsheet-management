@@ -5,9 +5,10 @@ import { startTransition } from 'react'
 
 type SortSelectProps = {
   value: string
+  compact?: boolean
 }
 
-export default function SortSelect({ value }: SortSelectProps) {
+export default function SortSelect({ value, compact = false }: SortSelectProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -30,15 +31,15 @@ export default function SortSelect({ value }: SortSelectProps) {
 
   return (
     <div>
-      <label htmlFor="sort" className="mb-1 block text-sm font-medium text-gray-700">
-        Sort By
+      <label htmlFor="sort" className={compact ? 'ui-label-compact' : 'ui-label'}>
+        Sort
       </label>
       <select
         id="sort"
         name="sort"
         value={value}
         onChange={(event) => handleChange(event.target.value)}
-        className="w-full rounded border border-zinc-300 px-3 py-2 text-gray-900"
+        className={compact ? 'ui-select ui-select-compact' : 'ui-select'}
       >
         <option value="created_desc">Created Time (newest first)</option>
         <option value="created_asc">Created Time (oldest first)</option>

@@ -23,7 +23,7 @@ export default function DeleteTemplateButton({
       <ActionSubmitButton
         idleLabel="Delete"
         pendingLabel="Deleting…"
-        className="rounded border border-zinc-300 px-3 py-1 text-sm text-gray-900"
+        className="ui-button-danger"
       />
     </form>
   )
