@@ -1,13 +1,15 @@
 import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdmin } from '@/app/dashboard/lib'
+import { getDestinationName, type DestinationRelation } from '@/lib/trip-sheets'
 
 import TripSheetCalendar from './TripSheetCalendar'
 import type { CalendarEvent } from './TripSheetCalendar'
 
-type TripSheet = {
+type TripSheetRow = {
   id: string
   title: string | null
-  destination: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   guest_name: string | null
   start_date: string | null
   end_date: string | null
@@ -69,12 +71,17 @@ export default async function CalendarPage() {
 
   const { data, error } = await supabase
     .from('trip_sheets')
-    .select('id, title, destination, guest_name, start_date, end_date, is_archived')
+    .select(
+      'id, title, destination_id, destination_ref:destinations(name), guest_name, start_date, end_date, is_archived'
+    )
     .not('start_date', 'is', null)
     .not('end_date', 'is', null)
     .order('start_date', { ascending: true })
 
-  const tripSheets = (data as TripSheet[] | null) ?? []
+  const tripSheets = ((data as TripSheetRow[] | null) ?? []).map((tripSheet) => ({
+    ...tripSheet,
+    destination: getDestinationName(tripSheet.destination_ref, 'Unknown destination'),
+  }))
   const tripSheetIds = tripSheets.map((tripSheet) => tripSheet.id)
   const { data: assignmentData, error: assignmentError } =
     tripSheetIds.length > 0

@@ -4,12 +4,80 @@ import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
 import { sendAssignmentEmail } from '@/lib/email'
+import { normalizeTripTypeInput } from '@/lib/trip-sheets'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 import { requireAdmin } from './lib'
 import {
   guestOrCompanyRequiredMessage,
   hasGuestOrCompany,
 } from './validation'
+
+type DestinationRecord = {
+  id: string
+  name: string | null
+}
+
+async function getDestinationForWrite(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
+  destinationId: string
+) {
+  if (!destinationId) {
+    return {
+      destination: null,
+      error: 'Destination is required.',
+    }
+  }
+
+  let data: DestinationRecord | null = null
+  let errorMessage: string | null = null
+
+  const { data: sessionData, error: sessionError } = await supabase
+    .from('destinations')
+    .select('id, name')
+    .eq('id', destinationId)
+    .maybeSingle()
+
+  data = (sessionData as DestinationRecord | null) ?? null
+  errorMessage = sessionError?.message ?? null
+
+  if (!data) {
+    try {
+      const adminClient = createAdminClient()
+      const { data: adminData, error: adminError } = await adminClient
+        .from('destinations')
+        .select('id, name')
+        .eq('id', destinationId)
+        .maybeSingle()
+
+      data = (adminData as DestinationRecord | null) ?? null
+      errorMessage = adminError?.message ?? errorMessage
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : errorMessage
+    }
+  }
+
+  if (errorMessage && !data) {
+    return {
+      destination: null,
+      error: errorMessage,
+    }
+  }
+
+  const destination = data
+
+  if (!destination) {
+    return {
+      destination: null,
+      error: 'Selected destination was not found.',
+    }
+  }
+
+  return {
+    destination,
+    error: null,
+  }
+}
 
 function buildNewTripSheetRedirect(error: string) {
   const params = new URLSearchParams({ error })
@@ -122,7 +190,8 @@ export async function createTripSheet(formData: FormData) {
   const { supabase, user } = await requireAdmin()
 
   const title = String(formData.get('title') ?? '').trim()
-  const destination = String(formData.get('destination') ?? '').trim()
+  const tripTypeInput = String(formData.get('trip_type') ?? '').trim()
+  const destinationId = String(formData.get('destination_id') ?? '').trim()
   const startDate = String(formData.get('start_date') ?? '').trim()
   const endDate = String(formData.get('end_date') ?? '').trim()
   const guestName = String(formData.get('guest_name') ?? '').trim()
@@ -130,6 +199,7 @@ export async function createTripSheet(formData: FormData) {
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
   const templateId = String(formData.get('template_id') ?? '').trim()
   const body = String(formData.get('body') ?? '')
+  const tripType = normalizeTripTypeInput(tripTypeInput).toLowerCase()
   const resourceUserIds = Array.from(
     new Set(
       formData
@@ -141,7 +211,8 @@ export async function createTripSheet(formData: FormData) {
 
   if (
     !title ||
-    !destination ||
+    !tripType ||
+    !destinationId ||
     !startDate ||
     !endDate ||
     !templateId ||
@@ -149,7 +220,7 @@ export async function createTripSheet(formData: FormData) {
   ) {
     redirect(
       buildNewTripSheetRedirect(
-        'Title, destination, dates, template, and body are required.'
+        'Title, trip type, destination, dates, template, and body are required.'
       )
     )
   }
@@ -158,11 +229,20 @@ export async function createTripSheet(formData: FormData) {
     redirect(buildNewTripSheetRedirect(guestOrCompanyRequiredMessage))
   }
 
+  const destinationResult = await getDestinationForWrite(supabase, destinationId)
+
+  if (destinationResult?.error || !destinationResult?.destination) {
+    redirect(buildNewTripSheetRedirect(destinationResult?.error ?? 'Destination is required.'))
+  }
+
+  const destination = destinationResult.destination
+
   const { data: tripSheet, error } = await supabase
     .from('trip_sheets')
     .insert({
       title,
-      destination,
+      trip_type: tripType,
+      destination_id: destination.id,
       start_date: startDate,
       end_date: endDate,
       guest_name: guestName || null,
@@ -226,19 +306,21 @@ export async function updateTripSheet(formData: FormData) {
   }
 
   const title = String(formData.get('title') ?? '').trim()
-  const destination = String(formData.get('destination') ?? '').trim()
+  const tripTypeInput = String(formData.get('trip_type') ?? '').trim()
+  const destinationId = String(formData.get('destination_id') ?? '').trim()
   const startDate = String(formData.get('start_date') ?? '').trim()
   const endDate = String(formData.get('end_date') ?? '').trim()
   const guestName = String(formData.get('guest_name') ?? '').trim()
   const company = String(formData.get('company') ?? '').trim()
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
   const body = String(formData.get('body') ?? '')
+  const tripType = normalizeTripTypeInput(tripTypeInput).toLowerCase()
 
-  if (!title || !destination || !startDate || !endDate || !body.trim()) {
+  if (!title || !tripType || !destinationId || !startDate || !endDate || !body.trim()) {
     redirect(
       buildEditTripSheetRedirect(
         id,
-        'Title, destination, dates, and body are required.'
+        'Title, trip type, destination, dates, and body are required.'
       )
     )
   }
@@ -247,11 +329,25 @@ export async function updateTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(id, guestOrCompanyRequiredMessage))
   }
 
+  const destinationResult = await getDestinationForWrite(supabase, destinationId)
+
+  if (destinationResult?.error || !destinationResult?.destination) {
+    redirect(
+      buildEditTripSheetRedirect(
+        id,
+        destinationResult?.error ?? 'Destination is required.'
+      )
+    )
+  }
+
+  const destination = destinationResult.destination
+
   const { error } = await supabase
     .from('trip_sheets')
     .update({
       title,
-      destination,
+      trip_type: tripType,
+      destination_id: destination.id,
       start_date: startDate,
       end_date: endDate,
       guest_name: guestName || null,

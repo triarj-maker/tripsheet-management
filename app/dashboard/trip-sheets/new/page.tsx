@@ -1,4 +1,10 @@
 import AdminNav from '@/app/dashboard/AdminNav'
+import {
+  getDestinationName,
+  toTripTypeFormValue,
+  type DestinationRelation,
+} from '@/lib/trip-sheets'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 import TripSheetForm from './TripSheetForm'
 import { requireAdmin } from '../lib'
@@ -22,11 +28,20 @@ type ResourceProfile = {
   full_name: string | null
   email: string | null
   phone: string | null
+  role: string | null
+}
+
+type DestinationOption = {
+  id: string
+  name: string | null
+  is_active: boolean | null
 }
 
 type DuplicateTripSheet = {
   title: string | null
-  destination: string | null
+  trip_type: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   start_date: string | null
   end_date: string | null
   guest_name: string | null
@@ -48,10 +63,17 @@ export default async function NewTripSheetPage({
     .order('title', { ascending: true })
 
   const tripTemplates = (data as TripTemplate[] | null) ?? []
+  const { data: destinationData, error: destinationsError } = await supabase
+    .from('destinations')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let destinations = (destinationData as DestinationOption[] | null) ?? []
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone')
-    .eq('role', 'resource')
+    .select('id, full_name, email, phone, role')
+    .in('role', ['resource', 'admin'])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
@@ -59,7 +81,8 @@ export default async function NewTripSheetPage({
   let duplicateError: string | null = null
   let initialValues: {
     title: string
-    destination: string
+    trip_type: string
+    destination_id: string
     start_date: string
     end_date: string
     guest_name: string
@@ -73,7 +96,7 @@ export default async function NewTripSheetPage({
     const { data: duplicateData, error: duplicateLoadError } = await supabase
       .from('trip_sheets')
       .select(
-        'title, destination, start_date, end_date, guest_name, company, phone_number, template_id, body_text'
+        'title, trip_type, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, company, phone_number, template_id, body_text'
       )
       .eq('id', params.duplicateFrom)
       .maybeSingle()
@@ -85,9 +108,48 @@ export default async function NewTripSheetPage({
     } else if (!duplicateTripSheet) {
       duplicateError = 'Trip sheet to duplicate was not found.'
     } else {
+      if (
+        duplicateTripSheet.destination_id &&
+        !destinations.some((destination) => destination.id === duplicateTripSheet.destination_id)
+      ) {
+        let selectedDestination: DestinationOption | null = null
+
+        try {
+          const adminClient = createAdminClient()
+          const { data: selectedDestinationData } = await adminClient
+            .from('destinations')
+            .select('id, name, is_active')
+            .eq('id', duplicateTripSheet.destination_id)
+            .maybeSingle()
+
+          selectedDestination = (selectedDestinationData as DestinationOption | null) ?? null
+        } catch {}
+
+        if (selectedDestination) {
+          destinations = [...destinations, selectedDestination].sort((left, right) =>
+            (left.name ?? '').localeCompare(right.name ?? '')
+          )
+        } else {
+          const destinationName = getDestinationName(
+            duplicateTripSheet.destination_ref,
+            'Unknown destination'
+          )
+
+          destinations = [
+            ...destinations,
+            {
+              id: duplicateTripSheet.destination_id,
+              name: destinationName,
+              is_active: false,
+            },
+          ].sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''))
+        }
+      }
+
       initialValues = {
         title: duplicateTripSheet.title ?? '',
-        destination: duplicateTripSheet.destination ?? '',
+        trip_type: toTripTypeFormValue(duplicateTripSheet.trip_type),
+        destination_id: duplicateTripSheet.destination_id ?? '',
         start_date: duplicateTripSheet.start_date ?? '',
         end_date: duplicateTripSheet.end_date ?? '',
         guest_name: duplicateTripSheet.guest_name ?? '',
@@ -132,6 +194,12 @@ export default async function NewTripSheetPage({
           </p>
         ) : null}
 
+        {destinationsError ? (
+          <p className="app-banner-error">
+            {destinationsError.message}
+          </p>
+        ) : null}
+
         {duplicateError ? (
           <p className="app-banner-error">
             {duplicateError}
@@ -142,9 +210,17 @@ export default async function NewTripSheetPage({
           <p className="text-sm text-gray-700">
             No templates are available yet.
           </p>
+        ) : destinations.length === 0 ? (
+          <p className="text-sm text-gray-700">
+            No destinations are available yet.
+          </p>
         ) : (
           <TripSheetForm
             tripTemplates={tripTemplates}
+            destinations={destinations.map((destination) => ({
+              id: destination.id,
+              name: destination.name ?? destination.id,
+            }))}
             availableResources={availableResources}
             errorMessage={params.error}
             initialValues={initialValues}

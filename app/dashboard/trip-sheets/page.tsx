@@ -3,9 +3,11 @@ import { Suspense } from 'react'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
+import { getDestinationName, type DestinationRelation } from '@/lib/trip-sheets'
 
 import ArchivedToggle from './ArchivedToggle'
 import DeleteArchivedTripSheetButton from './DeleteArchivedTripSheetButton'
+import FilterSelect from './FilterSelect'
 import SortSelect from './SortSelect'
 import UnarchiveTripSheetButton from './UnarchiveTripSheetButton'
 import { requireAdmin } from './lib'
@@ -22,6 +24,19 @@ type TripSheet = {
   updated_at: string | null
 }
 
+type TripSheetRow = {
+  id: string
+  title: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
+  start_date: string | null
+  end_date: string | null
+  guest_name: string | null
+  is_archived: boolean | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 type Assignment = {
   trip_sheet_id: string
   resource_user_id: string
@@ -30,6 +45,177 @@ type Assignment = {
 type ResourceProfile = {
   id: string
   full_name: string | null
+  role: string | null
+}
+
+const monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+const dayInMilliseconds = 24 * 60 * 60 * 1000
+
+function getTodayDateString() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+
+  const year = parts.find((part) => part.type === 'year')?.value ?? '0000'
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01'
+
+  return `${year}-${month}-${day}`
+}
+
+function parseDateString(dateString: string | null) {
+  if (!dateString) {
+    return null
+  }
+
+  const [year, month, day] = dateString.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  return { year, month, day }
+}
+
+function toUtcTime(dateString: string | null) {
+  const parsedDate = parseDateString(dateString)
+
+  if (!parsedDate) {
+    return null
+  }
+
+  return Date.UTC(parsedDate.year, parsedDate.month - 1, parsedDate.day)
+}
+
+function formatFullDate(dateString: string | null) {
+  const parsedDate = parseDateString(dateString)
+
+  if (!parsedDate) {
+    return '-'
+  }
+
+  return `${parsedDate.day} ${monthNames[parsedDate.month - 1]} ${parsedDate.year}`
+}
+
+function formatDateOrRange(startDate: string | null, endDate: string | null) {
+  const parsedStartDate = parseDateString(startDate)
+  const parsedEndDate = parseDateString(endDate)
+
+  if (!parsedStartDate) {
+    return '-'
+  }
+
+  if (
+    !parsedEndDate ||
+    (parsedStartDate.year === parsedEndDate.year &&
+      parsedStartDate.month === parsedEndDate.month &&
+      parsedStartDate.day === parsedEndDate.day)
+  ) {
+    return formatFullDate(startDate)
+  }
+
+  if (
+    parsedStartDate.year === parsedEndDate.year &&
+    parsedStartDate.month === parsedEndDate.month
+  ) {
+    return `${parsedStartDate.day}\u2013${parsedEndDate.day} ${
+      monthNames[parsedStartDate.month - 1]
+    } ${parsedStartDate.year}`
+  }
+
+  if (parsedStartDate.year === parsedEndDate.year) {
+    return `${parsedStartDate.day} ${monthNames[parsedStartDate.month - 1]} \u2013 ${
+      parsedEndDate.day
+    } ${monthNames[parsedEndDate.month - 1]} ${parsedStartDate.year}`
+  }
+
+  return `${parsedStartDate.day} ${monthNames[parsedStartDate.month - 1]} ${
+    parsedStartDate.year
+  } \u2013 ${parsedEndDate.day} ${monthNames[parsedEndDate.month - 1]} ${
+    parsedEndDate.year
+  }`
+}
+
+function getDayDifference(fromDate: string, toDate: string) {
+  const fromTime = toUtcTime(fromDate)
+  const toTime = toUtcTime(toDate)
+
+  if (fromTime === null || toTime === null) {
+    return null
+  }
+
+  return Math.round((toTime - fromTime) / dayInMilliseconds)
+}
+
+function getStartColumnDisplay(tripSheet: TripSheet, today: string) {
+  if (!tripSheet.start_date) {
+    return {
+      primary: '-',
+      secondary: null,
+    }
+  }
+
+  const endDate = tripSheet.end_date ?? tripSheet.start_date
+  const rangeLabel = formatDateOrRange(tripSheet.start_date, endDate)
+
+  if (tripSheet.is_archived || today > endDate) {
+    return {
+      primary: rangeLabel,
+      secondary: 'Completed',
+    }
+  }
+
+  if (today >= tripSheet.start_date && today <= endDate) {
+    return {
+      primary: rangeLabel,
+      secondary: 'Ongoing',
+    }
+  }
+
+  const dayDifference = getDayDifference(today, tripSheet.start_date)
+
+  if (dayDifference === null || dayDifference <= 0) {
+    return {
+      primary: formatFullDate(tripSheet.start_date),
+      secondary: 'Starts today',
+    }
+  }
+
+  if (dayDifference === 1) {
+    return {
+      primary: formatFullDate(tripSheet.start_date),
+      secondary: 'Starts tomorrow',
+    }
+  }
+
+  return {
+    primary: formatFullDate(tripSheet.start_date),
+    secondary: `Starts in ${dayDifference} days`,
+  }
+}
+
+function formatAssignableLabel(resource: ResourceProfile) {
+  const baseLabel = resource.full_name ?? 'Unnamed resource'
+  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+
+  return `${baseLabel} (${roleLabel})`
 }
 
 type TripSheetsPageProps = {
@@ -83,17 +269,11 @@ export default async function TripSheetsPage({
   let query = supabase
     .from('trip_sheets')
     .select(
-      'id, title, destination, start_date, end_date, guest_name, is_archived, created_at, updated_at'
+      'id, title, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, is_archived, created_at, updated_at'
     )
 
   if (!showArchived) {
     query = query.eq('is_archived', false)
-  }
-
-  if (searchTerm) {
-    query = query.or(
-      `title.ilike.%${searchTerm}%,guest_name.ilike.%${searchTerm}%,destination.ilike.%${searchTerm}%`
-    )
   }
 
   if (sortValue === 'created_asc') {
@@ -108,7 +288,10 @@ export default async function TripSheetsPage({
 
   const { data, error } = await query
 
-  const tripSheets = (data as TripSheet[] | null) ?? []
+  const tripSheets = ((data as TripSheetRow[] | null) ?? []).map((tripSheet) => ({
+    ...tripSheet,
+    destination: getDestinationName(tripSheet.destination_ref, 'Unknown destination'),
+  }))
   const tripSheetIds = tripSheets.map((tripSheet) => tripSheet.id)
   const { data: assignmentData, error: assignmentError } =
     tripSheetIds.length > 0
@@ -122,8 +305,8 @@ export default async function TripSheetsPage({
   const assignments = (assignmentData as Assignment[] | null) ?? []
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
-    .select('id, full_name')
-    .eq('role', 'resource')
+    .select('id, full_name, role')
+    .in('role', ['resource', 'admin'])
     .order('full_name', { ascending: true })
 
   const resources = (resourceData as ResourceProfile[] | null) ?? []
@@ -151,9 +334,23 @@ export default async function TripSheetsPage({
     assignmentSummaryByTripSheetId.set(assignment.trip_sheet_id, currentSummary)
   }
 
+  const normalizedSearchTerm = searchTerm.toLowerCase()
+
   const filteredTripSheets = tripSheets.filter((tripSheet) => {
     const assignmentSummary = assignmentSummaryByTripSheetId.get(tripSheet.id)
     const hasAssignments = Boolean(assignmentSummary)
+
+    if (normalizedSearchTerm) {
+      const matchesSearch = [
+        tripSheet.title,
+        tripSheet.guest_name,
+        tripSheet.destination,
+      ].some((value) => value?.toLowerCase().includes(normalizedSearchTerm))
+
+      if (!matchesSearch) {
+        return false
+      }
+    }
 
     if (assignmentFilter === 'assigned' && !hasAssignments) {
       return false
@@ -177,6 +374,7 @@ export default async function TripSheetsPage({
     return true
   })
   const assignmentVisibilityError = assignmentError?.message || resourceError?.message || null
+  const today = getTodayDateString()
 
   return (
     <>
@@ -216,95 +414,46 @@ export default async function TripSheetsPage({
           </p>
         ) : null}
 
-        <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-            <form className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[minmax(18rem,2fr)_11rem_12rem_auto_auto]">
-              {showArchived ? (
-                <input type="hidden" name="showArchived" value="true" />
-              ) : null}
-
-              <div className="sm:col-span-2 lg:col-span-4 xl:col-span-1">
-                <label htmlFor="q" className="ui-label-compact">
-                  Search
-                </label>
-                <input
-                  id="q"
-                  name="q"
-                  type="search"
-                  aria-label="Search"
-                  defaultValue={searchTerm}
-                  placeholder="Search trip, customer, or destination"
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="assignment" className="ui-label-compact">
-                  Assignment
-                </label>
-                <select
+        <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50/70 px-3 py-2.5">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <Suspense fallback={null}>
+                <FilterSelect
                   id="assignment"
-                  name="assignment"
-                  defaultValue={assignmentFilter}
-                  className="ui-select ui-select-compact"
-                >
-                  <option value="all">All</option>
-                  <option value="assigned">Assigned</option>
-                  <option value="unassigned">Unassigned</option>
-                </select>
-              </div>
+                  label="Assignment"
+                  value={assignmentFilter}
+                  defaultValue="all"
+                  options={[
+                    { label: 'All', value: 'all' },
+                    { label: 'Assigned', value: 'assigned' },
+                    { label: 'Unassigned', value: 'unassigned' },
+                  ]}
+                />
+              </Suspense>
 
-              <div>
-                <label htmlFor="resourceId" className="ui-label-compact">
-                  Resource
-                </label>
-                <select
+              <Suspense fallback={null}>
+                <FilterSelect
                   id="resourceId"
-                  name="resourceId"
-                  defaultValue={resourceFilterId}
-                  className="ui-select ui-select-compact"
-                >
-                  <option value="">All resources</option>
-                  {resources.map((resource) => (
-                    <option key={resource.id} value={resource.id}>
-                      {resource.full_name ?? 'Unnamed resource'}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  label="Resource"
+                  value={resourceFilterId}
+                  options={[
+                    { label: 'All resources', value: '' },
+                    ...resources.map((resource) => ({
+                      label: formatAssignableLabel(resource),
+                      value: resource.id,
+                    })),
+                  ]}
+                />
+              </Suspense>
 
-              <div className="flex items-end gap-2">
-                <button
-                  type="submit"
-                  className="ui-button ui-button-secondary ui-button-compact w-full sm:w-auto"
-                >
-                  Apply Filters
-                </button>
-                <Link
-                  href={showArchived ? '/dashboard/trip-sheets?showArchived=true' : '/dashboard/trip-sheets'}
-                  className="ui-button ui-button-secondary ui-button-compact w-full sm:w-auto"
-                >
-                  Clear
-                </Link>
-              </div>
-            </form>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[12.5rem_auto]">
               <Suspense fallback={null}>
                 <SortSelect value={sortValue} compact />
               </Suspense>
-
-              <div>
-                <p className="ui-label-compact">Archived</p>
-                <Suspense fallback={null}>
-                  <ArchivedToggle
-                    checked={showArchived}
-                    compact
-                    className="min-h-[2.375rem] rounded-lg border border-zinc-200 bg-white px-3 py-2"
-                  />
-                </Suspense>
-              </div>
             </div>
+
+            <Suspense fallback={null}>
+              <ArchivedToggle checked={showArchived} compact />
+            </Suspense>
           </div>
         </div>
 
@@ -313,10 +462,10 @@ export default async function TripSheetsPage({
             <thead>
               <tr>
                 <th className="w-[21%] px-3 py-2.5 font-medium text-gray-700">Trip</th>
-                <th className="w-[13%] px-3 py-2.5 font-medium text-gray-700">Destination</th>
-                <th className="w-[9%] px-3 py-2.5 font-medium text-gray-700">Start</th>
-                <th className="w-[16%] px-3 py-2.5 font-medium text-gray-700">Customer</th>
-                <th className="w-[24%] px-3 py-2.5 font-medium text-gray-700">
+                <th className="w-[12%] px-3 py-2.5 font-medium text-gray-700">Destination</th>
+                <th className="w-[12%] px-3 py-2.5 font-medium text-gray-700">Start</th>
+                <th className="w-[15%] px-3 py-2.5 font-medium text-gray-700">Customer</th>
+                <th className="w-[23%] px-3 py-2.5 font-medium text-gray-700">
                   Staff
                 </th>
                 <th className="w-[17%] px-3 py-2.5 font-medium text-gray-700">Actions</th>
@@ -332,9 +481,13 @@ export default async function TripSheetsPage({
               ) : (
                 filteredTripSheets.map((tripSheet) => {
                   const assignmentSummary = assignmentSummaryByTripSheetId.get(tripSheet.id)
+                  const startDisplay = getStartColumnDisplay(tripSheet, today)
 
                   return (
-                    <tr key={tripSheet.id} className="align-top">
+                    <tr
+                      key={tripSheet.id}
+                      className={`align-top${tripSheet.is_archived ? ' opacity-70' : ''}`}
+                    >
                       <td className="px-3 py-3 text-gray-900">
                         <div className="min-w-0">
                           <p
@@ -350,8 +503,20 @@ export default async function TripSheetsPage({
                           {formatValue(tripSheet.destination)}
                         </p>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-gray-900">
-                        {formatValue(tripSheet.start_date)}
+                      <td className="px-3 py-3 text-gray-900">
+                        <div className="min-w-0 space-y-0.5">
+                          <p
+                            className="truncate text-sm leading-5 text-gray-900"
+                            title={startDisplay.primary}
+                          >
+                            {startDisplay.primary}
+                          </p>
+                          {startDisplay.secondary ? (
+                            <p className="truncate text-xs leading-4 text-gray-500">
+                              {startDisplay.secondary}
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-gray-900">
                         <p className="truncate" title={formatValue(tripSheet.guest_name)}>

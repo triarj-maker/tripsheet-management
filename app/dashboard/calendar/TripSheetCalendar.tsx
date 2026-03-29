@@ -307,12 +307,14 @@ export default function TripSheetCalendar({
           plugins={[dayGridPlugin]}
           initialView="dayGridMonth"
           headerToolbar={false}
+          firstDay={1}
           height="auto"
           fixedWeekCount
           events={events}
           displayEventTime={false}
           eventDisplay="block"
           dayMaxEvents={2}
+          dayHeaderFormat={{ weekday: 'short' }}
           datesSet={handleDatesSet}
           eventContent={renderEventContent}
           eventClick={handleEventClick}

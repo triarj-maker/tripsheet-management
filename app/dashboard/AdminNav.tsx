@@ -4,6 +4,7 @@ type Section =
   | 'profile'
   | 'trip-sheets'
   | 'calendar'
+  | 'my-trips'
   | 'templates'
   | 'resources'
   | 'my-trip-sheets'
@@ -21,6 +22,7 @@ const adminNavItems: Array<{
 }> = [
   { href: '/dashboard/trip-sheets', key: 'trip-sheets', label: 'Trip Sheets' },
   { href: '/dashboard/calendar', key: 'calendar', label: 'Calendar' },
+  { href: '/dashboard/my-trips', key: 'my-trips', label: 'My Trips' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
   { href: '/dashboard/resources', key: 'resources', label: 'Resources' },
   { href: '/dashboard', key: 'profile', label: 'Profile' },

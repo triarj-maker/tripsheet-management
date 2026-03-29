@@ -5,16 +5,24 @@ import { useState } from 'react'
 
 import ActionLinkButton from '@/app/components/ActionLinkButton'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
+import { toTripTypeFormValue, type DestinationRelation } from '@/lib/trip-sheets'
 import { updateTripSheet } from '../../actions'
 import {
   guestOrCompanyRequiredMessage,
   hasGuestOrCompany,
 } from '../../validation'
 
+type DestinationOption = {
+  id: string
+  name: string
+}
+
 type TripSheet = {
   id: string
   title: string | null
-  destination: string | null
+  trip_type: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   start_date: string | null
   end_date: string | null
   guest_name: string | null
@@ -26,12 +34,14 @@ type TripSheet = {
 type EditTripSheetFormProps = {
   tripSheet: TripSheet
   templateName: string | null
+  destinations: DestinationOption[]
   errorMessage?: string
 }
 
 type TripSheetDraft = {
   title: string
-  destination: string
+  trip_type: string
+  destination_id: string
   start_date: string
   end_date: string
   guest_name: string
@@ -43,11 +53,13 @@ type TripSheetDraft = {
 export default function EditTripSheetForm({
   tripSheet,
   templateName,
+  destinations,
   errorMessage,
 }: EditTripSheetFormProps) {
   const [draft, setDraft] = useState<TripSheetDraft>({
     title: tripSheet.title ?? '',
-    destination: tripSheet.destination ?? '',
+    trip_type: toTripTypeFormValue(tripSheet.trip_type),
+    destination_id: tripSheet.destination_id ?? '',
     start_date: tripSheet.start_date ?? '',
     end_date: tripSheet.end_date ?? '',
     guest_name: tripSheet.guest_name ?? '',
@@ -60,7 +72,7 @@ export default function EditTripSheetForm({
   )
 
   function updateDraftField(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const name = event.target.name as keyof TripSheetDraft
     const { value } = event.target
@@ -121,16 +133,38 @@ export default function EditTripSheetForm({
           </div>
 
           <div>
-            <label htmlFor="destination" className="ui-label">Destination</label>
-            <input
-              id="destination"
-              name="destination"
-              type="text"
-              value={draft.destination}
+            <label htmlFor="trip_type" className="ui-label">Trip Type</label>
+            <select
+              id="trip_type"
+              name="trip_type"
+              value={draft.trip_type}
               onChange={updateDraftField}
               required
-              className="ui-input ui-input-compact"
-            />
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Select trip type</option>
+              <option value="educational">Educational</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="destination_id" className="ui-label">Destination</label>
+            <select
+              id="destination_id"
+              name="destination_id"
+              value={draft.destination_id}
+              onChange={updateDraftField}
+              required
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Select a destination</option>
+              {destinations.map((destination) => (
+                <option key={destination.id} value={destination.id}>
+                  {destination.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

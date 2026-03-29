@@ -9,6 +9,11 @@ import {
   hasGuestOrCompany,
 } from '@/app/dashboard/trip-sheets/validation'
 
+type DestinationOption = {
+  id: string
+  name: string
+}
+
 type TripTemplate = {
   id: string
   title: string | null
@@ -20,11 +25,13 @@ type ResourceProfile = {
   full_name: string | null
   email: string | null
   phone: string | null
+  role: string | null
 }
 
 type TripSheetFormInitialValues = {
   title: string
-  destination: string
+  trip_type: string
+  destination_id: string
   start_date: string
   end_date: string
   guest_name: string
@@ -36,6 +43,7 @@ type TripSheetFormInitialValues = {
 
 type TripSheetFormProps = {
   tripTemplates: TripTemplate[]
+  destinations: DestinationOption[]
   availableResources: ResourceProfile[]
   errorMessage?: string
   initialValues?: TripSheetFormInitialValues
@@ -43,7 +51,8 @@ type TripSheetFormProps = {
 
 type TripSheetDraft = {
   title: string
-  destination: string
+  trip_type: string
+  destination_id: string
   start_date: string
   end_date: string
   guest_name: string
@@ -94,15 +103,24 @@ function buildGeneratedBody(templateBody: string, draft: TripSheetDraft) {
   return [headerBlock, templateBody.trim()].filter(Boolean).join('\n\n')
 }
 
+function formatAssignableLabel(resource: ResourceProfile) {
+  const baseLabel = resource.full_name ?? resource.email ?? resource.id
+  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+
+  return `${baseLabel} (${roleLabel})`
+}
+
 export default function TripSheetForm({
   tripTemplates,
+  destinations,
   availableResources,
   errorMessage,
   initialValues,
 }: TripSheetFormProps) {
   const [draft, setDraft] = useState<TripSheetDraft>({
     title: initialValues?.title ?? '',
-    destination: initialValues?.destination ?? '',
+    trip_type: initialValues?.trip_type ?? '',
+    destination_id: initialValues?.destination_id ?? '',
     start_date: initialValues?.start_date ?? '',
     end_date: initialValues?.end_date ?? '',
     guest_name: initialValues?.guest_name ?? '',
@@ -121,7 +139,7 @@ export default function TripSheetForm({
   const [nextResourceId, setNextResourceId] = useState('')
 
   function updateDraftField(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const name = event.target.name as keyof TripSheetDraft
     const { value } = event.target
@@ -219,16 +237,38 @@ export default function TripSheetForm({
           </div>
 
           <div>
-            <label htmlFor="destination" className="ui-label">Destination</label>
-            <input
-              id="destination"
-              name="destination"
-              type="text"
-              value={draft.destination}
+            <label htmlFor="trip_type" className="ui-label">Trip Type</label>
+            <select
+              id="trip_type"
+              name="trip_type"
+              value={draft.trip_type}
               onChange={updateDraftField}
               required
-              className="ui-input ui-input-compact"
-            />
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Select trip type</option>
+              <option value="educational">Educational</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="destination_id" className="ui-label">Destination</label>
+            <select
+              id="destination_id"
+              name="destination_id"
+              value={draft.destination_id}
+              onChange={updateDraftField}
+              required
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Select a destination</option>
+              {destinations.map((destination) => (
+                <option key={destination.id} value={destination.id}>
+                  {destination.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -395,7 +435,7 @@ export default function TripSheetForm({
               <option value="">Select a resource</option>
               {unselectedResources.map((resource) => (
                 <option key={resource.id} value={resource.id}>
-                  {resource.full_name ?? resource.email ?? resource.id}
+                  {formatAssignableLabel(resource)}
                 </option>
               ))}
             </select>

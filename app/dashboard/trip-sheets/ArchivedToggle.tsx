@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { startTransition } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 
 type ArchivedToggleProps = {
   checked: boolean
@@ -17,6 +17,11 @@ export default function ArchivedToggle({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [showArchived, setShowArchived] = useState(checked)
+
+  useEffect(() => {
+    setShowArchived(checked)
+  }, [checked])
 
   function handleChange(nextChecked: boolean) {
     const params = new URLSearchParams(searchParams.toString())
@@ -35,20 +40,30 @@ export default function ArchivedToggle({
   }
 
   return (
-    <label
-      className={`inline-flex items-center ${
-        compact ? 'gap-2 text-sm' : 'gap-2 text-sm'
-      } text-gray-700 ${className}`}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => handleChange(event.target.checked)}
-        className={`rounded border-zinc-300 text-blue-600 focus:ring-blue-500 ${
-          compact ? 'h-4 w-4' : ''
+    <div className={`flex items-center gap-3 ${className}`}>
+      <span className={compact ? 'text-xs font-medium text-gray-600' : 'text-sm font-medium text-gray-600'}>
+        Archived
+      </span>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showArchived}
+        onClick={() => {
+          const nextChecked = !showArchived
+          setShowArchived(nextChecked)
+          handleChange(nextChecked)
+        }}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${
+          showArchived ? 'bg-black' : 'bg-zinc-200'
         }`}
-      />
-      <span className={compact ? 'leading-none' : ''}>Show Archived</span>
-    </label>
+      >
+        <span
+          className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
+            showArchived ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
   )
 }

@@ -12,13 +12,18 @@ type TripSheetViewPageProps = {
   params: Promise<{
     id: string
   }>
+  searchParams: Promise<{
+    from?: string
+  }>
 }
 
 export default async function TripSheetViewPage({
   params,
+  searchParams,
 }: TripSheetViewPageProps) {
-  const [{ id }, { supabase, user, profile }] = await Promise.all([
+  const [{ id }, query, { supabase, user, profile }] = await Promise.all([
     params,
+    searchParams,
     getCurrentUserProfile(),
   ])
 
@@ -53,11 +58,18 @@ export default async function TripSheetViewPage({
     redirect(getSignedInHomePath(role))
   }
 
+  const currentNav =
+    role === 'resource'
+      ? 'my-trip-sheets'
+      : query.from === 'my-trips'
+        ? 'my-trips'
+        : 'trip-sheets'
+
   return (
     <main className="app-page">
       <div className="app-shell app-card">
         <AdminNav
-          current={role === 'resource' ? 'my-trip-sheets' : 'trip-sheets'}
+          current={currentNav}
           role={role}
         />
 

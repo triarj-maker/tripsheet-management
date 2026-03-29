@@ -2,12 +2,15 @@ import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
+import AssignedTripCards from '@/app/components/AssignedTripCards'
 import { requireResource } from '@/app/dashboard/lib'
+import { getDestinationName, type DestinationRelation } from '@/lib/trip-sheets'
 
-type TripSheet = {
+type TripSheetRow = {
   id: string
   title: string | null
-  destination: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   start_date: string | null
   end_date: string | null
   guest_name: string | null
@@ -36,12 +39,17 @@ export default async function MyTripSheetsPage() {
     tripSheetIds.length > 0
       ? await supabase
           .from('trip_sheets')
-          .select('id, title, destination, start_date, end_date, guest_name, updated_at')
+          .select(
+            'id, title, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, updated_at'
+          )
           .in('id', tripSheetIds)
           .order('start_date', { ascending: true })
       : { data: [], error: null }
 
-  const tripSheets = (tripSheetData as TripSheet[] | null) ?? []
+  const tripSheets = ((tripSheetData as TripSheetRow[] | null) ?? []).map((tripSheet) => ({
+    ...tripSheet,
+    destination: getDestinationName(tripSheet.destination_ref, 'Unknown destination'),
+  }))
   const errorMessage = assignmentError?.message || tripSheetError?.message || null
 
   return (
@@ -75,63 +83,7 @@ export default async function MyTripSheetsPage() {
           </p>
         ) : null}
 
-        <div className="space-y-4 md:hidden">
-          {tripSheets.length === 0 ? (
-            <div className="app-section-card text-base text-gray-700">
-              No trip sheets assigned yet.
-            </div>
-          ) : (
-            tripSheets.map((tripSheet) => (
-              <article
-                key={tripSheet.id}
-                className="app-section-card space-y-3"
-              >
-                <div className="space-y-2">
-                  <p className="text-lg font-bold leading-7 text-gray-900">
-                    {formatValue(tripSheet.title)}
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Destination</p>
-                    <p className="text-base text-gray-900">
-                      {formatValue(tripSheet.destination)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Start</p>
-                    <p className="text-base text-gray-900">
-                      {formatValue(tripSheet.start_date)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">End</p>
-                    <p className="text-base text-gray-900">
-                      {formatValue(tripSheet.end_date)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Customer</p>
-                    <p className="text-base text-gray-900">
-                      {formatValue(tripSheet.guest_name)}
-                    </p>
-                  </div>
-                </div>
-
-                <Link
-                  href={`/trip-sheets/${tripSheet.id}`}
-                  className="ui-button ui-button-neutral block w-full text-base"
-                >
-                  View
-                </Link>
-              </article>
-            ))
-          )}
-        </div>
+        <AssignedTripCards tripSheets={tripSheets} className="space-y-4 md:hidden" />
 
         <div className="app-table-wrap hidden md:block">
           <table className="app-table min-w-full table-fixed">

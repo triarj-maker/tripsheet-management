@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
+import { getDestinationName, type DestinationRelation } from '@/lib/trip-sheets'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   assignResourceToTripSheet,
   removeResourceFromTripSheet,
@@ -24,7 +26,9 @@ type EditTripSheetPageProps = {
 type TripSheet = {
   id: string
   title: string | null
-  destination: string | null
+  trip_type: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   start_date: string | null
   end_date: string | null
   guest_name: string | null
@@ -44,6 +48,13 @@ type ResourceProfile = {
   full_name: string | null
   email: string | null
   phone: string | null
+  role: string | null
+}
+
+type DestinationOption = {
+  id: string
+  name: string | null
+  is_active: boolean | null
 }
 
 type NotificationRecord = {
@@ -129,6 +140,13 @@ function statusBadgeClass(statusLabel: NotificationSummary['statusLabel']) {
   return 'bg-zinc-100 text-zinc-700'
 }
 
+function formatAssignableLabel(resource: ResourceProfile) {
+  const baseLabel = resource.full_name ?? resource.email ?? resource.id
+  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+
+  return `${baseLabel} (${roleLabel})`
+}
+
 export default async function EditTripSheetPage({
   params,
   searchParams,
@@ -138,7 +156,7 @@ export default async function EditTripSheetPage({
   const { data, error } = await supabase
     .from('trip_sheets')
     .select(
-      'id, title, destination, start_date, end_date, guest_name, company, phone_number, template_id, body_text'
+      'id, title, trip_type, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, company, phone_number, template_id, body_text'
     )
     .eq('id', id)
     .maybeSingle()
@@ -160,6 +178,52 @@ export default async function EditTripSheetPage({
   const templateName =
     ((templateData as { title: string | null } | null)?.title ?? null) || 'Locked template'
 
+  const { data: destinationData, error: destinationsError } = await supabase
+    .from('destinations')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let destinations = (destinationData as DestinationOption[] | null) ?? []
+
+  if (
+    tripSheet.destination_id &&
+    !destinations.some((destination) => destination.id === tripSheet.destination_id)
+  ) {
+    let selectedDestination: DestinationOption | null = null
+
+    try {
+      const adminClient = createAdminClient()
+      const { data: selectedDestinationData } = await adminClient
+        .from('destinations')
+        .select('id, name, is_active')
+        .eq('id', tripSheet.destination_id)
+        .maybeSingle()
+
+      selectedDestination = (selectedDestinationData as DestinationOption | null) ?? null
+    } catch {}
+
+    if (selectedDestination) {
+      destinations = [...destinations, selectedDestination].sort((left, right) =>
+        (left.name ?? '').localeCompare(right.name ?? '')
+      )
+    } else {
+      const destinationName = getDestinationName(
+        tripSheet.destination_ref,
+        'Unknown destination'
+      )
+
+      destinations = [
+        ...destinations,
+        {
+          id: tripSheet.destination_id,
+          name: destinationName,
+          is_active: false,
+        },
+      ].sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''))
+    }
+  }
+
   const { data: assignmentData, error: assignmentError } = await supabase
     .from('trip_sheet_assignments')
     .select('id, resource_user_id')
@@ -171,8 +235,8 @@ export default async function EditTripSheetPage({
 
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone')
-    .eq('role', 'resource')
+    .select('id, full_name, email, phone, role')
+    .in('role', ['resource', 'admin'])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
@@ -182,7 +246,7 @@ export default async function EditTripSheetPage({
     assignedResourceIds.length > 0
       ? await supabase
           .from('profiles')
-          .select('id, full_name, email, phone')
+          .select('id, full_name, email, phone, role')
           .in('id', assignedResourceIds)
       : { data: [], error: null }
 
@@ -223,6 +287,7 @@ export default async function EditTripSheetPage({
   }
 
   const assignmentSectionError =
+    destinationsError?.message ||
     assignmentError?.message ||
     activeResourcesError?.message ||
     assignedProfilesError?.message ||
@@ -258,6 +323,10 @@ export default async function EditTripSheetPage({
           <EditTripSheetForm
             tripSheet={tripSheet}
             templateName={templateName}
+            destinations={destinations.map((destination) => ({
+              id: destination.id,
+              name: destination.name ?? destination.id,
+            }))}
             errorMessage={query.error}
           />
 
@@ -315,7 +384,7 @@ export default async function EditTripSheetPage({
                   <option value="">Select a resource</option>
                   {availableResources.map((resource) => (
                     <option key={resource.id} value={resource.id}>
-                      {resource.full_name ?? resource.email ?? resource.id}
+                      {formatAssignableLabel(resource)}
                     </option>
                   ))}
                 </select>
