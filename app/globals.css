@@ -1395,7 +1395,10 @@ body {
 }
 
 .trip-calendar-drawer-add-option {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   width: 100%;
   padding: 0.7rem 0.74rem;
   border: 0;
@@ -1413,10 +1416,28 @@ body {
   background: #f8fafc;
 }
 
+.trip-calendar-drawer-add-option--pending {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.trip-calendar-drawer-add-option:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .trip-calendar-drawer-add-option-copy {
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
+}
+
+.trip-calendar-drawer-add-option-status {
+  flex: 0 0 auto;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .trip-calendar-drawer-add-option-name {
@@ -1445,6 +1466,14 @@ body {
   color: #6b7280;
   font-size: 0.8rem;
   line-height: 1.35;
+}
+
+.trip-calendar-drawer-inline-error {
+  margin: 0.55rem 0 0;
+  color: #b42318;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .trip-calendar-drawer-empty-copy {

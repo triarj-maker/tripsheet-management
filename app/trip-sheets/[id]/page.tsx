@@ -189,11 +189,13 @@ export default async function TripSheetViewPage({
   }
 
   const currentNav =
-    role === 'resource'
+    query.from === 'my-trip-sheets'
       ? 'my-trip-sheets'
       : query.from === 'my-trips'
         ? 'my-trips'
-        : 'trips'
+        : role === 'resource'
+          ? 'my-trip-sheets'
+          : 'trips'
   const backHref =
     query.from === 'my-trips' || query.from === 'my-trip-sheets'
       ? `/trips/${trip.id}?from=${query.from}`
@@ -205,7 +207,7 @@ export default async function TripSheetViewPage({
       ? 'Back to Trip'
       : role === 'admin'
         ? 'Back to Trip'
-        : 'Back to My Trips'
+        : 'Back to My Trip Sheets'
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
 
   return (

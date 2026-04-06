@@ -6,10 +6,10 @@ import {
   type AssignedTripSheetRow,
 } from '@/app/lib/assigned-trips'
 
-import { requireAdmin } from '../lib'
+import { requireAdminOrResource } from '../lib'
 
 export default async function AdminMyTripsPage() {
-  const { supabase, user } = await requireAdmin()
+  const { supabase, user, profile } = await requireAdminOrResource()
 
   const { data: assignmentData, error: assignmentError } = await supabase
     .from('trip_sheet_assignments')
@@ -39,7 +39,7 @@ export default async function AdminMyTripsPage() {
 
   return (
     <>
-      <AdminNav current="my-trips" />
+      <AdminNav current="my-trips" role={profile?.role} />
 
       <div className="app-page-header">
         <div>

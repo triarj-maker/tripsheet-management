@@ -15,24 +15,49 @@ type AdminNavProps = {
   className?: string
 }
 
-const adminNavItems: Array<{
+type NavItem = {
   href: string
   key: Section
   label: string
-}> = [
+}
+
+type NavGroup = {
+  label: string
+  items: NavItem[]
+}
+
+const adminNavGroups: NavGroup[] = [
+  {
+    label: 'Operations',
+    items: [
   { href: '/dashboard/trips', key: 'trips', label: 'Trips' },
   { href: '/dashboard/calendar', key: 'calendar', label: 'Calendar' },
-  { href: '/dashboard/my-trips', key: 'my-trips', label: 'My Trips' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
   { href: '/dashboard/resources', key: 'resources', label: 'Resources' },
-  { href: '/dashboard', key: 'profile', label: 'Profile' },
+    ],
+  },
+  {
+    label: 'My Work',
+    items: [
+      { href: '/my-trips', key: 'my-trips', label: 'My Trips' },
+      { href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trip Sheets' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [{ href: '/dashboard', key: 'profile', label: 'Profile' }],
+  },
 ]
 
-const resourceNavItems: Array<{
-  href: string
-  key: Section
-  label: string
-}> = [{ href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trips' }]
+const resourceNavGroups: NavGroup[] = [
+  {
+    label: 'My Work',
+    items: [
+      { href: '/my-trips', key: 'my-trips', label: 'My Trips' },
+      { href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trip Sheets' },
+    ],
+  },
+]
 
 function linkClass(isCurrent: boolean) {
   return [
@@ -46,18 +71,27 @@ export default function AdminNav({
   role = 'admin',
   className = '',
 }: AdminNavProps) {
-  const navItems = role === 'resource' ? resourceNavItems : adminNavItems
+  const navGroups = role === 'resource' ? resourceNavGroups : adminNavGroups
 
   return (
-    <nav className={`mb-6 flex flex-wrap gap-2 ${className}`}>
-      {navItems.map((item) => (
-        <Link
-          key={item.key}
-          href={item.href}
-          className={linkClass(item.key === current)}
-        >
-          {item.label}
-        </Link>
+    <nav className={`mb-6 flex flex-wrap items-start gap-5 ${className}`}>
+      {navGroups.map((group) => (
+        <div key={group.label} className="min-w-0 space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+            {group.label}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {group.items.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={linkClass(item.key === current)}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       ))}
     </nav>
   )

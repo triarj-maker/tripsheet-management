@@ -1,15 +1,18 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 
-import {
-  assignResourceToTripSheet,
-  removeResourceFromTripSheet,
-} from '@/app/dashboard/trip-sheets/actions'
+import { replaceTripSheetAssignments } from '@/app/dashboard/trip-sheets/actions'
 
 type AssignedResource = {
   assignmentId: string
+  resourceUserId: string
+  label: string
+}
+
+type StagedAssignedResource = {
+  assignmentId: string | null
   resourceUserId: string
   label: string
 }
@@ -33,7 +36,31 @@ type WeeklyTripSheetDrawerProps = {
     assignedResources: AssignedResource[]
   } | null
   availableResources: AvailableResource[]
-  returnPath: string
+}
+
+function normalizeAssignedResources(resources: AssignedResource[]): StagedAssignedResource[] {
+  return resources.map((resource) => ({
+    assignmentId: resource.assignmentId,
+    resourceUserId: resource.resourceUserId,
+    label: resource.label,
+  }))
+}
+
+function haveSameResourceUserIds(
+  left: StagedAssignedResource[],
+  right: StagedAssignedResource[]
+) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  const leftIds = new Set(left.map((resource) => resource.resourceUserId))
+
+  if (leftIds.size !== right.length) {
+    return false
+  }
+
+  return right.every((resource) => leftIds.has(resource.resourceUserId))
 }
 
 function formatDate(value: string | null) {
@@ -139,11 +166,21 @@ export default function WeeklyTripSheetDrawer({
   onClose,
   tripSheet,
   availableResources,
-  returnPath,
 }: WeeklyTripSheetDrawerProps) {
   const router = useRouter()
   const assignMenuRef = useRef<HTMLDivElement | null>(null)
   const [isAssignMenuOpen, setIsAssignMenuOpen] = useState(false)
+  const initialAssignedResources = normalizeAssignedResources(
+    tripSheet?.assignedResources ?? []
+  )
+  const [originalAssignedResources, setOriginalAssignedResources] = useState<
+    StagedAssignedResource[]
+  >(initialAssignedResources)
+  const [stagedAssignedResources, setStagedAssignedResources] = useState<StagedAssignedResource[]>(
+    initialAssignedResources
+  )
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isSavePending, startSaveTransition] = useTransition()
 
   useEffect(() => {
     if (!isOpen) {
@@ -185,12 +222,75 @@ export default function WeeklyTripSheetDrawer({
     return null
   }
 
+  const activeTripSheetId = tripSheet.id
   const assignedResourceIds = new Set(
-    tripSheet.assignedResources.map((resource) => resource.resourceUserId)
+    stagedAssignedResources.map((resource) => resource.resourceUserId)
   )
   const assignableResources = availableResources.filter(
     (resource) => !assignedResourceIds.has(resource.id)
   )
+  const isDirty = !haveSameResourceUserIds(
+    originalAssignedResources,
+    stagedAssignedResources
+  )
+
+  function handleStageAssign(resource: AvailableResource) {
+    setSaveError(null)
+    setStagedAssignedResources((currentResources) => {
+      if (currentResources.some((item) => item.resourceUserId === resource.id)) {
+        return currentResources
+      }
+
+      return [
+        ...currentResources,
+        {
+          assignmentId: null,
+          resourceUserId: resource.id,
+          label: resource.label,
+        },
+      ]
+    })
+  }
+
+  function handleStageRemove(resourceUserId: string) {
+    setSaveError(null)
+    setStagedAssignedResources((currentResources) =>
+      currentResources.filter((resource) => resource.resourceUserId !== resourceUserId)
+    )
+  }
+
+  function handleCancelChanges() {
+    setSaveError(null)
+    setStagedAssignedResources(originalAssignedResources)
+    setIsAssignMenuOpen(false)
+  }
+
+  function handleSaveChanges() {
+    const nextOriginalResources = stagedAssignedResources.map((resource) => ({
+      assignmentId: resource.assignmentId,
+      resourceUserId: resource.resourceUserId,
+      label: resource.label,
+    }))
+
+    startSaveTransition(async () => {
+      setSaveError(null)
+
+      const result = await replaceTripSheetAssignments(
+        activeTripSheetId,
+        nextOriginalResources.map((resource) => resource.resourceUserId)
+      )
+
+      if (!result.ok) {
+        setSaveError(result.message)
+        return
+      }
+
+      setOriginalAssignedResources(nextOriginalResources)
+      setStagedAssignedResources(nextOriginalResources)
+      setIsAssignMenuOpen(false)
+      router.refresh()
+    })
+  }
 
   return (
     <>
@@ -285,54 +385,49 @@ export default function WeeklyTripSheetDrawer({
           </div>
 
           <div className="trip-calendar-drawer-resource-toolbar">
-            {tripSheet.assignedResources.length > 0 ? (
+            {stagedAssignedResources.length > 0 ? (
               <div className="trip-calendar-drawer-chip-list">
-                {tripSheet.assignedResources.map((resource) => {
+                {stagedAssignedResources.map((resource) => {
                   const parsedResource = splitResourceLabel(resource.label)
 
                   return (
-                  <form
-                    key={resource.assignmentId}
-                    action={removeResourceFromTripSheet}
-                    className="trip-calendar-drawer-chip-form"
-                  >
-                    <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
-                    <input
-                      type="hidden"
-                      name="assignment_id"
-                      value={resource.assignmentId}
-                    />
-                    <input type="hidden" name="return_path" value={returnPath} />
-                    <div className="trip-calendar-drawer-chip">
-                      <span className="trip-calendar-drawer-chip-copy">
-                        <ResourceLabel
-                          name={parsedResource.name}
-                          role={parsedResource.role}
-                          nameClassName="trip-calendar-drawer-chip-name"
-                        />
-                      </span>
-                      <button
-                        type="submit"
-                        className="trip-calendar-drawer-chip-remove"
-                        aria-label={`Remove ${resource.label}`}
-                      >
-                        <svg
-                          viewBox="0 0 20 20"
-                          aria-hidden="true"
-                          className="trip-calendar-drawer-chip-remove-icon"
-                        >
-                          <path
-                            d="M5 5l10 10M15 5 5 15"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="1.7"
+                    <div
+                      key={resource.resourceUserId}
+                      className="trip-calendar-drawer-chip-form"
+                    >
+                      <div className="trip-calendar-drawer-chip">
+                        <span className="trip-calendar-drawer-chip-copy">
+                          <ResourceLabel
+                            name={parsedResource.name}
+                            role={parsedResource.role}
+                            nameClassName="trip-calendar-drawer-chip-name"
                           />
-                        </svg>
-                      </button>
+                        </span>
+                        <button
+                          type="button"
+                          className="trip-calendar-drawer-chip-remove"
+                          aria-label={`Remove ${resource.label}`}
+                          disabled={isSavePending}
+                          aria-disabled={isSavePending}
+                          onClick={() => handleStageRemove(resource.resourceUserId)}
+                        >
+                          <svg
+                            viewBox="0 0 20 20"
+                            aria-hidden="true"
+                            className="trip-calendar-drawer-chip-remove-icon"
+                          >
+                            <path
+                              d="M5 5l10 10M15 5 5 15"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="1.7"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </form>
                   )
                 })}
               </div>
@@ -347,7 +442,7 @@ export default function WeeklyTripSheetDrawer({
                 onClick={() => setIsAssignMenuOpen((currentValue) => !currentValue)}
                 aria-expanded={isAssignMenuOpen}
                 aria-haspopup="menu"
-                disabled={assignableResources.length === 0}
+                disabled={assignableResources.length === 0 || isSavePending}
               >
                 <span className="trip-calendar-drawer-add-button-plus" aria-hidden="true">
                   +
@@ -371,28 +466,27 @@ export default function WeeklyTripSheetDrawer({
                         const parsedResource = splitResourceLabel(resource.label)
 
                         return (
-                          <form
+                          <div
                             key={resource.id}
-                            action={assignResourceToTripSheet}
                             className="trip-calendar-drawer-resource-form"
                           >
-                            <input type="hidden" name="trip_sheet_id" value={tripSheet.id} />
-                            <input type="hidden" name="resource_user_id" value={resource.id} />
-                            <input type="hidden" name="return_path" value={returnPath} />
                             <button
-                              type="submit"
+                              type="button"
                               className="trip-calendar-drawer-add-option"
-                            role="menuitem"
-                          >
-                            <span className="trip-calendar-drawer-add-option-copy">
-                              <ResourceLabel
-                                name={parsedResource.name}
-                                role={parsedResource.role}
-                                nameClassName="trip-calendar-drawer-add-option-name"
-                              />
-                            </span>
-                          </button>
-                          </form>
+                              role="menuitem"
+                              disabled={isSavePending}
+                              aria-disabled={isSavePending}
+                              onClick={() => handleStageAssign(resource)}
+                            >
+                              <span className="trip-calendar-drawer-add-option-copy">
+                                <ResourceLabel
+                                  name={parsedResource.name}
+                                  role={parsedResource.role}
+                                  nameClassName="trip-calendar-drawer-add-option-name"
+                                />
+                              </span>
+                            </button>
+                          </div>
                         )
                       })}
                     </div>
@@ -401,6 +495,40 @@ export default function WeeklyTripSheetDrawer({
                       No more active resources available.
                     </p>
                   )}
+                </div>
+              ) : null}
+
+              {isDirty ? (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-amber-900">
+                      You have unsaved resource changes.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="ui-button ui-button-secondary ui-button-compact"
+                        onClick={handleCancelChanges}
+                        disabled={isSavePending}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button ui-button-primary ui-button-compact"
+                        onClick={handleSaveChanges}
+                        disabled={isSavePending || !isDirty}
+                        aria-disabled={isSavePending || !isDirty}
+                      >
+                        {isSavePending ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                  {saveError ? (
+                    <p className="mt-2 text-xs font-medium text-red-700" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

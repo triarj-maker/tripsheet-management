@@ -1,8 +1,10 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
+import { createClient } from '@/lib/supabase/server'
 import {
   isDateRangeOrdered,
   isTripSheetWithinTripRange,
@@ -61,6 +63,14 @@ function getReturnPath(formData: FormData, fallback: string) {
   }
 
   return fallback
+}
+
+export type ReplaceTripSheetAssignmentsResult = {
+  ok: boolean
+  tripSheetId: string
+  addedCount: number
+  removedCount: number
+  message: string
 }
 
 export async function createTripSheet(formData: FormData) {
@@ -369,4 +379,173 @@ export async function removeResourceFromTripSheet(formData: FormData) {
   }
 
   redirect(appendToastParam(returnPath))
+}
+
+export async function replaceTripSheetAssignments(
+  tripSheetId: string,
+  resourceUserIds: string[]
+): Promise<ReplaceTripSheetAssignmentsResult> {
+  const normalizedTripSheetId = tripSheetId.trim()
+  const desiredResourceUserIds = Array.from(
+    new Set(resourceUserIds.map((value) => value.trim()).filter(Boolean))
+  )
+
+  if (!normalizedTripSheetId) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: 'Trip sheet not found.',
+    }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: 'You are not authorized to update trip sheet assignments.',
+    }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const profileRow = (profile as { role: string | null; is_active: boolean | null } | null) ?? null
+
+  if (profileRow?.is_active === false || profileRow?.role !== 'admin') {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: 'You are not authorized to update trip sheet assignments.',
+    }
+  }
+
+  const { data: tripSheet, error: tripSheetError } = await supabase
+    .from('trip_sheets')
+    .select('id')
+    .eq('id', normalizedTripSheetId)
+    .maybeSingle()
+
+  if (tripSheetError || !tripSheet) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: tripSheetError?.message ?? 'Trip sheet not found.',
+    }
+  }
+
+  const { data: assignmentData, error: assignmentError } = await supabase
+    .from('trip_sheet_assignments')
+    .select('id, resource_user_id')
+    .eq('trip_sheet_id', normalizedTripSheetId)
+
+  if (assignmentError) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: assignmentError.message,
+    }
+  }
+
+  const currentAssignments =
+    (assignmentData as { id: string; resource_user_id: string }[] | null) ?? []
+  const currentResourceUserIds = new Set(
+    currentAssignments.map((assignment) => assignment.resource_user_id)
+  )
+  const desiredResourceUserIdSet = new Set(desiredResourceUserIds)
+
+  const toAdd = desiredResourceUserIds.filter((resourceUserId) => {
+    return !currentResourceUserIds.has(resourceUserId)
+  })
+  const toRemoveAssignmentIds = currentAssignments
+    .filter((assignment) => !desiredResourceUserIdSet.has(assignment.resource_user_id))
+    .map((assignment) => assignment.id)
+
+  if (toAdd.length === 0 && toRemoveAssignmentIds.length === 0) {
+    return {
+      ok: true,
+      tripSheetId: normalizedTripSheetId,
+      addedCount: 0,
+      removedCount: 0,
+      message: 'No assignment changes were needed.',
+    }
+  }
+
+  if (toAdd.length > 0) {
+    const { error: insertError } = await supabase.from('trip_sheet_assignments').insert(
+      toAdd.map((resourceUserId) => ({
+        trip_sheet_id: normalizedTripSheetId,
+        resource_user_id: resourceUserId,
+        assigned_by: user.id,
+      }))
+    )
+
+    if (insertError) {
+      return {
+        ok: false,
+        tripSheetId: normalizedTripSheetId,
+        addedCount: 0,
+        removedCount: 0,
+        message: insertError.message,
+      }
+    }
+  }
+
+  if (toRemoveAssignmentIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('trip_sheet_assignments')
+      .delete()
+      .eq('trip_sheet_id', normalizedTripSheetId)
+      .in('id', toRemoveAssignmentIds)
+
+    if (deleteError) {
+      if (toAdd.length > 0) {
+        await supabase
+          .from('trip_sheet_assignments')
+          .delete()
+          .eq('trip_sheet_id', normalizedTripSheetId)
+          .in('resource_user_id', toAdd)
+      }
+
+      return {
+        ok: false,
+        tripSheetId: normalizedTripSheetId,
+        addedCount: 0,
+        removedCount: 0,
+        message: deleteError.message,
+      }
+    }
+  }
+
+  revalidatePath('/dashboard/calendar')
+
+  return {
+    ok: true,
+    tripSheetId: normalizedTripSheetId,
+    addedCount: toAdd.length,
+    removedCount: toRemoveAssignmentIds.length,
+    message:
+      toAdd.length > 0 && toRemoveAssignmentIds.length > 0
+        ? `Saved assignment changes. Added ${toAdd.length}, removed ${toRemoveAssignmentIds.length}.`
+        : toAdd.length > 0
+          ? `Saved assignment changes. Added ${toAdd.length} resource${toAdd.length === 1 ? '' : 's'}.`
+          : `Saved assignment changes. Removed ${toRemoveAssignmentIds.length} resource${toRemoveAssignmentIds.length === 1 ? '' : 's'}.`,
+  }
 }

@@ -228,13 +228,27 @@ export default async function AssignedTripViewPage({
     redirect(getSignedInHomePath(role))
   }
 
-  const currentNav = role === 'resource' ? 'my-trip-sheets' : 'my-trips'
+  const currentNav =
+    query.from === 'my-trip-sheets'
+      ? 'my-trip-sheets'
+      : query.from === 'my-trips'
+        ? 'my-trips'
+        : role === 'resource'
+          ? 'my-trip-sheets'
+          : 'my-trips'
   const backHref =
-    role === 'resource' || query.from === 'my-trip-sheets'
+    query.from === 'my-trip-sheets'
       ? '/my-trip-sheets'
-      : '/dashboard/my-trips'
+      : '/my-trips'
+  const backLabel =
+    query.from === 'my-trip-sheets' ? 'Back to My Trip Sheets' : 'Back to My Trips'
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
-  const fromParam = role === 'resource' ? 'my-trip-sheets' : 'my-trips'
+  const fromParam =
+    query.from === 'my-trip-sheets' || query.from === 'my-trips'
+      ? query.from
+      : role === 'resource'
+        ? 'my-trip-sheets'
+        : 'my-trips'
 
   return (
     <main className="app-page">
@@ -247,7 +261,7 @@ export default async function AssignedTripViewPage({
               href={backHref}
               className="inline-flex items-center text-sm font-medium text-gray-700 transition hover:text-gray-900"
             >
-              ← Back to My Trips
+              ← {backLabel}
             </Link>
           </div>
 

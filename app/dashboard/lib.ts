@@ -71,3 +71,13 @@ export async function requireResource() {
 
   return context
 }
+
+export async function requireAdminOrResource() {
+  const context = await getCurrentUserProfile()
+
+  if (context.profile?.role !== 'admin' && context.profile?.role !== 'resource') {
+    redirect(buildLoginRedirect('You do not have access to that page.'))
+  }
+
+  return context
+}

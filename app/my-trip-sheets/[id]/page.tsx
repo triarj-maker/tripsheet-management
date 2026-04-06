@@ -11,5 +11,5 @@ export default async function MyTripSheetDetailPage({
 }: MyTripSheetDetailPageProps) {
   const { id } = await params
 
-  redirect(`/trip-sheets/${id}`)
+  redirect(`/trip-sheets/${id}?from=my-trip-sheets`)
 }

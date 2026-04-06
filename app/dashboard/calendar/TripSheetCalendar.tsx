@@ -1,7 +1,7 @@
 'use client'
 
 import type { EventInput } from '@fullcalendar/core'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 
@@ -543,7 +543,6 @@ export default function TripSheetCalendar({
   title,
   subtitle,
 }: TripSheetCalendarProps) {
-  const pathname = usePathname()
   const router = useRouter()
   const monthTriggerRef = useRef<HTMLButtonElement | null>(null)
   const initialDate = parseInitialCalendarDate(initialDateValue)
@@ -649,7 +648,6 @@ export default function TripSheetCalendar({
     )
   )
   const weekStart = getWeekStart(currentDate)
-  const weekStartIso = formatWeekDayIso(weekStart)
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
   const todayIso = formatWeekDayIso(new Date())
   const weekEventPlacements = getWeekEventPlacements(weekEvents, weekDays)
@@ -667,19 +665,6 @@ export default function TripSheetCalendar({
   const resolvedSelectedWeekEventId = resolvedSelectedWeekEvent
     ? String(resolvedSelectedWeekEvent.id)
     : ''
-  const weekReturnPath = (() => {
-    const params = new URLSearchParams()
-
-    params.set('view', 'week')
-    params.set('date', weekStartIso)
-
-    if (resolvedSelectedWeekEventId) {
-      params.set('tripSheetId', resolvedSelectedWeekEventId)
-    }
-
-    return `${pathname}?${params.toString()}`
-  })()
-
   function handlePrevious() {
     if (viewMode === 'month') {
       setMonthOverflowPopover(null)
@@ -1313,7 +1298,6 @@ export default function TripSheetCalendar({
             : null
         }
         availableResources={availableResources}
-        returnPath={weekReturnPath}
       />
     </div>
   )

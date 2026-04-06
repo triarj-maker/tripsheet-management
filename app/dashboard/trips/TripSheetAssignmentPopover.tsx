@@ -1,5 +1,6 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import {
@@ -44,13 +45,22 @@ export default function TripSheetAssignmentPopover({
   availableResources,
   returnPath,
 }: TripSheetAssignmentPopoverProps) {
+  const searchParams = useSearchParams()
   const [isOpen, setIsOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'assign'; id: string }
+    | { kind: 'remove'; id: string }
+    | null
+  >(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const summary = formatAssignmentSummary(assignedResources)
   const summaryTitle =
     assignedResources.length > 0
       ? assignedResources.map((resource) => resource.label).join(', ')
       : 'Unassigned'
+  const mutationError = searchParams.get('error')?.trim() || null
+  const isMutationPending = pendingAction !== null
+  const visibleMutationError = isMutationPending ? null : mutationError
 
   useEffect(() => {
     if (!isOpen) {
@@ -103,27 +113,47 @@ export default function TripSheetAssignmentPopover({
                 Current
               </p>
               <div className="space-y-1">
-                {assignedResources.map((resource) => (
-                  <form
-                    key={resource.assignmentId}
-                    action={removeResourceFromTripSheet}
-                  >
-                    <input type="hidden" name="trip_sheet_id" value={tripSheetId} />
-                    <input
-                      type="hidden"
-                      name="assignment_id"
-                      value={resource.assignmentId}
-                    />
-                    <input type="hidden" name="return_path" value={returnPath} />
-                    <button
-                      type="submit"
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 transition hover:bg-zinc-100"
+                {assignedResources.map((resource) => {
+                  const isPending =
+                    pendingAction?.kind === 'remove' &&
+                    pendingAction.id === resource.assignmentId
+
+                  return (
+                    <form
+                      key={resource.assignmentId}
+                      action={removeResourceFromTripSheet}
+                      onSubmit={() => {
+                        setPendingAction({
+                          kind: 'remove',
+                          id: resource.assignmentId,
+                        })
+                      }}
                     >
-                      <span className="truncate">{resource.label}</span>
-                      <span className="text-xs text-red-600">Remove</span>
-                    </button>
-                  </form>
-                ))}
+                      <input type="hidden" name="trip_sheet_id" value={tripSheetId} />
+                      <input
+                        type="hidden"
+                        name="assignment_id"
+                        value={resource.assignmentId}
+                      />
+                      <input type="hidden" name="return_path" value={returnPath} />
+                      <button
+                        type="submit"
+                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition ${
+                          isPending
+                            ? 'bg-red-50 text-red-700'
+                            : 'text-gray-700 hover:bg-zinc-100'
+                        }`}
+                        disabled={isMutationPending}
+                        aria-disabled={isMutationPending}
+                      >
+                        <span className="truncate">{resource.label}</span>
+                        <span className={`text-xs ${isPending ? 'text-red-700' : 'text-red-600'}`}>
+                          {isPending ? 'Removing...' : 'Remove'}
+                        </span>
+                      </button>
+                    </form>
+                  )
+                })}
               </div>
             </div>
           ) : null}
@@ -135,28 +165,57 @@ export default function TripSheetAssignmentPopover({
 
             {availableResources.length > 0 ? (
               <div className="max-h-56 space-y-1 overflow-y-auto">
-                {availableResources.map((resource) => (
-                  <form
-                    key={resource.id}
-                    action={assignResourceToTripSheet}
-                  >
-                    <input type="hidden" name="trip_sheet_id" value={tripSheetId} />
-                    <input type="hidden" name="resource_user_id" value={resource.id} />
-                    <input type="hidden" name="return_path" value={returnPath} />
-                    <button
-                      type="submit"
-                      className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 transition hover:bg-zinc-100"
+                {availableResources.map((resource) => {
+                  const isPending =
+                    pendingAction?.kind === 'assign' &&
+                    pendingAction.id === resource.id
+
+                  return (
+                    <form
+                      key={resource.id}
+                      action={assignResourceToTripSheet}
+                      onSubmit={() => {
+                        setPendingAction({
+                          kind: 'assign',
+                          id: resource.id,
+                        })
+                      }}
                     >
-                      {resource.label}
-                    </button>
-                  </form>
-                ))}
+                      <input type="hidden" name="trip_sheet_id" value={tripSheetId} />
+                      <input type="hidden" name="resource_user_id" value={resource.id} />
+                      <input type="hidden" name="return_path" value={returnPath} />
+                      <button
+                        type="submit"
+                        className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition ${
+                          isPending
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-700 hover:bg-zinc-100'
+                        }`}
+                        disabled={isMutationPending}
+                        aria-disabled={isMutationPending}
+                      >
+                        <span className="truncate">{resource.label}</span>
+                        {isPending ? (
+                          <span className="pl-3 text-xs font-semibold text-blue-700">
+                            Assigning...
+                          </span>
+                        ) : null}
+                      </button>
+                    </form>
+                  )
+                })}
               </div>
             ) : (
               <p className="px-2 py-1.5 text-sm text-gray-500">
                 No more active resources available.
               </p>
             )}
+
+            {visibleMutationError ? (
+              <p className="px-2 pt-2 text-xs font-medium text-red-600" role="alert">
+                {visibleMutationError}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
