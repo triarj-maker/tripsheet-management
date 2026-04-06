@@ -805,9 +805,11 @@ export async function updateTrip(formData: FormData) {
         tripSheet
       ): tripSheet is {
         id: string
-        start_date: string | null
-        end_date: string | null
-      } => !('error' in tripSheet)
+        start_date: string
+        end_date: string
+      } =>
+        typeof tripSheet.start_date === 'string' &&
+        typeof tripSheet.end_date === 'string'
     )
 
     outOfRangeShiftedChildTripSheets = validShiftedChildTripSheets.filter((tripSheet) => {
