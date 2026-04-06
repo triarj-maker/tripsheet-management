@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 type Section =
   | 'profile'
-  | 'trip-sheets'
+  | 'trips'
   | 'calendar'
   | 'my-trips'
   | 'templates'
@@ -20,7 +20,7 @@ const adminNavItems: Array<{
   key: Section
   label: string
 }> = [
-  { href: '/dashboard/trip-sheets', key: 'trip-sheets', label: 'Trip Sheets' },
+  { href: '/dashboard/trips', key: 'trips', label: 'Trips' },
   { href: '/dashboard/calendar', key: 'calendar', label: 'Calendar' },
   { href: '/dashboard/my-trips', key: 'my-trips', label: 'My Trips' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
@@ -32,7 +32,7 @@ const resourceNavItems: Array<{
   href: string
   key: Section
   label: string
-}> = [{ href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trip Sheets' }]
+}> = [{ href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trips' }]
 
 function linkClass(isCurrent: boolean) {
   return [

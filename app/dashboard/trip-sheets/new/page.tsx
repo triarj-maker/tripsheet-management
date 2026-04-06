@@ -1,19 +1,20 @@
+import { redirect } from 'next/navigation'
+
 import AdminNav from '@/app/dashboard/AdminNav'
 import {
+  buildDuplicatedTripSheetTitle,
   getDestinationName,
-  toTripTypeFormValue,
   type DestinationRelation,
 } from '@/lib/trip-sheets'
-import { createAdminClient } from '@/lib/supabase/admin'
 
 import TripSheetForm from './TripSheetForm'
 import { requireAdmin } from '../lib'
-import { guestOrCompanyRequiredMessage } from '../validation'
 
 type NewTripSheetPageProps = {
   searchParams: Promise<{
     error?: string
     duplicateFrom?: string
+    tripId?: string
   }>
 }
 
@@ -31,24 +32,31 @@ type ResourceProfile = {
   role: string | null
 }
 
-type DestinationOption = {
+type TripRow = {
   id: string
-  name: string | null
-  is_active: boolean | null
-}
-
-type DuplicateTripSheet = {
   title: string | null
   trip_type: string | null
-  destination_id: string | null
-  destination_ref: DestinationRelation
   start_date: string | null
   end_date: string | null
+  destination_id: string | null
+  destination_ref: DestinationRelation
   guest_name: string | null
   company: string | null
   phone_number: string | null
-  template_id: string | null
-  body_text: string | null
+}
+
+type DuplicateTripSheet = {
+  trip_id: string | null
+  title: string | null
+  start_date: string | null
+  start_time: string | null
+  end_date: string | null
+  end_time: string | null
+}
+
+function buildTripsRedirect(error: string) {
+  const params = new URLSearchParams({ error })
+  return `/dashboard/trips?${params.toString()}`
 }
 
 export default async function NewTripSheetPage({
@@ -63,13 +71,6 @@ export default async function NewTripSheetPage({
     .order('title', { ascending: true })
 
   const tripTemplates = (data as TripTemplate[] | null) ?? []
-  const { data: destinationData, error: destinationsError } = await supabase
-    .from('destinations')
-    .select('id, name, is_active')
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-
-  let destinations = (destinationData as DestinationOption[] | null) ?? []
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role')
@@ -78,16 +79,44 @@ export default async function NewTripSheetPage({
     .order('full_name', { ascending: true })
 
   const availableResources = (resourceData as ResourceProfile[] | null) ?? []
+
+  let tripId = params.tripId?.trim() ?? ''
+
+  if (!tripId && params.duplicateFrom) {
+    const { data: sourceTripSheet } = await supabase
+      .from('trip_sheets')
+      .select('trip_id')
+      .eq('id', params.duplicateFrom)
+      .maybeSingle()
+
+    tripId = ((sourceTripSheet as { trip_id: string | null } | null)?.trip_id ?? '').trim()
+  }
+
+  if (!tripId) {
+    redirect(buildTripsRedirect('Select a trip before creating a trip sheet.'))
+  }
+
+  const { data: tripData, error: tripError } = await supabase
+    .from('trips')
+    .select(
+      'id, title, trip_type, start_date, end_date, destination_id, destination_ref:destinations(name), guest_name, company, phone_number'
+    )
+    .eq('id', tripId)
+    .maybeSingle()
+
+  const trip = (tripData as TripRow | null) ?? null
+
+  if (!trip) {
+    redirect(buildTripsRedirect(tripError?.message ?? 'Trip not found.'))
+  }
+
   let duplicateError: string | null = null
   let initialValues: {
     title: string
-    trip_type: string
-    destination_id: string
     start_date: string
+    start_time: string
     end_date: string
-    guest_name: string
-    company: string
-    phone_number: string
+    end_time: string
     template_id: string
     body: string
   } | undefined
@@ -95,9 +124,7 @@ export default async function NewTripSheetPage({
   if (params.duplicateFrom) {
     const { data: duplicateData, error: duplicateLoadError } = await supabase
       .from('trip_sheets')
-      .select(
-        'title, trip_type, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, company, phone_number, template_id, body_text'
-      )
+      .select('trip_id, title, start_date, start_time, end_date, end_time')
       .eq('id', params.duplicateFrom)
       .maybeSingle()
 
@@ -107,125 +134,68 @@ export default async function NewTripSheetPage({
       duplicateError = duplicateLoadError.message
     } else if (!duplicateTripSheet) {
       duplicateError = 'Trip sheet to duplicate was not found.'
+    } else if (duplicateTripSheet.trip_id && duplicateTripSheet.trip_id !== trip.id) {
+      duplicateError = 'Trip sheet belongs to a different trip.'
     } else {
-      if (
-        duplicateTripSheet.destination_id &&
-        !destinations.some((destination) => destination.id === duplicateTripSheet.destination_id)
-      ) {
-        let selectedDestination: DestinationOption | null = null
-
-        try {
-          const adminClient = createAdminClient()
-          const { data: selectedDestinationData } = await adminClient
-            .from('destinations')
-            .select('id, name, is_active')
-            .eq('id', duplicateTripSheet.destination_id)
-            .maybeSingle()
-
-          selectedDestination = (selectedDestinationData as DestinationOption | null) ?? null
-        } catch {}
-
-        if (selectedDestination) {
-          destinations = [...destinations, selectedDestination].sort((left, right) =>
-            (left.name ?? '').localeCompare(right.name ?? '')
-          )
-        } else {
-          const destinationName = getDestinationName(
-            duplicateTripSheet.destination_ref,
-            'Unknown destination'
-          )
-
-          destinations = [
-            ...destinations,
-            {
-              id: duplicateTripSheet.destination_id,
-              name: destinationName,
-              is_active: false,
-            },
-          ].sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''))
-        }
-      }
-
       initialValues = {
-        title: duplicateTripSheet.title ?? '',
-        trip_type: toTripTypeFormValue(duplicateTripSheet.trip_type),
-        destination_id: duplicateTripSheet.destination_id ?? '',
+        title: buildDuplicatedTripSheetTitle(duplicateTripSheet.title),
         start_date: duplicateTripSheet.start_date ?? '',
+        start_time: duplicateTripSheet.start_time ?? '',
         end_date: duplicateTripSheet.end_date ?? '',
-        guest_name: duplicateTripSheet.guest_name ?? '',
-        company: duplicateTripSheet.company ?? '',
-        phone_number: duplicateTripSheet.phone_number ?? '',
-        template_id: duplicateTripSheet.template_id ?? '',
-        body: duplicateTripSheet.body_text ?? '',
+        end_time: duplicateTripSheet.end_time ?? '',
+        template_id: '',
+        body: '',
       }
     }
   }
 
   return (
     <>
-      <AdminNav current="trip-sheets" />
+      <AdminNav current="trips" />
 
-        <div className="app-page-header">
-          <div>
-            <h1 className="app-page-title">
-              {params.duplicateFrom ? 'Duplicate Trip Sheet' : 'Create Trip Sheet'}
-            </h1>
-            <p className="app-page-subtitle">
-              Capture trip details, template content, and optional assignments.
-            </p>
-          </div>
+      <div className="app-page-header">
+        <div>
+          <h1 className="app-page-title">
+            {params.duplicateFrom ? 'Duplicate Trip Sheet' : 'Add New Trip Sheet'}
+          </h1>
+          <p className="app-page-subtitle">
+            Create an execution-specific trip sheet under the selected parent trip.
+          </p>
         </div>
+      </div>
 
-        {params.error && params.error !== guestOrCompanyRequiredMessage ? (
-          <p className="app-banner-error">
-            {params.error}
-          </p>
-        ) : null}
+      {params.error ? (
+        <p className="app-banner-error">{params.error}</p>
+      ) : null}
 
-        {error ? (
-          <p className="app-banner-error">
-            {error.message}
-          </p>
-        ) : null}
+      {error ? <p className="app-banner-error">{error.message}</p> : null}
+      {resourceError ? <p className="app-banner-error">{resourceError.message}</p> : null}
+      {duplicateError ? <p className="app-banner-error">{duplicateError}</p> : null}
 
-        {resourceError ? (
-          <p className="app-banner-error">
-            {resourceError.message}
-          </p>
-        ) : null}
+      {tripTemplates.length === 0 ? (
+        <p className="text-sm text-gray-700">
+          No templates are available yet. You can still start from a blank body.
+        </p>
+      ) : null}
 
-        {destinationsError ? (
-          <p className="app-banner-error">
-            {destinationsError.message}
-          </p>
-        ) : null}
-
-        {duplicateError ? (
-          <p className="app-banner-error">
-            {duplicateError}
-          </p>
-        ) : null}
-
-        {tripTemplates.length === 0 ? (
-          <p className="text-sm text-gray-700">
-            No templates are available yet.
-          </p>
-        ) : destinations.length === 0 ? (
-          <p className="text-sm text-gray-700">
-            No destinations are available yet.
-          </p>
-        ) : (
-          <TripSheetForm
-            tripTemplates={tripTemplates}
-            destinations={destinations.map((destination) => ({
-              id: destination.id,
-              name: destination.name ?? destination.id,
-            }))}
-            availableResources={availableResources}
-            errorMessage={params.error}
-            initialValues={initialValues}
-          />
-        )}
+      <TripSheetForm
+        trip={{
+          id: trip.id,
+          title: trip.title,
+          trip_type: trip.trip_type,
+          start_date: trip.start_date,
+          end_date: trip.end_date,
+          destination:
+            getDestinationName(trip.destination_ref, 'Unknown destination') ??
+            'Unknown destination',
+          guest_name: trip.guest_name,
+          company: trip.company,
+          phone_number: trip.phone_number,
+        }}
+        tripTemplates={tripTemplates}
+        availableResources={availableResources}
+        initialValues={initialValues}
+      />
     </>
   )
 }

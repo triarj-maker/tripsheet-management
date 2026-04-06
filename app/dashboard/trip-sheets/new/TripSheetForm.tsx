@@ -4,15 +4,13 @@ import { useState } from 'react'
 
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { createTripSheet } from '@/app/dashboard/trip-sheets/actions'
+import { formatTripTypeLabel } from '@/lib/trip-sheets'
 import {
-  guestOrCompanyRequiredMessage,
-  hasGuestOrCompany,
-} from '@/app/dashboard/trip-sheets/validation'
-
-type DestinationOption = {
-  id: string
-  name: string
-}
+  isDateRangeOrdered,
+  isTripSheetWithinTripRange,
+  tripSheetDateRangeMessage,
+  tripSheetWithinTripRangeMessage,
+} from '@/lib/trip-date-validation'
 
 type TripTemplate = {
   id: string
@@ -30,77 +28,37 @@ type ResourceProfile = {
 
 type TripSheetFormInitialValues = {
   title: string
-  trip_type: string
-  destination_id: string
   start_date: string
+  start_time: string
   end_date: string
-  guest_name: string
-  company: string
-  phone_number: string
+  end_time: string
   template_id: string
   body: string
 }
 
 type TripSheetFormProps = {
+  trip: {
+    id: string
+    title: string | null
+    trip_type: string | null
+    start_date: string | null
+    end_date: string | null
+    destination: string
+    guest_name: string | null
+    company: string | null
+    phone_number: string | null
+  }
   tripTemplates: TripTemplate[]
-  destinations: DestinationOption[]
   availableResources: ResourceProfile[]
-  errorMessage?: string
   initialValues?: TripSheetFormInitialValues
 }
 
 type TripSheetDraft = {
   title: string
-  trip_type: string
-  destination_id: string
   start_date: string
+  start_time: string
   end_date: string
-  guest_name: string
-  company: string
-  phone_number: string
-}
-
-function formatDateForGeneratedBody(dateString: string) {
-  if (!dateString) {
-    return ''
-  }
-
-  const [year, month, day] = dateString.split('-').map(Number)
-
-  if (!year || !month || !day) {
-    return dateString
-  }
-
-  const date = new Date(Date.UTC(year, month - 1, day))
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
-}
-
-function buildGeneratedBody(templateBody: string, draft: TripSheetDraft) {
-  const formattedStartDate = formatDateForGeneratedBody(draft.start_date)
-  const formattedEndDate = formatDateForGeneratedBody(draft.end_date)
-  const formattedDateRange = [formattedStartDate, formattedEndDate]
-    .filter(Boolean)
-    .join(' to ')
-
-  const headerBlock = [
-    `TRIP: ${draft.title}`,
-    `DATES: ${formattedDateRange}`,
-    `CUSTOMER: ${draft.guest_name}`,
-    `CONTACT: ${draft.phone_number}`,
-    `COMPANY: ${draft.company}`,
-    'NO OF GUESTS:',
-    'OTHER DETAILS:',
-    '',
-    '--------------------------------',
-  ].join('\n')
-
-  return [headerBlock, templateBody.trim()].filter(Boolean).join('\n\n')
+  end_time: string
 }
 
 function formatAssignableLabel(resource: ResourceProfile) {
@@ -111,32 +69,27 @@ function formatAssignableLabel(resource: ResourceProfile) {
 }
 
 export default function TripSheetForm({
+  trip,
   tripTemplates,
-  destinations,
   availableResources,
-  errorMessage,
   initialValues,
 }: TripSheetFormProps) {
+  const defaultStartDate = initialValues?.start_date ?? trip.start_date ?? ''
+
   const [draft, setDraft] = useState<TripSheetDraft>({
     title: initialValues?.title ?? '',
-    trip_type: initialValues?.trip_type ?? '',
-    destination_id: initialValues?.destination_id ?? '',
-    start_date: initialValues?.start_date ?? '',
+    start_date: defaultStartDate,
+    start_time: initialValues?.start_time ?? '09:00',
     end_date: initialValues?.end_date ?? '',
-    guest_name: initialValues?.guest_name ?? '',
-    company: initialValues?.company ?? '',
-    phone_number: initialValues?.phone_number ?? '',
+    end_time: initialValues?.end_time ?? '17:30',
   })
   const [templateId, setTemplateId] = useState(initialValues?.template_id ?? '')
   const [body, setBody] = useState(initialValues?.body ?? '')
-  const [hasLoadedTemplateBody, setHasLoadedTemplateBody] = useState(
-    Boolean(initialValues?.body.trim())
-  )
-  const [fieldError, setFieldError] = useState(
-    errorMessage === guestOrCompanyRequiredMessage ? errorMessage : ''
-  )
+  const [fieldError, setFieldError] = useState('')
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([])
   const [nextResourceId, setNextResourceId] = useState('')
+
+  const effectiveEndDate = draft.end_date || draft.start_date
 
   function updateDraftField(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -144,37 +97,32 @@ export default function TripSheetForm({
     const name = event.target.name as keyof TripSheetDraft
     const { value } = event.target
 
-    setDraft((currentDraft) => {
-      const nextDraft = {
-        ...currentDraft,
-        [name]: value,
-      }
+    if (name === 'start_date' || name === 'end_date') {
+      setFieldError('')
+    }
 
-      if (
-        fieldError &&
-        (name === 'guest_name' || name === 'company') &&
-        hasGuestOrCompany(nextDraft.guest_name, nextDraft.company)
-      ) {
-        setFieldError('')
-      }
-
-      return nextDraft
-    })
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      [name]: value,
+    }))
   }
 
   function handleTemplateChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const nextTemplateId = event.target.value
+    const currentTemplate = tripTemplates.find((template) => template.id === templateId)
+    const nextTemplate = tripTemplates.find((template) => template.id === nextTemplateId)
 
     setTemplateId(nextTemplateId)
 
-    if (!hasLoadedTemplateBody && nextTemplateId) {
-      const selectedTemplate = tripTemplates.find(
-        (template) => template.id === nextTemplateId
-      )
+    if (!nextTemplateId) {
+      if (body === (currentTemplate?.body ?? '')) {
+        setBody('')
+      }
 
-      setBody(buildGeneratedBody(selectedTemplate?.body ?? '', draft))
-      setHasLoadedTemplateBody(true)
+      return
     }
+
+    setBody(nextTemplate?.body ?? '')
   }
 
   function handleAddResource() {
@@ -193,9 +141,22 @@ export default function TripSheetForm({
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (!hasGuestOrCompany(draft.guest_name, draft.company)) {
+    if (!isDateRangeOrdered(draft.start_date, effectiveEndDate)) {
       event.preventDefault()
-      setFieldError(guestOrCompanyRequiredMessage)
+      setFieldError(tripSheetDateRangeMessage)
+      return
+    }
+
+    if (
+      !isTripSheetWithinTripRange({
+        tripStartDate: trip.start_date ?? '',
+        tripEndDate: trip.end_date ?? '',
+        tripSheetStartDate: draft.start_date,
+        tripSheetEndDate: effectiveEndDate,
+      })
+    ) {
+      event.preventDefault()
+      setFieldError(tripSheetWithinTripRangeMessage)
     }
   }
 
@@ -214,17 +175,38 @@ export default function TripSheetForm({
       onSubmit={handleSubmit}
       className="space-y-5"
     >
+      <input type="hidden" name="trip_id" value={trip.id} />
+
       <section className="app-section-card space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Trip Details</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Details</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Enter the core trip information before generating or editing the trip sheet body.
+            Add the execution-specific title, schedule, and template for this trip sheet.
           </p>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Trip</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">{trip.title ?? '-'}</p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Trip Type</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">
+              {formatTripTypeLabel(trip.trip_type)}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Destination</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">{trip.destination}</p>
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="title" className="ui-label">Title</label>
+          <div className="md:col-span-2">
+            <label htmlFor="title" className="ui-label">Trip Sheet Title</label>
             <input
               id="title"
               name="title"
@@ -237,49 +219,28 @@ export default function TripSheetForm({
           </div>
 
           <div>
-            <label htmlFor="trip_type" className="ui-label">Trip Type</label>
-            <select
-              id="trip_type"
-              name="trip_type"
-              value={draft.trip_type}
-              onChange={updateDraftField}
-              required
-              className="ui-select ui-select-compact"
-            >
-              <option value="">Select trip type</option>
-              <option value="educational">Educational</option>
-              <option value="private">Private</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="destination_id" className="ui-label">Destination</label>
-            <select
-              id="destination_id"
-              name="destination_id"
-              value={draft.destination_id}
-              onChange={updateDraftField}
-              required
-              className="ui-select ui-select-compact"
-            >
-              <option value="">Select a destination</option>
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {destination.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="start_date" className="ui-label">Start Date</label>
             <input
               id="start_date"
               name="start_date"
               type="date"
+              min={trip.start_date ?? undefined}
+              max={trip.end_date ?? undefined}
               value={draft.start_date}
               onChange={updateDraftField}
               required
+              className="ui-input ui-input-compact"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="start_time" className="ui-label">Start Time</label>
+            <input
+              id="start_time"
+              name="start_time"
+              type="time"
+              value={draft.start_time}
+              onChange={updateDraftField}
               className="ui-input ui-input-compact"
             />
           </div>
@@ -290,47 +251,21 @@ export default function TripSheetForm({
               id="end_date"
               name="end_date"
               type="date"
-              value={draft.end_date}
-              onChange={updateDraftField}
-              required
-              className="ui-input ui-input-compact"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="guest_name" className="ui-label">Guest / School Name</label>
-            <input
-              id="guest_name"
-              name="guest_name"
-              type="text"
-              value={draft.guest_name}
+              min={trip.start_date ?? undefined}
+              max={trip.end_date ?? undefined}
+              value={effectiveEndDate}
               onChange={updateDraftField}
               className="ui-input ui-input-compact"
             />
           </div>
 
           <div>
-            <label htmlFor="company" className="ui-label">Company</label>
+            <label htmlFor="end_time" className="ui-label">End Time</label>
             <input
-              id="company"
-              name="company"
-              type="text"
-              value={draft.company}
-              onChange={updateDraftField}
-              className="ui-input ui-input-compact"
-            />
-            {fieldError ? (
-              <p className="mt-2 text-sm text-red-700">{fieldError}</p>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="phone_number" className="ui-label">Phone Number</label>
-            <input
-              id="phone_number"
-              name="phone_number"
-              type="tel"
-              value={draft.phone_number}
+              id="end_time"
+              name="end_time"
+              type="time"
+              value={draft.end_time}
               onChange={updateDraftField}
               className="ui-input ui-input-compact"
             />
@@ -343,10 +278,9 @@ export default function TripSheetForm({
               name="template_id"
               value={templateId}
               onChange={handleTemplateChange}
-              required
               className="ui-select ui-select-compact"
             >
-              <option value="">Select a template</option>
+              <option value="">Start from blank body</option>
               {tripTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.title ?? template.id}
@@ -355,13 +289,17 @@ export default function TripSheetForm({
             </select>
           </div>
         </div>
+
+        {fieldError ? (
+          <p className="text-sm text-red-700">{fieldError}</p>
+        ) : null}
       </section>
 
       <section className="app-section-card space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Body</h2>
           <p className="mt-1 text-sm text-gray-600">
-            This content is prefilled once from the selected template and can be edited before save.
+            Start from a blank body or load template content, then edit it freely before save.
           </p>
         </div>
 

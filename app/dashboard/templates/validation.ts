@@ -1,0 +1,2 @@
+export const TEMPLATE_TITLE_MAX_LENGTH = 50
+export const TEMPLATE_BODY_MAX_LENGTH = 3000

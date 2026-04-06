@@ -1,8 +1,16 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
+export function createResendClient() {
+  const apiKey = process.env.RESEND_API_KEY
 
-function buildEmailLayout(content: string) {
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY is not configured.')
+  }
+
+  return new Resend(apiKey)
+}
+
+export function buildEmailLayout(content: string) {
   return `
     <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111; max-width: 520px;">
       ${content}
@@ -11,54 +19,130 @@ function buildEmailLayout(content: string) {
   `
 }
 
-export async function sendAssignmentEmail({
+type TripNotificationTripSheetSummary = {
+  title: string
+  startDate: string
+  startTime?: string | null
+  endDate?: string | null
+  endTime?: string | null
+}
+
+function formatDisplayDate(value: string) {
+  const parsedDate = new Date(`${value}T00:00:00`)
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(parsedDate)
+}
+
+function formatDisplayTime(value: string) {
+  const [hours, minutes] = value.split(':').map(Number)
+  const parsedDate = new Date()
+  parsedDate.setHours(hours || 0, minutes || 0, 0, 0)
+
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(parsedDate)
+}
+
+function formatTripSheetSchedule({
+  startDate,
+  startTime,
+  endDate,
+  endTime,
+}: TripNotificationTripSheetSummary) {
+  const startParts = [formatDisplayDate(startDate)]
+
+  if (startTime) {
+    startParts.push(formatDisplayTime(startTime))
+  }
+
+  const endParts = [formatDisplayDate(endDate || startDate)]
+
+  if (endTime) {
+    endParts.push(formatDisplayTime(endTime))
+  }
+
+  return `${startParts.join(', ')} -> ${endParts.join(', ')}`
+}
+
+export async function sendTripNotificationEmail({
   to,
   resourceName,
-  tripTitle,
-  startDate,
-  endDate,
-  customer,
   tripId,
+  tripTitle,
+  tripStartDate,
+  tripEndDate,
+  destination,
+  tripSheets,
 }: {
   to: string
   resourceName: string
-  tripTitle: string
-  startDate: string
-  endDate?: string | null
-  customer?: string | null
   tripId: string
+  tripTitle: string
+  tripStartDate: string
+  tripEndDate: string
+  destination?: string | null
+  tripSheets: TripNotificationTripSheetSummary[]
 }) {
-  const url = `${process.env.APP_BASE_URL}/my-trip-sheets/${tripId}`
+  const resend = createResendClient()
+  const url = `${process.env.APP_BASE_URL}/trips/${tripId}`
+  const subject = `Trip details: ${tripTitle}`
+  const tripSheetList = tripSheets
+    .map(
+      (tripSheet) => `
+        <li style="margin-bottom: 12px;">
+          <div style="font-weight: 600; color: #111827;">${tripSheet.title}</div>
+          <div style="color: #4b5563; font-size: 13px;">${formatTripSheetSchedule(tripSheet)}</div>
+        </li>
+      `
+    )
+    .join('')
 
-  return resend.emails.send({
-    from: process.env.EMAIL_FROM!,
-    to,
-    subject: `Assigned: ${tripTitle} (${startDate})`,
-    html: buildEmailLayout(`
+  const html = buildEmailLayout(`
       <p style="margin-bottom: 8px;">Hi ${resourceName},</p>
 
       <p style="margin-bottom: 16px;">
-        You’ve been <strong>assigned to a trip</strong>.
+        Here are your current assigned trip sheets for this trip.
       </p>
 
       <div style="
-        border: 1px solid #dbeafe;
-        background-color: #eff6ff;
+        border: 1px solid #e5e7eb;
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 16px;
       ">
-        <p style="margin: 0; font-weight: 700; color: #1d4ed8;">
-          Please review the trip sheet before the trip.
-        </p>
-        <p style="margin: 6px 0 0 0; color: #1e3a8a;">
-          All trip details are maintained live on the app.
+        <p style="margin: 4px 0;"><strong>Trip:</strong> ${tripTitle}</p>
+        <p style="margin: 4px 0;"><strong>Destination:</strong> ${destination || 'TBD'}</p>
+        <p style="margin: 4px 0;"><strong>Trip dates:</strong> ${formatDisplayDate(tripStartDate)} to ${formatDisplayDate(tripEndDate)}</p>
+      </div>
+
+      <div style="
+        border: 1px solid #eef2f7;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 18px;
+        background-color: #fafcff;
+      ">
+        <p style="margin: 0; font-weight: 700; color: #111827;">Assigned trip sheets</p>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #4b5563;">
+          The app remains the source of truth for the latest live trip details.
         </p>
       </div>
 
+      <div style="margin-bottom: 18px;">
+        <ul style="padding-left: 18px; margin: 0;">
+          ${tripSheetList}
+        </ul>
+      </div>
+
       <div style="margin-bottom: 20px;">
-        <a 
-          href="${url}" 
+        <a
+          href="${url}"
           style="
             display: inline-block;
             padding: 12px 18px;
@@ -69,120 +153,23 @@ export async function sendAssignmentEmail({
             font-weight: 600;
           "
         >
-          Open Trip Sheet
+          Open Trip in App
         </a>
-      </div>
-
-      <div style="
-        border: 1px solid #eee;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 16px;
-      ">
-        <p style="margin: 4px 0;"><strong>Trip:</strong> ${tripTitle}</p>
-        <p style="margin: 4px 0;"><strong>Start:</strong> ${startDate}</p>
-        ${endDate ? `<p style="margin: 4px 0;"><strong>End:</strong> ${endDate}</p>` : ''}
-        ${customer ? `<p style="margin: 4px 0;"><strong>Customer:</strong> ${customer}</p>` : ''}
       </div>
 
       <p style="font-size: 13px; color: #555;">
-        Trip details may change. Always refer to the Trip Sheet for the latest updates.
+        Please rely on the app for the most up-to-date timings, assignments, and edits.
       </p>
+    `)
 
-      <div style="margin-top: 16px;">
-        <a 
-          href="${url}" 
-          style="color: #2563eb; text-decoration: none; font-weight: 500;"
-        >
-          → View latest trip details
-        </a>
-      </div>
-    `),
-  })
-}
-
-export async function sendReminderEmail({
-  to,
-  resourceName,
-  tripTitle,
-  startDate,
-  endDate,
-  customer,
-  tripId,
-}: {
-  to: string
-  resourceName: string
-  tripTitle: string
-  startDate: string
-  endDate?: string | null
-  customer?: string | null
-  tripId: string
-}) {
-  const url = `${process.env.APP_BASE_URL}/my-trip-sheets/${tripId}`
-
-  return resend.emails.send({
+  await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to,
-    subject: `Please Review: ${tripTitle} starts in 3 days`,
-    html: buildEmailLayout(`
-      <p style="margin-bottom: 8px;">Hi ${resourceName},</p>
-
-      <div style="
-        border: 1px solid #f59e0b;
-        background-color: #fffbeb;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 16px;
-      ">
-        <p style="margin: 0; font-weight: 700; color: #92400e;">
-          Your trip starts in 3 days.
-        </p>
-        <p style="margin: 6px 0 0 0; color: #78350f;">
-          Please review the latest trip details now.
-        </p>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <a 
-          href="${url}" 
-          style="
-            display: inline-block;
-            padding: 12px 18px;
-            background-color: #2563eb;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-          "
-        >
-          Review Trip Sheet
-        </a>
-      </div>
-
-      <div style="
-        border: 1px solid #eee;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 16px;
-      ">
-        <p style="margin: 4px 0;"><strong>Trip:</strong> ${tripTitle}</p>
-        <p style="margin: 4px 0;"><strong>Start:</strong> ${startDate}</p>
-        ${endDate ? `<p style="margin: 4px 0;"><strong>End:</strong> ${endDate}</p>` : ''}
-        ${customer ? `<p style="margin: 4px 0;"><strong>Customer:</strong> ${customer}</p>` : ''}
-      </div>
-
-      <p style="font-size: 13px; color: #555;">
-        Details may have changed. Please rely on the Trip Sheet for the most up-to-date information.
-      </p>
-
-      <div style="margin-top: 16px;">
-        <a 
-          href="${url}" 
-          style="color: #2563eb; text-decoration: none; font-weight: 500;"
-        >
-          → Open latest trip sheet
-        </a>
-      </div>
-    `),
+    subject,
+    html,
   })
+
+  return {
+    subject,
+  }
 }

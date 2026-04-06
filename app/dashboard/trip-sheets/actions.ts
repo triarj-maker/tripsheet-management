@@ -3,90 +3,39 @@
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
-import { sendAssignmentEmail } from '@/lib/email'
-import { normalizeTripTypeInput } from '@/lib/trip-sheets'
-import { createAdminClient } from '@/lib/supabase/admin'
-
-import { requireAdmin } from './lib'
 import {
-  guestOrCompanyRequiredMessage,
-  hasGuestOrCompany,
-} from './validation'
+  isDateRangeOrdered,
+  isTripSheetWithinTripRange,
+  tripSheetDateRangeMessage,
+  tripSheetWithinTripRangeMessage,
+} from '@/lib/trip-date-validation'
 
-type DestinationRecord = {
-  id: string
-  name: string | null
-}
-
-async function getDestinationForWrite(
-  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
-  destinationId: string
-) {
-  if (!destinationId) {
-    return {
-      destination: null,
-      error: 'Destination is required.',
-    }
-  }
-
-  let data: DestinationRecord | null = null
-  let errorMessage: string | null = null
-
-  const { data: sessionData, error: sessionError } = await supabase
-    .from('destinations')
-    .select('id, name')
-    .eq('id', destinationId)
-    .maybeSingle()
-
-  data = (sessionData as DestinationRecord | null) ?? null
-  errorMessage = sessionError?.message ?? null
-
-  if (!data) {
-    try {
-      const adminClient = createAdminClient()
-      const { data: adminData, error: adminError } = await adminClient
-        .from('destinations')
-        .select('id, name')
-        .eq('id', destinationId)
-        .maybeSingle()
-
-      data = (adminData as DestinationRecord | null) ?? null
-      errorMessage = adminError?.message ?? errorMessage
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : errorMessage
-    }
-  }
-
-  if (errorMessage && !data) {
-    return {
-      destination: null,
-      error: errorMessage,
-    }
-  }
-
-  const destination = data
-
-  if (!destination) {
-    return {
-      destination: null,
-      error: 'Selected destination was not found.',
-    }
-  }
-
-  return {
-    destination,
-    error: null,
-  }
-}
-
-function buildNewTripSheetRedirect(error: string) {
-  const params = new URLSearchParams({ error })
-  return `/dashboard/trip-sheets/new?${params.toString()}`
-}
+import {
+  insertTripSheetAssignments,
+} from './trip-sheet-assignments'
+import { requireAdmin } from './lib'
 
 function buildTripSheetsRedirect(error: string) {
   const params = new URLSearchParams({ error })
-  return `/dashboard/trip-sheets?${params.toString()}`
+  return `/dashboard/trips?${params.toString()}`
+}
+
+function buildTripDetailPath(tripId: string) {
+  return `/dashboard/trips/${tripId}`
+}
+
+function buildNewTripSheetRedirect(
+  error: string,
+  tripId: string,
+  duplicateFrom?: string
+) {
+  const params = new URLSearchParams({ error, tripId })
+
+  if (duplicateFrom) {
+    params.set('duplicateFrom', duplicateFrom)
+  }
+
+  return `/dashboard/trip-sheets/new?${params.toString()}`
 }
 
 function buildEditTripSheetRedirect(id: string, error: string) {
@@ -94,112 +43,37 @@ function buildEditTripSheetRedirect(id: string, error: string) {
   return `/dashboard/trip-sheets/${id}/edit?${params.toString()}`
 }
 
-async function notifyAssignmentIfNeeded({
-  supabase,
-  tripSheetId,
-  resourceUserId,
-}: {
-  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase']
-  tripSheetId: string
-  resourceUserId: string
-}) {
-  // 1. Check if notification already exists
-  const { data: existingNotification } = await supabase
-    .from('trip_sheet_notifications')
-    .select('id')
-    .eq('trip_sheet_id', tripSheetId)
-    .eq('resource_user_id', resourceUserId)
-    .eq('notification_type', 'assignment')
-    .maybeSingle()
+function appendErrorParam(path: string, error: string) {
+  const [pathname, queryString = ''] = path.split('?')
+  const params = new URLSearchParams(queryString)
+  params.set('error', error)
 
-  if (existingNotification) {
-    return
+  const nextQuery = params.toString()
+
+  return nextQuery ? `${pathname}?${nextQuery}` : pathname
+}
+
+function getReturnPath(formData: FormData, fallback: string) {
+  const returnPath = String(formData.get('return_path') ?? '').trim()
+
+  if (returnPath.startsWith('/')) {
+    return returnPath
   }
 
-  // 2. Get resource details
-  const { data: resource, error: resourceError } = await supabase
-    .from('profiles')
-    .select('id, full_name, email')
-    .eq('id', resourceUserId)
-    .maybeSingle()
-
-  if (resourceError || !resource || !resource.email) {
-    await supabase.from('trip_sheet_notifications').insert({
-      trip_sheet_id: tripSheetId,
-      resource_user_id: resourceUserId,
-      notification_type: 'assignment',
-      email: resource?.email ?? '',
-      status: 'failed',
-      error_message: resourceError?.message ?? 'Assigned resource email not found.',
-    })
-    return
-  }
-
-  // 3. Get trip details
-  const { data: tripSheet, error: tripSheetError } = await supabase
-    .from('trip_sheets')
-    .select('id, title, start_date, end_date, guest_name, company')
-    .eq('id', tripSheetId)
-    .maybeSingle()
-
-  if (tripSheetError || !tripSheet) {
-    await supabase.from('trip_sheet_notifications').insert({
-      trip_sheet_id: tripSheetId,
-      resource_user_id: resourceUserId,
-      notification_type: 'assignment',
-      email: resource.email,
-      status: 'failed',
-      error_message: tripSheetError?.message ?? 'Trip sheet not found for notification.',
-    })
-    return
-  }
-
-  // 4. Send email and log result
-  try {
-    await sendAssignmentEmail({
-      to: resource.email,
-      resourceName: resource.full_name,
-      tripTitle: tripSheet.title,
-      startDate: tripSheet.start_date,
-      endDate: tripSheet.end_date,
-      customer: tripSheet.guest_name || tripSheet.company,
-      tripId: tripSheet.id,
-    })
-
-    await supabase.from('trip_sheet_notifications').insert({
-      trip_sheet_id: tripSheet.id,
-      resource_user_id: resource.id,
-      notification_type: 'assignment',
-      email: resource.email,
-      status: 'sent',
-    })
-  } catch (err: unknown) {
-    await supabase.from('trip_sheet_notifications').insert({
-      trip_sheet_id: tripSheet.id,
-      resource_user_id: resource.id,
-      notification_type: 'assignment',
-      email: resource.email,
-      status: 'failed',
-      error_message:
-        err instanceof Error ? err.message : 'Unknown email sending error.',
-    })
-  }
+  return fallback
 }
 
 export async function createTripSheet(formData: FormData) {
   const { supabase, user } = await requireAdmin()
 
+  const tripId = String(formData.get('trip_id') ?? '').trim()
   const title = String(formData.get('title') ?? '').trim()
-  const tripTypeInput = String(formData.get('trip_type') ?? '').trim()
-  const destinationId = String(formData.get('destination_id') ?? '').trim()
   const startDate = String(formData.get('start_date') ?? '').trim()
-  const endDate = String(formData.get('end_date') ?? '').trim()
-  const guestName = String(formData.get('guest_name') ?? '').trim()
-  const company = String(formData.get('company') ?? '').trim()
-  const phoneNumber = String(formData.get('phone_number') ?? '').trim()
+  const startTime = String(formData.get('start_time') ?? '').trim()
+  const endDate = String(formData.get('end_date') ?? '').trim() || startDate
+  const endTime = String(formData.get('end_time') ?? '').trim()
   const templateId = String(formData.get('template_id') ?? '').trim()
   const body = String(formData.get('body') ?? '')
-  const tripType = normalizeTripTypeInput(tripTypeInput).toLowerCase()
   const resourceUserIds = Array.from(
     new Set(
       formData
@@ -209,72 +83,68 @@ export async function createTripSheet(formData: FormData) {
     )
   )
 
+  if (!tripId || !title || !startDate || !body.trim()) {
+    redirect(buildNewTripSheetRedirect('Title, dates, and body are required.', tripId))
+  }
+
+  if (!isDateRangeOrdered(startDate, endDate)) {
+    redirect(buildNewTripSheetRedirect(tripSheetDateRangeMessage, tripId))
+  }
+
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('id, start_date, end_date')
+    .eq('id', tripId)
+    .maybeSingle()
+
+  if (!trip) {
+    redirect(buildTripSheetsRedirect('Parent trip not found.'))
+  }
+
   if (
-    !title ||
-    !tripType ||
-    !destinationId ||
-    !startDate ||
-    !endDate ||
-    !templateId ||
-    !body.trim()
+    !isTripSheetWithinTripRange({
+      tripStartDate: (trip as { start_date: string | null }).start_date ?? '',
+      tripEndDate: (trip as { end_date: string | null }).end_date ?? '',
+      tripSheetStartDate: startDate,
+      tripSheetEndDate: endDate,
+    })
   ) {
-    redirect(
-      buildNewTripSheetRedirect(
-        'Title, trip type, destination, dates, template, and body are required.'
-      )
-    )
+    redirect(buildNewTripSheetRedirect(tripSheetWithinTripRangeMessage, tripId))
   }
-
-  if (!hasGuestOrCompany(guestName, company)) {
-    redirect(buildNewTripSheetRedirect(guestOrCompanyRequiredMessage))
-  }
-
-  const destinationResult = await getDestinationForWrite(supabase, destinationId)
-
-  if (destinationResult?.error || !destinationResult?.destination) {
-    redirect(buildNewTripSheetRedirect(destinationResult?.error ?? 'Destination is required.'))
-  }
-
-  const destination = destinationResult.destination
 
   const { data: tripSheet, error } = await supabase
     .from('trip_sheets')
     .insert({
+      trip_id: tripId,
       title,
-      trip_type: tripType,
-      destination_id: destination.id,
       start_date: startDate,
+      start_time: startTime || null,
       end_date: endDate,
-      guest_name: guestName || null,
-      company: company || null,
-      phone_number: phoneNumber || null,
-      template_id: templateId,
+      end_time: endTime || null,
+      template_id: templateId || null,
       body_text: body,
       is_archived: false,
       created_by: user.id,
       last_updated_by: user.id,
     })
-    .select('id, title, start_date, end_date, guest_name, company')
+    .select('id, trip_id')
     .single()
 
   if (error) {
-    redirect(buildNewTripSheetRedirect(error.message))
+    redirect(buildNewTripSheetRedirect(error.message, tripId))
   }
 
   if (!tripSheet) {
-    redirect(buildNewTripSheetRedirect('Trip sheet could not be created.'))
+    redirect(buildNewTripSheetRedirect('Trip sheet could not be created.', tripId))
   }
 
   if (resourceUserIds.length > 0) {
-    const { error: assignmentError } = await supabase
-      .from('trip_sheet_assignments')
-      .insert(
-        resourceUserIds.map((resourceUserId) => ({
-          trip_sheet_id: tripSheet.id,
-          resource_user_id: resourceUserId,
-          assigned_by: user.id,
-        }))
-      )
+    const { error: assignmentError } = await insertTripSheetAssignments({
+      supabase,
+      tripSheetId: tripSheet.id,
+      resourceUserIds,
+      assignedBy: user.id,
+    })
 
     if (assignmentError) {
       redirect(
@@ -284,75 +154,93 @@ export async function createTripSheet(formData: FormData) {
         )
       )
     }
-
-    for (const resourceUserId of resourceUserIds) {
-      await notifyAssignmentIfNeeded({
-        supabase,
-        tripSheetId: tripSheet.id,
-        resourceUserId,
-      })
-    }
   }
 
-  redirect(appendToastParam('/dashboard/trip-sheets'))
+  redirect(appendToastParam(buildTripDetailPath(tripId)))
 }
 
 export async function updateTripSheet(formData: FormData) {
   const { supabase, user } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
+  const tripId = String(formData.get('trip_id') ?? '').trim()
 
   if (!id) {
     redirect(buildTripSheetsRedirect('Trip sheet not found.'))
   }
 
   const title = String(formData.get('title') ?? '').trim()
-  const tripTypeInput = String(formData.get('trip_type') ?? '').trim()
-  const destinationId = String(formData.get('destination_id') ?? '').trim()
   const startDate = String(formData.get('start_date') ?? '').trim()
+  const startTime = String(formData.get('start_time') ?? '').trim()
   const endDate = String(formData.get('end_date') ?? '').trim()
-  const guestName = String(formData.get('guest_name') ?? '').trim()
-  const company = String(formData.get('company') ?? '').trim()
-  const phoneNumber = String(formData.get('phone_number') ?? '').trim()
+  const endTime = String(formData.get('end_time') ?? '').trim()
   const body = String(formData.get('body') ?? '')
-  const tripType = normalizeTripTypeInput(tripTypeInput).toLowerCase()
 
-  if (!title || !tripType || !destinationId || !startDate || !endDate || !body.trim()) {
+  if (!tripId || !title || !startDate || !endDate || !body.trim()) {
     redirect(
       buildEditTripSheetRedirect(
         id,
-        'Title, trip type, destination, dates, and body are required.'
+        'Title, dates, and body are required.'
       )
     )
   }
 
-  if (!hasGuestOrCompany(guestName, company)) {
-    redirect(buildEditTripSheetRedirect(id, guestOrCompanyRequiredMessage))
+  if (!isDateRangeOrdered(startDate, endDate)) {
+    redirect(buildEditTripSheetRedirect(id, tripSheetDateRangeMessage))
   }
 
-  const destinationResult = await getDestinationForWrite(supabase, destinationId)
+  const { data: existingTripSheetData, error: existingTripSheetError } = await supabase
+    .from('trip_sheets')
+    .select('id, start_date, start_time, end_date, end_time')
+    .eq('id', id)
+    .maybeSingle()
 
-  if (destinationResult?.error || !destinationResult?.destination) {
+  const existingTripSheet =
+    (existingTripSheetData as {
+      id: string
+      start_date: string | null
+      start_time: string | null
+      end_date: string | null
+      end_time: string | null
+    } | null) ?? null
+
+  if (existingTripSheetError || !existingTripSheet) {
     redirect(
       buildEditTripSheetRedirect(
         id,
-        destinationResult?.error ?? 'Destination is required.'
+        existingTripSheetError?.message ?? 'Trip sheet not found.'
       )
     )
   }
 
-  const destination = destinationResult.destination
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('id, start_date, end_date')
+    .eq('id', tripId)
+    .maybeSingle()
+
+  if (!trip) {
+    redirect(buildTripSheetsRedirect('Parent trip not found.'))
+  }
+
+  if (
+    !isTripSheetWithinTripRange({
+      tripStartDate: (trip as { start_date: string | null }).start_date ?? '',
+      tripEndDate: (trip as { end_date: string | null }).end_date ?? '',
+      tripSheetStartDate: startDate,
+      tripSheetEndDate: endDate,
+    })
+  ) {
+    redirect(buildEditTripSheetRedirect(id, tripSheetWithinTripRangeMessage))
+  }
 
   const { error } = await supabase
     .from('trip_sheets')
     .update({
       title,
-      trip_type: tripType,
-      destination_id: destination.id,
       start_date: startDate,
+      start_time: startTime || null,
       end_date: endDate,
-      guest_name: guestName || null,
-      company: company || null,
-      phone_number: phoneNumber || null,
+      end_time: endTime || null,
       body_text: body,
       last_updated_by: user.id,
     })
@@ -362,58 +250,13 @@ export async function updateTripSheet(formData: FormData) {
     redirect(buildEditTripSheetRedirect(id, error.message))
   }
 
-  redirect(appendToastParam('/dashboard/trip-sheets'))
+  redirect(appendToastParam(buildTripDetailPath(tripId)))
 }
 
-export async function archiveTripSheet(formData: FormData) {
-  const { supabase, user } = await requireAdmin()
-  const id = String(formData.get('id') ?? '').trim()
-
-  if (!id) {
-    redirect(buildTripSheetsRedirect('Trip sheet not found.'))
-  }
-
-  const { error } = await supabase
-    .from('trip_sheets')
-    .update({
-      is_archived: true,
-      last_updated_by: user.id,
-    })
-    .eq('id', id)
-
-  if (error) {
-    redirect(buildEditTripSheetRedirect(id, error.message))
-  }
-
-  redirect(appendToastParam('/dashboard/trip-sheets'))
-}
-
-export async function unarchiveTripSheet(formData: FormData) {
-  const { supabase, user } = await requireAdmin()
-  const id = String(formData.get('id') ?? '').trim()
-
-  if (!id) {
-    redirect(buildTripSheetsRedirect('Trip sheet not found.'))
-  }
-
-  const { error } = await supabase
-    .from('trip_sheets')
-    .update({
-      is_archived: false,
-      last_updated_by: user.id,
-    })
-    .eq('id', id)
-
-  if (error) {
-    redirect(buildTripSheetsRedirect(error.message))
-  }
-
-  redirect(appendToastParam('/dashboard/trip-sheets?showArchived=true'))
-}
-
-export async function deleteArchivedTripSheet(formData: FormData) {
+export async function deleteTripSheet(formData: FormData) {
   const { supabase } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
+  const tripId = String(formData.get('trip_id') ?? '').trim()
 
   if (!id) {
     redirect(buildTripSheetsRedirect('Trip sheet not found.'))
@@ -421,21 +264,19 @@ export async function deleteArchivedTripSheet(formData: FormData) {
 
   const { data: tripSheet, error: tripSheetError } = await supabase
     .from('trip_sheets')
-    .select('id, is_archived')
+    .select('id, trip_id')
     .eq('id', id)
     .maybeSingle()
 
   if (tripSheetError) {
-    redirect(buildTripSheetsRedirect(tripSheetError.message))
+    redirect(buildEditTripSheetRedirect(id, tripSheetError.message))
   }
 
   if (!tripSheet) {
     redirect(buildTripSheetsRedirect('Trip sheet not found.'))
   }
 
-  if (!tripSheet.is_archived) {
-    redirect(buildTripSheetsRedirect('Only archived trip sheets can be deleted.'))
-  }
+  const resolvedTripId = tripId || tripSheet.trip_id || ''
 
   const { error: assignmentsError } = await supabase
     .from('trip_sheet_assignments')
@@ -452,24 +293,25 @@ export async function deleteArchivedTripSheet(formData: FormData) {
     .eq('id', id)
 
   if (deleteError) {
-    redirect(buildTripSheetsRedirect(deleteError.message))
+    redirect(buildEditTripSheetRedirect(id, deleteError.message))
   }
 
-  redirect(appendToastParam('/dashboard/trip-sheets?showArchived=true'))
+  redirect(
+    appendToastParam(resolvedTripId ? buildTripDetailPath(resolvedTripId) : '/dashboard/trips')
+  )
 }
 
 export async function assignResourceToTripSheet(formData: FormData) {
   const { supabase, user } = await requireAdmin()
   const tripSheetId = String(formData.get('trip_sheet_id') ?? '').trim()
   const resourceUserId = String(formData.get('resource_user_id') ?? '').trim()
+  const returnPath = getReturnPath(
+    formData,
+    `/dashboard/trip-sheets/${tripSheetId}/edit`
+  )
 
   if (!tripSheetId || !resourceUserId) {
-    redirect(
-      buildEditTripSheetRedirect(
-        tripSheetId,
-        'Please select a resource to assign.'
-      )
-    )
+    redirect(appendErrorParam(returnPath, 'Please select a resource to assign.'))
   }
 
   const { data: existingAssignment } = await supabase
@@ -480,7 +322,7 @@ export async function assignResourceToTripSheet(formData: FormData) {
     .maybeSingle()
 
   if (existingAssignment) {
-    redirect(buildEditTripSheetRedirect(tripSheetId, 'Resource is already assigned.'))
+    redirect(appendErrorParam(returnPath, 'Resource is already assigned.'))
   }
 
   const { error } = await supabase.from('trip_sheet_assignments').insert({
@@ -490,26 +332,31 @@ export async function assignResourceToTripSheet(formData: FormData) {
   })
 
   if (error) {
-    redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
+    redirect(appendErrorParam(returnPath, error.message))
   }
 
-  await notifyAssignmentIfNeeded({
-    supabase,
-    tripSheetId,
-    resourceUserId,
-  })
-
-  redirect(appendToastParam(`/dashboard/trip-sheets/${tripSheetId}/edit`))
+  redirect(appendToastParam(returnPath))
 }
 
 export async function removeResourceFromTripSheet(formData: FormData) {
   const { supabase } = await requireAdmin()
   const tripSheetId = String(formData.get('trip_sheet_id') ?? '').trim()
   const assignmentId = String(formData.get('assignment_id') ?? '').trim()
+  const returnPath = getReturnPath(
+    formData,
+    `/dashboard/trip-sheets/${tripSheetId}/edit`
+  )
 
   if (!tripSheetId || !assignmentId) {
-    redirect(buildTripSheetsRedirect('Assignment not found.'))
+    redirect(appendErrorParam(returnPath, 'Assignment not found.'))
   }
+
+  await supabase
+    .from('trip_sheet_assignments')
+    .select('trip_sheet_id, resource_user_id')
+    .eq('id', assignmentId)
+    .eq('trip_sheet_id', tripSheetId)
+    .maybeSingle()
 
   const { error } = await supabase
     .from('trip_sheet_assignments')
@@ -518,8 +365,8 @@ export async function removeResourceFromTripSheet(formData: FormData) {
     .eq('trip_sheet_id', tripSheetId)
 
   if (error) {
-    redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
+    redirect(appendErrorParam(returnPath, error.message))
   }
 
-  redirect(appendToastParam(`/dashboard/trip-sheets/${tripSheetId}/edit`))
+  redirect(appendToastParam(returnPath))
 }

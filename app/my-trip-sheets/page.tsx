@@ -1,25 +1,12 @@
-import Link from 'next/link'
-
 import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
-import AssignedTripCards from '@/app/components/AssignedTripCards'
+import AssignedTripsCards from '@/app/components/AssignedTripsCards'
 import { requireResource } from '@/app/dashboard/lib'
-import { getDestinationName, type DestinationRelation } from '@/lib/trip-sheets'
-
-type TripSheetRow = {
-  id: string
-  title: string | null
-  destination_id: string | null
-  destination_ref: DestinationRelation
-  start_date: string | null
-  end_date: string | null
-  guest_name: string | null
-  updated_at: string | null
-}
-
-function formatValue(value: string | null) {
-  return value ?? '-'
-}
+import {
+  buildAssignedTripSummaries,
+  sortAssignedTrips,
+  type AssignedTripSheetRow,
+} from '@/app/lib/assigned-trips'
 
 export default async function MyTripSheetsPage() {
   const { supabase, user } = await requireResource()
@@ -28,7 +15,7 @@ export default async function MyTripSheetsPage() {
     .from('trip_sheet_assignments')
     .select('trip_sheet_id')
     .eq('resource_user_id', user.id)
-    .order('assigned_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   const tripSheetIds =
     ((assignmentData as Array<{ trip_sheet_id: string }> | null) ?? []).map(
@@ -40,16 +27,14 @@ export default async function MyTripSheetsPage() {
       ? await supabase
           .from('trip_sheets')
           .select(
-            'id, title, destination_id, destination_ref:destinations(name), start_date, end_date, guest_name, updated_at'
+            'id, trip_id, trip:trips(id, title, start_date, end_date, destination_ref:destinations(name))'
           )
           .in('id', tripSheetIds)
-          .order('start_date', { ascending: true })
       : { data: [], error: null }
 
-  const tripSheets = ((tripSheetData as TripSheetRow[] | null) ?? []).map((tripSheet) => ({
-    ...tripSheet,
-    destination: getDestinationName(tripSheet.destination_ref, 'Unknown destination'),
-  }))
+  const trips = sortAssignedTrips(
+    buildAssignedTripSummaries((tripSheetData as AssignedTripSheetRow[] | null) ?? [])
+  )
   const errorMessage = assignmentError?.message || tripSheetError?.message || null
 
   return (
@@ -70,9 +55,9 @@ export default async function MyTripSheetsPage() {
 
         <div className="app-page-header">
           <div>
-            <h1 className="app-page-title">My Trip Sheets</h1>
+            <h1 className="app-page-title">My Trips</h1>
             <p className="app-page-subtitle">
-              View the trip sheets currently assigned to you.
+              View the trips where you are assigned to at least one trip sheet.
             </p>
           </div>
         </div>
@@ -83,63 +68,11 @@ export default async function MyTripSheetsPage() {
           </p>
         ) : null}
 
-        <AssignedTripCards tripSheets={tripSheets} className="space-y-4 md:hidden" />
-
-        <div className="app-table-wrap hidden md:block">
-          <table className="app-table min-w-full table-fixed">
-            <thead>
-              <tr>
-                <th className="w-[30%] px-5 py-3 font-medium text-gray-700">Trip</th>
-                <th className="w-[15%] px-5 py-3 font-medium text-gray-700">Destination</th>
-                <th className="w-[12%] px-5 py-3 font-medium text-gray-700">Start</th>
-                <th className="w-[12%] px-5 py-3 font-medium text-gray-700">End</th>
-                <th className="w-[20%] px-5 py-3 font-medium text-gray-700">Customer</th>
-                <th className="w-[11%] px-5 py-3 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tripSheets.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-5 text-gray-700">
-                    No trip sheets assigned yet.
-                  </td>
-                </tr>
-              ) : (
-                tripSheets.map((tripSheet) => (
-                  <tr key={tripSheet.id} className="align-top">
-                    <td className="px-5 py-4 text-gray-900">
-                      <div className="max-w-full space-y-1">
-                        <p className="text-[15px] font-semibold leading-6 whitespace-normal break-words text-gray-900">
-                          {formatValue(tripSheet.title)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-gray-900">
-                      {formatValue(tripSheet.destination)}
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap text-gray-900">
-                      {formatValue(tripSheet.start_date)}
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap text-gray-900">
-                      {formatValue(tripSheet.end_date)}
-                    </td>
-                    <td className="px-5 py-4 text-gray-900">
-                      {formatValue(tripSheet.guest_name)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Link
-                        href={`/trip-sheets/${tripSheet.id}`}
-                        className="ui-button ui-button-neutral"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AssignedTripsCards
+          trips={trips}
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+          from="my-trip-sheets"
+        />
       </div>
     </main>
   )

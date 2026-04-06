@@ -1,5 +1,10 @@
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 
+import {
+  TEMPLATE_BODY_MAX_LENGTH,
+  TEMPLATE_TITLE_MAX_LENGTH,
+} from './validation'
+
 type TemplateFormProps = {
   action: (formData: FormData) => void | Promise<void>
   submitLabel: string
@@ -29,7 +34,7 @@ export default function TemplateForm({
           type="text"
           defaultValue={initialTitle}
           required
-          maxLength={30}
+          maxLength={TEMPLATE_TITLE_MAX_LENGTH}
           className="ui-input"
         />
       </div>
@@ -44,7 +49,7 @@ export default function TemplateForm({
           rows={14}
           defaultValue={initialBody}
           required
-          maxLength={3000}
+          maxLength={TEMPLATE_BODY_MAX_LENGTH}
           className="ui-textarea"
         />
       </div>

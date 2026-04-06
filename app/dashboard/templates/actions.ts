@@ -5,6 +5,10 @@ import { redirect } from 'next/navigation'
 import { appendToastParam } from '@/app/lib/action-feedback'
 
 import { requireAdmin } from './lib'
+import {
+  TEMPLATE_BODY_MAX_LENGTH,
+  TEMPLATE_TITLE_MAX_LENGTH,
+} from './validation'
 
 function buildTemplatesRedirect(error: string) {
   const params = new URLSearchParams({ error })
@@ -29,16 +33,20 @@ function validateTemplateInput(formData: FormData) {
     return { error: 'Title is required.' }
   }
 
-  if (title.length > 30) {
-    return { error: 'Title must be 30 characters or fewer.' }
+  if (title.length > TEMPLATE_TITLE_MAX_LENGTH) {
+    return {
+      error: `Title must be ${TEMPLATE_TITLE_MAX_LENGTH} characters or fewer.`,
+    }
   }
 
   if (!body.trim()) {
     return { error: 'Body is required.' }
   }
 
-  if (body.length > 3000) {
-    return { error: 'Body must be 3000 characters or fewer.' }
+  if (body.length > TEMPLATE_BODY_MAX_LENGTH) {
+    return {
+      error: `Body must be ${TEMPLATE_BODY_MAX_LENGTH} characters or fewer.`,
+    }
   }
 
   return { title, body }

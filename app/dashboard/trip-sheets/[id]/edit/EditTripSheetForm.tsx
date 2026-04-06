@@ -3,73 +3,53 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
-import ActionLinkButton from '@/app/components/ActionLinkButton'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
-import { toTripTypeFormValue, type DestinationRelation } from '@/lib/trip-sheets'
+import { formatTripTypeLabel } from '@/lib/trip-sheets'
 import { updateTripSheet } from '../../actions'
-import {
-  guestOrCompanyRequiredMessage,
-  hasGuestOrCompany,
-} from '../../validation'
-
-type DestinationOption = {
-  id: string
-  name: string
-}
 
 type TripSheet = {
   id: string
+  trip_id: string
   title: string | null
-  trip_type: string | null
-  destination_id: string | null
-  destination_ref: DestinationRelation
   start_date: string | null
+  start_time: string | null
   end_date: string | null
-  guest_name: string | null
-  company: string | null
-  phone_number: string | null
+  end_time: string | null
   body_text: string | null
+  templateTitle: string | null
 }
 
 type EditTripSheetFormProps = {
   tripSheet: TripSheet
-  templateName: string | null
-  destinations: DestinationOption[]
-  errorMessage?: string
+  trip: {
+    id: string
+    title: string | null
+    trip_type: string | null
+    destination: string
+  }
 }
 
 type TripSheetDraft = {
   title: string
-  trip_type: string
-  destination_id: string
   start_date: string
+  start_time: string
   end_date: string
-  guest_name: string
-  company: string
-  phone_number: string
+  end_time: string
   body: string
 }
 
 export default function EditTripSheetForm({
   tripSheet,
-  templateName,
-  destinations,
-  errorMessage,
+  trip,
 }: EditTripSheetFormProps) {
   const [draft, setDraft] = useState<TripSheetDraft>({
     title: tripSheet.title ?? '',
-    trip_type: toTripTypeFormValue(tripSheet.trip_type),
-    destination_id: tripSheet.destination_id ?? '',
     start_date: tripSheet.start_date ?? '',
+    start_time: tripSheet.start_time ?? '',
     end_date: tripSheet.end_date ?? '',
-    guest_name: tripSheet.guest_name ?? '',
-    company: tripSheet.company ?? '',
-    phone_number: tripSheet.phone_number ?? '',
+    end_time: tripSheet.end_time ?? '',
     body: tripSheet.body_text ?? '',
   })
-  const [fieldError, setFieldError] = useState(
-    errorMessage === guestOrCompanyRequiredMessage ? errorMessage : ''
-  )
 
   function updateDraftField(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -77,50 +57,47 @@ export default function EditTripSheetForm({
     const name = event.target.name as keyof TripSheetDraft
     const { value } = event.target
 
-    setDraft((currentDraft) => {
-      const nextDraft = {
-        ...currentDraft,
-        [name]: value,
-      }
-
-      if (
-        fieldError &&
-        (name === 'guest_name' || name === 'company') &&
-        hasGuestOrCompany(nextDraft.guest_name, nextDraft.company)
-      ) {
-        setFieldError('')
-      }
-
-      return nextDraft
-    })
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (!hasGuestOrCompany(draft.guest_name, draft.company)) {
-      event.preventDefault()
-      setFieldError(guestOrCompanyRequiredMessage)
-    }
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      [name]: value,
+    }))
   }
 
   return (
-    <form
-      action={updateTripSheet}
-      onSubmit={handleSubmit}
-      className="space-y-4"
-    >
+    <form action={updateTripSheet} className="space-y-4">
       <input type="hidden" name="id" value={tripSheet.id} />
+      <input type="hidden" name="trip_id" value={tripSheet.trip_id} />
 
       <section className="app-section-card space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Trip Details</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Details</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Update the core trip information and contact details.
+            Update the execution-specific details for this trip sheet.
           </p>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Trip</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">{trip.title ?? '-'}</p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Trip Type</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">
+              {formatTripTypeLabel(trip.trip_type)}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3">
+            <p className="text-xs font-medium text-gray-500">Destination</p>
+            <p className="mt-1 text-sm font-medium text-gray-900">{trip.destination}</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="title" className="ui-label">Title</label>
+          <div className="md:col-span-2">
+            <label htmlFor="title" className="ui-label">Trip Sheet Title</label>
             <input
               id="title"
               name="title"
@@ -133,41 +110,6 @@ export default function EditTripSheetForm({
           </div>
 
           <div>
-            <label htmlFor="trip_type" className="ui-label">Trip Type</label>
-            <select
-              id="trip_type"
-              name="trip_type"
-              value={draft.trip_type}
-              onChange={updateDraftField}
-              required
-              className="ui-select ui-select-compact"
-            >
-              <option value="">Select trip type</option>
-              <option value="educational">Educational</option>
-              <option value="private">Private</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="destination_id" className="ui-label">Destination</label>
-            <select
-              id="destination_id"
-              name="destination_id"
-              value={draft.destination_id}
-              onChange={updateDraftField}
-              required
-              className="ui-select ui-select-compact"
-            >
-              <option value="">Select a destination</option>
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {destination.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="start_date" className="ui-label">Start Date</label>
             <input
               id="start_date"
@@ -176,6 +118,18 @@ export default function EditTripSheetForm({
               value={draft.start_date}
               onChange={updateDraftField}
               required
+              className="ui-input ui-input-compact"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="start_time" className="ui-label">Start Time</label>
+            <input
+              id="start_time"
+              name="start_time"
+              type="time"
+              value={draft.start_time}
+              onChange={updateDraftField}
               className="ui-input ui-input-compact"
             />
           </div>
@@ -194,54 +148,29 @@ export default function EditTripSheetForm({
           </div>
 
           <div>
-            <label htmlFor="guest_name" className="ui-label">Guest / School Name</label>
+            <label htmlFor="end_time" className="ui-label">End Time</label>
             <input
-              id="guest_name"
-              name="guest_name"
-              type="text"
-              value={draft.guest_name}
+              id="end_time"
+              name="end_time"
+              type="time"
+              value={draft.end_time}
               onChange={updateDraftField}
               className="ui-input ui-input-compact"
             />
           </div>
 
-          <div>
-            <label htmlFor="company" className="ui-label">Company</label>
-            <input
-              id="company"
-              name="company"
-              type="text"
-              value={draft.company}
-              onChange={updateDraftField}
-              className="ui-input ui-input-compact"
-            />
-            {fieldError ? (
-              <p className="mt-2 text-sm text-red-700">{fieldError}</p>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="phone_number" className="ui-label">Phone Number</label>
-            <input
-              id="phone_number"
-              name="phone_number"
-              type="tel"
-              value={draft.phone_number}
-              onChange={updateDraftField}
-              className="ui-input ui-input-compact"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="template_name" className="ui-label">Template</label>
-            <input
-              id="template_name"
-              type="text"
-              value={templateName ?? 'Locked template'}
-              readOnly
+          <div className="md:col-span-2">
+            <label htmlFor="template_id" className="ui-label">Template</label>
+            <select
+              id="template_id"
               disabled
-              className="ui-input ui-input-compact bg-zinc-50 text-gray-500"
-            />
+              className="ui-select ui-select-compact"
+              defaultValue=""
+            >
+              <option value="">
+                {tripSheet.templateTitle ?? 'No template selected'}
+              </option>
+            </select>
           </div>
         </div>
       </section>
@@ -274,14 +203,8 @@ export default function EditTripSheetForm({
           pendingLabel="Saving…"
           className="ui-button-primary ui-button-compact"
         />
-        <ActionLinkButton
-          href={`/dashboard/trip-sheets/new?duplicateFrom=${tripSheet.id}`}
-          idleLabel="Duplicate"
-          pendingLabel="Duplicating…"
-          className="ui-button-secondary ui-button-compact"
-        />
         <Link
-          href="/dashboard/trip-sheets"
+          href={`/dashboard/trips/${tripSheet.trip_id}`}
           className="ui-button ui-button-secondary ui-button-compact"
         >
           Cancel

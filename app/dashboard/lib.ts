@@ -15,7 +15,7 @@ function buildLoginRedirect(error: string) {
 }
 
 export function getSignedInHomePath(role: string | null | undefined) {
-  return role === 'resource' ? '/my-trip-sheets' : '/dashboard/trip-sheets'
+  return role === 'resource' ? '/my-trip-sheets' : '/dashboard/trips'
 }
 
 export async function getCurrentUserProfile() {

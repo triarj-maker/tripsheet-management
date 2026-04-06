@@ -7,12 +7,14 @@ type ArchivedToggleProps = {
   checked: boolean
   className?: string
   compact?: boolean
+  label?: string
 }
 
 export default function ArchivedToggle({
   checked,
   className = '',
   compact = false,
+  label = 'Archived',
 }: ArchivedToggleProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -42,7 +44,7 @@ export default function ArchivedToggle({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <span className={compact ? 'text-xs font-medium text-gray-600' : 'text-sm font-medium text-gray-600'}>
-        Archived
+        {label}
       </span>
 
       <button
