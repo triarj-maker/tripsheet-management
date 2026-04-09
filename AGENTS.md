@@ -1,188 +1,132 @@
 AGENTS.md - Trip Sheet Management System
 
-Updated: 03/04/2026
+Updated: 04/08/2026
 
 --------------------------------------------------
 
 1. Purpose
 
-Guide Codex to correctly understand and modify this codebase.
+Lean operational guidance for coding agents working in this repo.
 
-Goals:
+Priorities:
 - correctness over cleverness
 - minimal, safe changes
-- strict adherence to system behavior
+- implementation aligned with current product behavior
 
-This file defines HOW the system must be implemented.
+This file is intentionally concise. It is not the full product context file.
 
 --------------------------------------------------
 
-2. Project Structure
+2. Core Architecture
 
-- Next.js (App Router)
+- Next.js App Router
 - Supabase (PostgreSQL + Auth)
-- Server Actions for mutations
+- Server actions for mutations
 
-Key folders:
-- app/dashboard/trips/
-- app/dashboard/trip-sheets/
+Primary model:
+- Trips = parent planning entities
+- Trip Sheets = child execution units
+- Resources are assigned to Trip Sheets
 
---------------------------------------------------
-
-3. Data Model (Implementation-Level)
-
-trips
-- id (primary key)
-- title
-- start_date
-- end_date
-- trip_type
-- destination_id
-
-trip_sheets
-- id
-- trip_id (FK → trips.id)
-- title
-- start_date
-- start_time
-- end_date
-- end_time
-- body_text
-
-trip_sheet_assignments
-- trip_sheet_id
-- resource_user_id
-
---------------------------------------------------
-
-4. Critical Relationships
-
+Key relationship rules:
 - Trip Sheets depend on Trips
-- Trip Sheet timing is derived relative to Trip start_date
-- Parent (Trip) controls child (Trip Sheets)
+- Parent Trip changes may drive child Trip Sheet changes
+- Child entities should not be updated unless required by the parent change or explicit user action
 
 --------------------------------------------------
 
-5. Source of Truth
+3. Calendar Model
 
-- Database is the PRIMARY source of truth
-- ALWAYS fetch current state from DB before computing changes
-- Form values may be used ONLY as fallback where required by current workflow
-- Do NOT rely solely on form values for existing persisted data
+- Month view shows Trips
+- Week view shows Trip Sheets
+- Month cell whitespace click drills into week view for the clicked week
+- Month cells show conflict indicators even when conflicting items are hidden behind "+X more"
 
---------------------------------------------------
-
-6. Core Logic Rules
-
-1. NEVER assume DB constraints enforce business logic
-2. ALL validation must be handled at application level
-3. Parent changes drive child updates
-4. Child Trip Sheets must NOT be updated unless required by parent change
-5. Avoid introducing intermediate states that break parent-child consistency
+When editing calendar behavior:
+- preserve month/week separation
+- do not reintroduce pill-visibility-dependent conflict logic
+- do not break whitespace click-to-week behavior
 
 --------------------------------------------------
 
-7. Date Shift Logic (Critical)
+4. Assignment UX Rules
 
-When Trip start_date changes:
-
-- Compute:
-  delta = new_start_date - original_start_date
-
-- For each Trip Sheet:
-  new_start_date = old_start_date + delta
-  new_end_date = old_end_date + delta
-
-MUST preserve:
-- duration
-- start_time
-- end_time
-
---------------------------------------------------
-
-8. Trip Update Protocol (MANDATORY)
-
-When updating a Trip:
-
-Step 1: Fetch existing Trip from DB
-- MUST retrieve:
-  - start_date
-  - end_date
-
-Step 2: Compare:
-- datesChanged =
-  original_start_date !== new_start_date OR
-  original_end_date !== new_end_date
-
-Step 3: Validate input
-
-Step 4: Apply Trip update
-
-Step 5: IF datesChanged is TRUE:
-- fetch all trip_sheets where trip_id = trip.id
-
-- for each trip_sheet:
-  - compute delta (based on original_start_date)
-  - shift start_date and end_date
-
-Step 6: Persist updated trip_sheets
-
-Important:
-- Parent and child updates are logically linked
-- Avoid hard validation failures caused by intermediate update states
-- Validation should consider the final intended state, not partial state
-
---------------------------------------------------
-
-9. Strict Rules (DO NOT VIOLATE)
-
-- DO NOT skip fetching existing Trip from DB
-- DO NOT assume form contains correct original values
-- DO NOT update child Trip Sheets if dates have not changed
-- DO NOT modify body_text during date shifts
-- DO NOT introduce unrelated refactors while fixing logic
-
---------------------------------------------------
-
-10. Failure Handling
-
-- If Trip not found → abort operation
-- If required Trip fields missing → abort operation
-- If trip_sheets fetch fails → abort update
-- Avoid failing due to temporary intermediate state inconsistencies
-
---------------------------------------------------
-
-11. Known Problem Area
-
-Edit Trip Date Shift Bug
-
-Symptoms:
-- "Parent trip not found or has no valid date range"
-- failure when trip_sheets exist
-
-Observed Causes:
-- child update logic running even when dates are unchanged
-- fallback logic depending on original_start_date / original_end_date
-- mismatch between DB values and submitted form values
+- Weekly calendar drawer uses staged local assignment editing
+- Add/remove in that drawer should stay local until Save Changes
+- Save commits through `replaceTripSheetAssignments`
+- Do not reintroduce immediate mutation-per-click in the weekly drawer
 
 Guidance:
-- Ensure date shift logic runs ONLY when datesChanged is TRUE
-- Ensure DB values are always the primary reference
-- Use fallback values only when absolutely necessary
+- compare assignment sets by `resource_user_id`, not assignment row id
+- prefer staged editing for repetitive inline assignment workflows
+- keep visible pending/saving feedback for user-triggered mutations
 
 --------------------------------------------------
 
-12. Implementation Guidelines
+5. Notifications
+
+- Legacy automated notification system has been removed
+- Current notification model is manual trip-level only
+- Notification history is stored in:
+  - `trip_notifications`
+  - `trip_notification_recipients`
+
+Do not rebuild old queue/cron/assignment-email patterns unless explicitly requested.
+
+--------------------------------------------------
+
+6. Resource Views and Roles
+
+- Admins may also function as resources
+- Admins must be able to access personal assignment views when assigned
+- Personal views must remain scoped to the logged-in user's own assignments only
+- Resource-facing views should be mobile-first
+
+Do not expose admin-only controls in resource work views.
+
+--------------------------------------------------
+
+7. Mutation and Data Principles
+
+- Database is the source of truth
+- Fetch current DB state before computing mutations where relevant
+- Do not trust stale client/form state for persisted values
+- Do not assume DB constraints fully enforce business logic
+- Keep mutation logic deterministic and explicit
+
+For trip date changes:
+- fetch the existing Trip from DB first
+- compute whether dates actually changed
+- only shift child Trip Sheets when parent dates changed
+- preserve child duration, `start_time`, `end_time`, and `body_text`
+
+--------------------------------------------------
+
+8. Engineering Conventions
 
 - Keep changes minimal and targeted
-- Do not refactor unrelated code
+- Avoid unrelated refactors
 - Do not change DB schema unless explicitly instructed
-- Prefer explicit logic over implicit behavior
-- Preserve working flows (especially Clone Trip)
+- Prefer existing repo patterns over introducing new architecture
+- Preserve working flows unless the task explicitly changes them
+
+High-signal folders:
+- `app/dashboard/trips/`
+- `app/dashboard/trip-sheets/`
+- `app/dashboard/calendar/`
+- `app/my-trip-sheets/`
 
 --------------------------------------------------
 
-13. One-line Summary
+9. Documentation Maintenance
 
-Trips are the source of truth. Trip Sheets are derived execution units. Updates must be deterministic, parent-driven, and avoid invalid intermediate states.
+If architecture, UX patterns, or core workflow assumptions materially change:
+- update the relevant context docs before closing the task
+- keep `AGENTS.md` concise and implementation-focused
+- keep deeper product reasoning in the broader context document, not here
+
+--------------------------------------------------
+
+10. One-line Summary
+
+Trips are the parent planning layer, Trip Sheets are the execution layer, and mutations should stay DB-driven, explicit, and aligned with current UX patterns.

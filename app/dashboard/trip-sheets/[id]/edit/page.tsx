@@ -36,6 +36,7 @@ type TripSheet = {
   end_date: string | null
   end_time: string | null
   template_id: string | null
+  transportation_info: string | null
   template:
     | {
         title: string | null
@@ -82,7 +83,7 @@ export default async function EditTripSheetPage({
   const { data, error } = await supabase
     .from('trip_sheets')
     .select(
-      'id, trip_id, trip:trips(id, title, trip_type, destination_id, destination_ref:destinations(name)), title, start_date, start_time, end_date, end_time, template_id, template:trip_templates(title), body_text'
+      'id, trip_id, trip:trips(id, title, trip_type, destination_id, destination_ref:destinations(name)), title, start_date, start_time, end_date, end_time, template_id, template:trip_templates(title), body_text, transportation_info'
     )
     .eq('id', id)
     .maybeSingle()
@@ -175,6 +176,7 @@ export default async function EditTripSheetPage({
             end_date: tripSheet.end_date,
             end_time: tripSheet.end_time,
             body_text: tripSheet.body_text,
+            transportation_info: tripSheet.transportation_info,
             templateTitle: template?.title ?? null,
           }}
           trip={{

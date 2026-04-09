@@ -16,6 +16,7 @@ type TripSheet = {
   end_date: string | null
   end_time: string | null
   body_text: string | null
+  transportation_info: string | null
   templateTitle: string | null
 }
 
@@ -36,6 +37,7 @@ type TripSheetDraft = {
   end_date: string
   end_time: string
   body: string
+  transportation_info: string
 }
 
 export default function EditTripSheetForm({
@@ -49,6 +51,7 @@ export default function EditTripSheetForm({
     end_date: tripSheet.end_date ?? '',
     end_time: tripSheet.end_time ?? '',
     body: tripSheet.body_text ?? '',
+    transportation_info: tripSheet.transportation_info ?? '',
   })
 
   function updateDraftField(
@@ -192,6 +195,21 @@ export default function EditTripSheetForm({
             value={draft.body}
             onChange={updateDraftField}
             required
+            className="ui-textarea"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="transportation_info" className="ui-label">Transportation Details</label>
+          <p className="mb-2 text-sm text-gray-600">
+            Optional. Add driver name, phone number, vehicle details, or other transport notes.
+          </p>
+          <textarea
+            id="transportation_info"
+            name="transportation_info"
+            rows={4}
+            value={draft.transportation_info}
+            onChange={updateDraftField}
             className="ui-textarea"
           />
         </div>

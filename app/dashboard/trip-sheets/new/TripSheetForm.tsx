@@ -34,6 +34,7 @@ type TripSheetFormInitialValues = {
   end_time: string
   template_id: string
   body: string
+  transportation_info: string
 }
 
 type TripSheetFormProps = {
@@ -85,6 +86,9 @@ export default function TripSheetForm({
   })
   const [templateId, setTemplateId] = useState(initialValues?.template_id ?? '')
   const [body, setBody] = useState(initialValues?.body ?? '')
+  const [transportationInfo, setTransportationInfo] = useState(
+    initialValues?.transportation_info ?? ''
+  )
   const [fieldError, setFieldError] = useState('')
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([])
   const [nextResourceId, setNextResourceId] = useState('')
@@ -312,6 +316,21 @@ export default function TripSheetForm({
             value={body}
             onChange={(event) => setBody(event.target.value)}
             required
+            className="ui-textarea"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="transportation_info" className="ui-label">Transportation Details</label>
+          <p className="mb-2 text-sm text-gray-600">
+            Optional. Add driver name, phone number, vehicle details, or other transport notes.
+          </p>
+          <textarea
+            id="transportation_info"
+            name="transportation_info"
+            rows={4}
+            value={transportationInfo}
+            onChange={(event) => setTransportationInfo(event.target.value)}
             className="ui-textarea"
           />
         </div>

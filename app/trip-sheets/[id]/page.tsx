@@ -18,6 +18,7 @@ type TripSheet = {
   end_date: string | null
   end_time: string | null
   body_text: string | null
+  transportation_info: string | null
   trip_id: string | null
   trip: TripParentRelation
 }
@@ -141,7 +142,7 @@ export default async function TripSheetViewPage({
   const { data } = await supabase
     .from('trip_sheets')
     .select(
-      'id, title, start_date, start_time, end_date, end_time, body_text, trip_id, trip:trips(id, title, trip_type, start_date, end_date, destination_ref:destinations(name), guest_name, company, phone_number, adult_count, kid_count)'
+      'id, title, start_date, start_time, end_date, end_time, body_text, transportation_info, trip_id, trip:trips(id, title, trip_type, start_date, end_date, destination_ref:destinations(name), guest_name, company, phone_number, adult_count, kid_count)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -321,6 +322,23 @@ export default async function TripSheetViewPage({
             <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
               {tripSheet.body_text ?? ''}
             </div>
+
+            {tripSheet.transportation_info?.trim() ? (
+              <div className="space-y-2 border-t border-zinc-200 pt-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Transportation Details
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Operational transport notes for this trip sheet.
+                  </p>
+                </div>
+
+                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
+                  {tripSheet.transportation_info}
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>

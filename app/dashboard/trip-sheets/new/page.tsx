@@ -52,6 +52,7 @@ type DuplicateTripSheet = {
   start_time: string | null
   end_date: string | null
   end_time: string | null
+  transportation_info: string | null
 }
 
 function buildTripsRedirect(error: string) {
@@ -119,12 +120,13 @@ export default async function NewTripSheetPage({
     end_time: string
     template_id: string
     body: string
+    transportation_info: string
   } | undefined
 
   if (params.duplicateFrom) {
     const { data: duplicateData, error: duplicateLoadError } = await supabase
       .from('trip_sheets')
-      .select('trip_id, title, start_date, start_time, end_date, end_time')
+      .select('trip_id, title, start_date, start_time, end_date, end_time, transportation_info')
       .eq('id', params.duplicateFrom)
       .maybeSingle()
 
@@ -145,6 +147,7 @@ export default async function NewTripSheetPage({
         end_time: duplicateTripSheet.end_time ?? '',
         template_id: '',
         body: '',
+        transportation_info: duplicateTripSheet.transportation_info ?? '',
       }
     }
   }

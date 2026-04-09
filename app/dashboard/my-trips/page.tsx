@@ -27,8 +27,9 @@ export default async function AdminMyTripsPage() {
       ? await supabase
           .from('trip_sheets')
           .select(
-            'id, trip_id, trip:trips(id, title, start_date, end_date, destination_ref:destinations(name))'
+            'id, trip_id, trip:trips!inner(id, title, start_date, end_date, destination_ref:destinations(name))'
           )
+          .eq('is_archived', false)
           .in('id', tripSheetIds)
       : { data: [], error: null }
 

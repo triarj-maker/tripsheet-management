@@ -84,6 +84,7 @@ export async function createTripSheet(formData: FormData) {
   const endTime = String(formData.get('end_time') ?? '').trim()
   const templateId = String(formData.get('template_id') ?? '').trim()
   const body = String(formData.get('body') ?? '')
+  const transportationInfo = String(formData.get('transportation_info') ?? '').trim()
   const resourceUserIds = Array.from(
     new Set(
       formData
@@ -133,6 +134,7 @@ export async function createTripSheet(formData: FormData) {
       end_time: endTime || null,
       template_id: templateId || null,
       body_text: body,
+      transportation_info: transportationInfo || null,
       is_archived: false,
       created_by: user.id,
       last_updated_by: user.id,
@@ -184,6 +186,7 @@ export async function updateTripSheet(formData: FormData) {
   const endDate = String(formData.get('end_date') ?? '').trim()
   const endTime = String(formData.get('end_time') ?? '').trim()
   const body = String(formData.get('body') ?? '')
+  const transportationInfo = String(formData.get('transportation_info') ?? '').trim()
 
   if (!tripId || !title || !startDate || !endDate || !body.trim()) {
     redirect(
@@ -252,6 +255,7 @@ export async function updateTripSheet(formData: FormData) {
       end_date: endDate,
       end_time: endTime || null,
       body_text: body,
+      transportation_info: transportationInfo || null,
       last_updated_by: user.id,
     })
     .eq('id', id)

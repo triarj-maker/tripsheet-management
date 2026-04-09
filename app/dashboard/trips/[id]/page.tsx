@@ -366,13 +366,23 @@ export default async function TripDetailPage({
           </p>
         </div>
 
-        {profile?.role === 'admin' ? (
-          <SendTripNotificationButton
-            tripId={trip.id}
-            tripTitle={trip.title ?? 'Untitled trip'}
-            recipientCount={resourceUserIds.length}
-          />
-        ) : null}
+        <div className="flex flex-wrap items-start justify-end gap-2">
+          <a
+            href={`/dashboard/trips/${trip.id}/pdf`}
+            download
+            className="ui-button ui-button-secondary"
+          >
+            Download PDF
+          </a>
+
+          {profile?.role === 'admin' ? (
+            <SendTripNotificationButton
+              tripId={trip.id}
+              tripTitle={trip.title ?? 'Untitled trip'}
+              recipientCount={resourceUserIds.length}
+            />
+          ) : null}
+        </div>
       </div>
 
       {errorMessage ? <p className="app-banner-error">{errorMessage}</p> : null}

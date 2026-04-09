@@ -49,6 +49,11 @@ type TripRow = {
   destination_ref: DestinationRelation
 }
 
+type TripSheetSummaryRow = {
+  trip_id: string | null
+  is_archived: boolean | null
+}
+
 type Assignment = {
   id: string
   trip_sheet_id: string
@@ -68,6 +73,37 @@ type CalendarTripSheet = {
   start_time: string | null
   end_date: string | null
   end_time: string | null
+}
+
+function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
+  const summaryByTripId = new Map<
+    string,
+    {
+      total: number
+      active: number
+    }
+  >()
+
+  for (const tripSheet of tripSheets) {
+    if (!tripSheet.trip_id) {
+      continue
+    }
+
+    const currentSummary = summaryByTripId.get(tripSheet.trip_id) ?? {
+      total: 0,
+      active: 0,
+    }
+
+    currentSummary.total += 1
+
+    if (!tripSheet.is_archived) {
+      currentSummary.active += 1
+    }
+
+    summaryByTripId.set(tripSheet.trip_id, currentSummary)
+  }
+
+  return summaryByTripId
 }
 
 function addOneDay(dateString: string | null) {
@@ -254,6 +290,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const { data: tripData, error: tripsError } = await supabase
     .from('trips')
     .select('id, title, start_date, end_date, is_archived, trip_color, destination_ref:destinations(name)')
+    .eq('is_archived', false)
     .not('start_date', 'is', null)
     .not('end_date', 'is', null)
     .order('start_date', { ascending: true })
@@ -264,12 +301,38 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       getDestinationName(trip.destination_ref, 'Unknown destination') ??
       'Unknown destination',
   }))
+  const tripIds = trips.map((trip) => trip.id)
+  const { data: tripSheetSummaryData, error: tripSheetSummaryError } =
+    tripIds.length > 0
+      ? await supabase
+          .from('trip_sheets')
+          .select('trip_id, is_archived')
+          .in('trip_id', tripIds)
+      : { data: [], error: null }
+
+  const tripSheetSummaryByTripId = buildTripSummary(
+    (tripSheetSummaryData as TripSheetSummaryRow[] | null) ?? []
+  )
+  const visibleTrips = trips
+    .map((trip) => {
+      const summary = tripSheetSummaryByTripId.get(trip.id)
+      const childSheetCount = summary?.total ?? 0
+      const isArchived = childSheetCount > 0 && (summary?.active ?? 0) === 0
+
+      return {
+        ...trip,
+        isArchived,
+      }
+    })
+    .filter((trip) => !trip.isArchived)
 
   const { data: tripSheetData, error: tripSheetsError } = await supabase
     .from('trip_sheets')
     .select(
-      'id, trip_id, title, trip:trips(id, title, start_date, end_date, is_archived, trip_color, guest_name, company, phone_number, trip_type, destination_id, destination_ref:destinations(name)), start_date, start_time, end_date, end_time, is_archived'
+      'id, trip_id, title, trip:trips!inner(id, title, start_date, end_date, is_archived, trip_color, guest_name, company, phone_number, trip_type, destination_id, destination_ref:destinations(name)), start_date, start_time, end_date, end_time, is_archived'
     )
+    .eq('is_archived', false)
+    .eq('trip.is_archived', false)
     .not('start_date', 'is', null)
     .not('end_date', 'is', null)
     .order('start_date', { ascending: true })
@@ -407,8 +470,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     return `${names[0]} +${names.length - 1}`
   }
 
-  const monthEvents: MonthCalendarEvent[] = trips.map((trip) => {
-    const isArchived = trip.is_archived === true
+  const monthEvents: MonthCalendarEvent[] = visibleTrips.map((trip) => {
     const colorStyle = getTripColorStyle(trip.trip_color)
     const conflictDayIds = Array.from(conflictingDayIdsByTripId.get(trip.id) ?? [])
 
@@ -422,7 +484,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       backgroundColor: colorStyle.background,
       borderColor: colorStyle.border,
       extendedProps: {
-        isArchived,
+        isArchived: trip.isArchived,
         hasConflict: conflictDayIds.length > 0,
         conflictDayIds,
         textColor: colorStyle.text,
@@ -472,6 +534,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const calendarError =
     query.error ||
     tripsError?.message ||
+    tripSheetSummaryError?.message ||
     tripSheetsError?.message ||
     assignmentError?.message ||
     resourceError?.message ||
