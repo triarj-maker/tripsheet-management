@@ -148,6 +148,12 @@ function formatTimeLabel(startTime: string | null, endTime: string | null) {
   return `${formatTime(startTime)} - ${formatTime(endTime)}`
 }
 
+function buildPhoneHref(value: string) {
+  const normalized = value.replace(/[^+\d]/g, '')
+
+  return normalized ? `tel:${normalized}` : ''
+}
+
 function buildStatus(
   startDate: string | null,
   startTime: string | null,
@@ -241,24 +247,90 @@ function sortTripSheetGroups(items: TripSheetCardItem[]) {
 }
 
 function TripSheetCard({ item }: { item: TripSheetCardItem }) {
+  const phoneHref = item.phoneNumber ? buildPhoneHref(item.phoneNumber) : ''
+  const detailHref = `/my-trip-sheets/${item.id}`
+
   return (
-    <Link
-      href={`/trip-sheets/${item.id}?from=my-trip-sheets`}
-      className="group block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-zinc-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
-    >
-      <article className="h-full">
-        <div className="flex items-start justify-between gap-3">
+    <article className="group rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-zinc-400 hover:border-zinc-300 hover:shadow-md">
+      <div className="space-y-3">
+        <div className="space-y-1.5">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold leading-6 text-gray-900">
+            <Link
+              href={detailHref}
+              className="inline-flex min-h-9 items-center text-base font-semibold leading-6 text-gray-900 underline decoration-transparent underline-offset-2 transition hover:text-gray-700 hover:decoration-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+            >
               {item.title}
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              {formatDateLabel(item.startDate, item.endDate)}
-            </p>
-            <p className="text-sm font-medium text-gray-800">
-              {formatTimeLabel(item.startTime, item.endTime)}
+            </Link>
+            <p className="mt-0.5 text-sm text-gray-600">
+              <span className="text-gray-500">Trip:</span> {item.parentTripTitle}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium text-gray-900">
+            {formatDateLabel(item.startDate, item.endDate)}
+          </p>
+          <p className="text-sm text-gray-700">
+            {formatTimeLabel(item.startTime, item.endTime)}
+          </p>
+        </div>
+
+        <dl className="space-y-2 text-sm">
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="min-w-[9rem] flex-1">
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Customer
+              </dt>
+              <dd className="mt-0.5 text-gray-900">{item.guestName}</dd>
+            </div>
+
+            <div className="min-w-[8.5rem] flex-1">
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Phone
+              </dt>
+              <dd className="mt-0.5">
+                {phoneHref ? (
+                  <a
+                    href={phoneHref}
+                    className="inline-flex min-h-9 items-center font-medium text-gray-900 underline decoration-zinc-300 underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+                  >
+                    {item.phoneNumber}
+                  </a>
+                ) : (
+                  <span className="text-gray-900">-</span>
+                )}
+              </dd>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {item.company ? (
+              <div className="min-w-[8.5rem] flex-1">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                  Company
+                </dt>
+                <dd className="mt-0.5 text-gray-900">{item.company}</dd>
+              </div>
+            ) : (
+              <div className="min-w-[8.5rem] flex-1">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                  Company
+                </dt>
+                <dd className="mt-0.5 text-gray-900">-</dd>
+              </div>
+            )}
+
+            <div className="min-w-[9rem] flex-1">
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Destination
+              </dt>
+              <dd className="mt-0.5 text-gray-900">{item.destination}</dd>
+            </div>
+          </div>
+        </dl>
+
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-100 pt-2 text-sm">
           <span className={statusBadgeClass(item.status)}>
             {item.status === 'ongoing'
               ? 'Ongoing'
@@ -266,57 +338,15 @@ function TripSheetCard({ item }: { item: TripSheetCardItem }) {
                 ? 'Upcoming'
                 : 'Past'}
           </span>
+          <Link
+            href={detailHref}
+            className="inline-flex min-h-9 items-center font-medium text-gray-600 underline decoration-transparent underline-offset-2 transition hover:text-gray-900 hover:decoration-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+          >
+            View Trip Sheet
+          </Link>
         </div>
-
-        <dl className="mt-4 space-y-2 text-sm">
-          <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-              Customer
-            </dt>
-            <dd className="mt-0.5 text-gray-900">{item.guestName}</dd>
-          </div>
-
-          {item.phoneNumber ? (
-            <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                Phone
-              </dt>
-              <dd className="mt-0.5 font-medium text-gray-900">{item.phoneNumber}</dd>
-            </div>
-          ) : null}
-
-          <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-              Destination
-            </dt>
-            <dd className="mt-0.5 text-gray-900">{item.destination}</dd>
-          </div>
-
-          <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-              Parent Trip
-            </dt>
-            <dd className="mt-0.5 text-gray-900">{item.parentTripTitle}</dd>
-          </div>
-
-          {item.company ? (
-            <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                Company
-              </dt>
-              <dd className="mt-0.5 text-gray-900">{item.company}</dd>
-            </div>
-          ) : null}
-        </dl>
-
-        <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-sm">
-          <span className="text-gray-500">Open details</span>
-          <span className="font-medium text-gray-700 transition group-hover:text-gray-900">
-            View Trip Sheet →
-          </span>
-        </div>
-      </article>
-    </Link>
+      </div>
+    </article>
   )
 }
 
@@ -394,7 +424,6 @@ export default async function MyTripSheetsPage() {
             </p>
           </div>
         </div>
-
         {errorMessage ? <p className="app-banner-error">{errorMessage}</p> : null}
 
         {hasTripSheets ? (

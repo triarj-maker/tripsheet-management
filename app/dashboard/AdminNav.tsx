@@ -57,6 +57,10 @@ const resourceNavGroups: NavGroup[] = [
       { href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trip Sheets' },
     ],
   },
+  {
+    label: 'Account',
+    items: [{ href: '/dashboard', key: 'profile', label: 'Profile' }],
+  },
 ]
 
 function linkClass(isCurrent: boolean) {

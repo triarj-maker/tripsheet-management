@@ -1,6 +1,6 @@
 import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
-import { requireAdmin } from '@/app/dashboard/lib'
+import { requireAdminOrResource } from '@/app/dashboard/lib'
 
 function formatText(value: string | null) {
   return value ?? '-'
@@ -13,17 +13,17 @@ function badgeClass(isPositive: boolean) {
 }
 
 export default async function DashboardPage() {
-  const { user, profile: currentProfile, error } = await requireAdmin()
+  const { user, profile: currentProfile, error } = await requireAdminOrResource()
 
   return (
     <>
-      <AdminNav current="profile" />
+      <AdminNav current="profile" role={currentProfile?.role} />
 
         <div className="app-page-header">
           <div>
             <h1 className="app-page-title">Profile</h1>
             <p className="app-page-subtitle">
-              Manage your account details and access status.
+              Review your account details and sign out when needed.
             </p>
           </div>
         </div>
