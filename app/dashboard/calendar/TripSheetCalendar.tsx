@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 
+import { getCurrentDateInAppTimeZone, getCurrentDateStringInAppTimeZone } from '@/lib/time'
+
 import WeeklyTripSheetDrawer from './WeeklyTripSheetDrawer'
 
 export type CalendarAvailableResource = {
@@ -156,7 +158,7 @@ function formatWeekDayIso(date: Date) {
 
 function parseInitialCalendarDate(value: string) {
   if (!value) {
-    return new Date()
+    return getCurrentDateInAppTimeZone()
   }
 
   const [yearText, monthText, dayText] = value.split('-')
@@ -165,7 +167,7 @@ function parseInitialCalendarDate(value: string) {
   const day = Number(dayText)
 
   if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-    return new Date()
+    return getCurrentDateInAppTimeZone()
   }
 
   return new Date(year, month - 1, day)
@@ -649,7 +651,7 @@ export default function TripSheetCalendar({
   )
   const weekStart = getWeekStart(currentDate)
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-  const todayIso = formatWeekDayIso(new Date())
+  const todayIso = getCurrentDateStringInAppTimeZone()
   const weekEventPlacements = getWeekEventPlacements(weekEvents, weekDays)
   const weekRowCount = Math.max(
     4,
@@ -692,13 +694,13 @@ export default function TripSheetCalendar({
   function handleToday() {
     if (viewMode === 'month') {
       setMonthOverflowPopover(null)
-      setCurrentDate(new Date())
+      setCurrentDate(getCurrentDateInAppTimeZone())
       return
     }
 
     setSelectedTripSheetId('')
     setIsDrawerOpen(false)
-    setCurrentDate(new Date())
+    setCurrentDate(getCurrentDateInAppTimeZone())
   }
 
   function handleMonthSelection(monthIndex: number) {

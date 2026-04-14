@@ -3,6 +3,11 @@ import {
   getDestinationName,
   getTripParent,
 } from '@/lib/trip-sheets'
+import {
+  getCurrentComparableTimestampInAppTimeZone,
+  getCurrentDateStringInAppTimeZone,
+  parseDateTimeInAppTimeZoneToComparableTimestamp,
+} from '@/lib/time'
 
 type AssignedTripParent = {
   id: string
@@ -44,49 +49,6 @@ export type AssignedTripSummary = {
   next_activity: AssignedTripNextActivity | null
 }
 
-function getTodayDateString() {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-  })
-
-  return formatter.format(new Date())
-}
-
-function parseDateTimeValue(
-  date: string | null,
-  time: string | null,
-  fallbackToEndOfDay = false
-) {
-  if (!date) {
-    return null
-  }
-
-  const [yearText, monthText, dayText] = date.split('-')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-
-  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-    return null
-  }
-
-  let hours = fallbackToEndOfDay ? 23 : 0
-  let minutes = fallbackToEndOfDay ? 59 : 0
-
-  if (time) {
-    const [hoursText, minutesText] = time.split(':')
-    const parsedHours = Number(hoursText)
-    const parsedMinutes = Number(minutesText)
-
-    if (!Number.isNaN(parsedHours) && !Number.isNaN(parsedMinutes)) {
-      hours = parsedHours
-      minutes = parsedMinutes
-    }
-  }
-
-  return new Date(year, month - 1, day, hours, minutes, 0, 0).getTime()
-}
-
 function getTripStatus(
   startDate: string | null,
   endDate: string | null,
@@ -110,11 +72,14 @@ function getNextActivity(
   tripSheets: AssignedTripSheetRow[],
   tripStatus: AssignedTripSummary['status']
 ) {
-  const now = Date.now()
+  const now = getCurrentComparableTimestampInAppTimeZone()
   const ongoingActivities = tripSheets
     .filter((tripSheet) => {
-      const startTimestamp = parseDateTimeValue(tripSheet.start_date, tripSheet.start_time)
-      const endTimestamp = parseDateTimeValue(
+      const startTimestamp = parseDateTimeInAppTimeZoneToComparableTimestamp(
+        tripSheet.start_date,
+        tripSheet.start_time
+      )
+      const endTimestamp = parseDateTimeInAppTimeZoneToComparableTimestamp(
         tripSheet.end_date ?? tripSheet.start_date,
         tripSheet.end_time,
         true
@@ -127,16 +92,22 @@ function getNextActivity(
       return startTimestamp <= now && now <= endTimestamp
     })
     .sort((left, right) => {
-      const leftStart = parseDateTimeValue(left.start_date, left.start_time) ?? Number.MAX_SAFE_INTEGER
+      const leftStart =
+        parseDateTimeInAppTimeZoneToComparableTimestamp(left.start_date, left.start_time) ??
+        Number.MAX_SAFE_INTEGER
       const rightStart =
-        parseDateTimeValue(right.start_date, right.start_time) ?? Number.MAX_SAFE_INTEGER
+        parseDateTimeInAppTimeZoneToComparableTimestamp(right.start_date, right.start_time) ??
+        Number.MAX_SAFE_INTEGER
 
       return leftStart - rightStart
     })
 
   const upcomingActivities = tripSheets
     .filter((tripSheet) => {
-      const startTimestamp = parseDateTimeValue(tripSheet.start_date, tripSheet.start_time)
+      const startTimestamp = parseDateTimeInAppTimeZoneToComparableTimestamp(
+        tripSheet.start_date,
+        tripSheet.start_time
+      )
 
       if (startTimestamp === null) {
         return false
@@ -145,9 +116,12 @@ function getNextActivity(
       return startTimestamp > now
     })
     .sort((left, right) => {
-      const leftStart = parseDateTimeValue(left.start_date, left.start_time) ?? Number.MAX_SAFE_INTEGER
+      const leftStart =
+        parseDateTimeInAppTimeZoneToComparableTimestamp(left.start_date, left.start_time) ??
+        Number.MAX_SAFE_INTEGER
       const rightStart =
-        parseDateTimeValue(right.start_date, right.start_time) ?? Number.MAX_SAFE_INTEGER
+        parseDateTimeInAppTimeZoneToComparableTimestamp(right.start_date, right.start_time) ??
+        Number.MAX_SAFE_INTEGER
 
       return leftStart - rightStart
     })
@@ -161,11 +135,11 @@ function getNextActivity(
     return null
   }
 
-  const selectedStartTimestamp = parseDateTimeValue(
+  const selectedStartTimestamp = parseDateTimeInAppTimeZoneToComparableTimestamp(
     selectedTripSheet.start_date,
     selectedTripSheet.start_time
   )
-  const selectedEndTimestamp = parseDateTimeValue(
+  const selectedEndTimestamp = parseDateTimeInAppTimeZoneToComparableTimestamp(
     selectedTripSheet.end_date ?? selectedTripSheet.start_date,
     selectedTripSheet.end_time,
     true
@@ -218,7 +192,7 @@ export function buildAssignedTripSummaries(tripSheets: AssignedTripSheetRow[]) {
       tripSheets: AssignedTripSheetRow[]
     }
   >()
-  const today = getTodayDateString()
+  const today = getCurrentDateStringInAppTimeZone()
 
   for (const tripSheet of tripSheets) {
     const trip = getTripParent(tripSheet.trip)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { addDaysToDateString, getCurrentDateStringInAppTimeZone } from '@/lib/time'
 
 function getBearerToken(authorizationHeader: string | null) {
   if (!authorizationHeader?.startsWith('Bearer ')) {
@@ -11,14 +12,7 @@ function getBearerToken(authorizationHeader: string | null) {
 }
 
 function getArchiveCutoffDate() {
-  const now = new Date()
-  const utcDate = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  )
-
-  utcDate.setUTCDate(utcDate.getUTCDate() - 3)
-
-  return utcDate.toISOString().slice(0, 10)
+  return addDaysToDateString(getCurrentDateStringInAppTimeZone(), -3)
 }
 
 export async function GET(request: Request) {

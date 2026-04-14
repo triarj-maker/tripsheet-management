@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import type { AssignedTripSummary } from '@/app/lib/assigned-trips'
+import { formatTimeValue, getRelativeDateLabelInAppTimeZone } from '@/lib/time'
 
 type AssignedTripsCardsProps = {
   trips: AssignedTripSummary[]
@@ -52,76 +53,11 @@ function formatAssignedCount(count: number) {
 }
 
 function formatTime(value: string | null) {
-  if (!value) {
-    return 'Time TBD'
-  }
-
-  const [hoursText, minutesText] = value.split(':')
-  const hours = Number(hoursText)
-  const minutes = Number(minutesText)
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return value
-  }
-
-  const date = new Date()
-  date.setHours(hours, minutes, 0, 0)
-
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date)
-}
-
-function parseIsoDate(value: string | null) {
-  if (!value) {
-    return null
-  }
-
-  const [yearText, monthText, dayText] = value.split('-')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-
-  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-    return null
-  }
-
-  return new Date(year, month - 1, day)
+  return formatTimeValue(value)
 }
 
 function getRelativeDayLabel(value: string | null) {
-  const parsedDate = parseIsoDate(value)
-
-  if (!parsedDate) {
-    return formatDate(value)
-  }
-
-  const today = new Date()
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const targetStart = new Date(
-    parsedDate.getFullYear(),
-    parsedDate.getMonth(),
-    parsedDate.getDate()
-  )
-  const diffInDays = Math.round(
-    (targetStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
-  )
-
-  if (diffInDays === 0) {
-    return 'Today'
-  }
-
-  if (diffInDays === 1) {
-    return 'Tomorrow'
-  }
-
-  if (diffInDays > 1 && diffInDays <= 6) {
-    return `In ${diffInDays} days`
-  }
-
-  return formatDate(value)
+  return getRelativeDateLabelInAppTimeZone(value) ?? formatDate(value)
 }
 
 function formatNextActivityLabel(trip: AssignedTripSummary) {

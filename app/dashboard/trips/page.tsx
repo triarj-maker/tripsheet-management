@@ -9,6 +9,7 @@ import {
   getDestinationName,
   type DestinationRelation,
 } from '@/lib/trip-sheets'
+import { diffDateStringsInDays, getCurrentDateStringInAppTimeZone } from '@/lib/time'
 
 import ArchiveTripButton from './ArchiveTripButton'
 import DeleteTripButton from './DeleteTripButton'
@@ -40,25 +41,15 @@ type TripsPageProps = {
   }>
 }
 
-function parseDate(value: string | null) {
+function formatDate(value: string | null) {
   if (!value) {
-    return null
+    return '-'
   }
 
   const [year, month, day] = value.split('-').map(Number)
 
   if (!year || !month || !day) {
-    return null
-  }
-
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function formatDate(value: string | null) {
-  const date = parseDate(value)
-
-  if (!date) {
-    return '-'
+    return value
   }
 
   return new Intl.DateTimeFormat('en-GB', {
@@ -66,11 +57,7 @@ function formatDate(value: string | null) {
     month: 'short',
     year: 'numeric',
     timeZone: 'UTC',
-  }).format(date)
-}
-
-function diffInDays(from: Date, to: Date) {
-  return Math.round((to.getTime() - from.getTime()) / 86400000)
+  }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
 function formatGuestCompanySummary(trip: Pick<TripRow, 'guest_name' | 'company'>) {
@@ -127,31 +114,28 @@ function getTripStatusLine({
   startDate,
   endDate,
   isArchived,
-  todayUtc,
+  today,
 }: {
   startDate: string | null
   endDate: string | null
   isArchived: boolean
-  todayUtc: Date
+  today: string
 }) {
   if (isArchived) {
     return null
   }
 
-  const parsedStartDate = parseDate(startDate)
-  const parsedEndDate = parseDate(endDate)
-
-  if (!parsedStartDate || !parsedEndDate) {
+  if (!startDate || !endDate) {
     return null
   }
 
-  const daysUntilStart = diffInDays(todayUtc, parsedStartDate)
+  const daysUntilStart = diffDateStringsInDays(today, startDate)
 
-  if (parsedStartDate <= todayUtc && parsedEndDate >= todayUtc) {
+  if (startDate <= today && endDate >= today) {
     return 'Ongoing'
   }
 
-  if (parsedStartDate > todayUtc) {
+  if (startDate > today) {
     if (daysUntilStart === 0) {
       return 'Starts today'
     }
@@ -170,12 +154,12 @@ function getSortMeta({
   startDate,
   endDate,
   isArchived,
-  todayUtc,
+  today,
 }: {
   startDate: string | null
   endDate: string | null
   isArchived: boolean
-  todayUtc: Date
+  today: string
 }) {
   if (isArchived) {
     return {
@@ -185,10 +169,7 @@ function getSortMeta({
     }
   }
 
-  const parsedStartDate = parseDate(startDate)
-  const parsedEndDate = parseDate(endDate)
-
-  if (!parsedStartDate || !parsedEndDate) {
+  if (!startDate || !endDate) {
     return {
       rank: 3,
       dateValue: '',
@@ -196,7 +177,7 @@ function getSortMeta({
     }
   }
 
-  if (parsedStartDate <= todayUtc && parsedEndDate >= todayUtc) {
+  if (startDate <= today && endDate >= today) {
     return {
       rank: 0,
       dateValue: startDate ?? '',
@@ -204,7 +185,7 @@ function getSortMeta({
     }
   }
 
-  if (parsedStartDate > todayUtc) {
+  if (startDate > today) {
     return {
       rank: 1,
       dateValue: startDate ?? '',
@@ -248,10 +229,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
   const tripSheets = (tripSheetData as TripSheetSummaryRow[] | null) ?? []
   const summaryByTripId = buildTripSummary(tripSheets)
-  const today = new Date()
-  const todayUtc = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
-  )
+  const today = getCurrentDateStringInAppTimeZone()
 
   const visibleTrips = trips
     .map((trip) => {
@@ -262,7 +240,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
         startDate: trip.start_date,
         endDate: trip.end_date,
         isArchived,
-        todayUtc,
+        today,
       })
 
       return {
@@ -273,7 +251,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
           startDate: trip.start_date,
           endDate: trip.end_date,
           isArchived,
-          todayUtc,
+          today,
         }),
         sortMeta,
       }

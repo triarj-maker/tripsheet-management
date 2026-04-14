@@ -1,5 +1,7 @@
 import { Resend } from 'resend'
 
+import { formatTimeValue } from '@/lib/time'
+
 export function createResendClient() {
   const apiKey = process.env.RESEND_API_KEY
 
@@ -28,25 +30,22 @@ type TripNotificationTripSheetSummary = {
 }
 
 function formatDisplayDate(value: string) {
-  const parsedDate = new Date(`${value}T00:00:00`)
+  const [year, month, day] = value.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return value
+  }
 
   return new Intl.DateTimeFormat('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(parsedDate)
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
 function formatDisplayTime(value: string) {
-  const [hours, minutes] = value.split(':').map(Number)
-  const parsedDate = new Date()
-  parsedDate.setHours(hours || 0, minutes || 0, 0, 0)
-
-  return new Intl.DateTimeFormat('en-IN', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(parsedDate)
+  return formatTimeValue(value, 'en-IN')
 }
 
 function formatTripSheetSchedule({

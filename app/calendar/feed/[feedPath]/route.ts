@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { APP_TIME_ZONE, addDaysToDateString } from '@/lib/time'
 import { getDestinationName, getTripParent, type DestinationRelation } from '@/lib/trip-sheets'
 
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,7 @@ function formatUtcTimestamp(date: Date) {
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`
 }
 
-function formatFloatingDateTime(date: string, time: string) {
+function formatLocalizedDateTime(date: string, time: string) {
   const normalizedTime = time.length === 5 ? `${time}:00` : time
 
   return `${date.replace(/-/g, '')}T${normalizedTime.replace(/:/g, '')}`
@@ -71,26 +72,6 @@ function formatFloatingDateTime(date: string, time: string) {
 
 function formatDateValue(date: string) {
   return date.replace(/-/g, '')
-}
-
-function addOneDay(date: string) {
-  const [yearText, monthText, dayText] = date.split('-')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-
-  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-    return date
-  }
-
-  const nextDate = new Date(Date.UTC(year, month - 1, day))
-  nextDate.setUTCDate(nextDate.getUTCDate() + 1)
-
-  const nextYear = nextDate.getUTCFullYear()
-  const nextMonth = String(nextDate.getUTCMonth() + 1).padStart(2, '0')
-  const nextDay = String(nextDate.getUTCDate()).padStart(2, '0')
-
-  return `${nextYear}-${nextMonth}-${nextDay}`
 }
 
 function buildDateLines(tripSheet: Pick<TripSheetRow, 'start_date' | 'start_time' | 'end_date' | 'end_time'>) {
@@ -105,14 +86,14 @@ function buildDateLines(tripSheet: Pick<TripSheetRow, 'start_date' | 'start_time
 
   if (startTime && endTime) {
     return [
-      `DTSTART:${formatFloatingDateTime(startDate, startTime)}`,
-      `DTEND:${formatFloatingDateTime(endDate, endTime)}`,
+      `DTSTART;TZID=${APP_TIME_ZONE}:${formatLocalizedDateTime(startDate, startTime)}`,
+      `DTEND;TZID=${APP_TIME_ZONE}:${formatLocalizedDateTime(endDate, endTime)}`,
     ]
   }
 
   return [
     `DTSTART;VALUE=DATE:${formatDateValue(startDate)}`,
-    `DTEND;VALUE=DATE:${formatDateValue(addOneDay(endDate))}`,
+    `DTEND;VALUE=DATE:${formatDateValue(addDaysToDateString(endDate, 1))}`,
   ]
 }
 
@@ -229,6 +210,17 @@ export async function GET(
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Trip Sheets',
+    `X-WR-TIMEZONE:${APP_TIME_ZONE}`,
+    'BEGIN:VTIMEZONE',
+    `TZID:${APP_TIME_ZONE}`,
+    'X-LIC-LOCATION:Asia/Kolkata',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0530',
+    'TZOFFSETTO:+0530',
+    'TZNAME:IST',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE',
     ...events,
     'END:VCALENDAR',
     '',

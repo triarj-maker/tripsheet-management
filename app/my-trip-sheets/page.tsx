@@ -7,6 +7,11 @@ import {
   getTripParent,
   type DestinationRelation,
 } from '@/lib/trip-sheets'
+import {
+  formatTimeValue,
+  getCurrentComparableTimestampInAppTimeZone,
+  parseDateTimeInAppTimeZoneToComparableTimestamp,
+} from '@/lib/time'
 
 type TripParentRecord = {
   id: string
@@ -45,37 +50,6 @@ type TripSheetCardItem = {
   sortTimestamp: number
 }
 
-function parseDateTimeToTimestamp(date: string | null, time: string | null, fallbackToEndOfDay = false) {
-  if (!date) {
-    return null
-  }
-
-  const [yearText, monthText, dayText] = date.split('-')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-
-  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-    return null
-  }
-
-  let hours = fallbackToEndOfDay ? 23 : 0
-  let minutes = fallbackToEndOfDay ? 59 : 0
-
-  if (time) {
-    const [hoursText, minutesText] = time.split(':')
-    const parsedHours = Number(hoursText)
-    const parsedMinutes = Number(minutesText)
-
-    if (!Number.isNaN(parsedHours) && !Number.isNaN(parsedMinutes)) {
-      hours = parsedHours
-      minutes = parsedMinutes
-    }
-  }
-
-  return new Date(year, month - 1, day, hours, minutes, 0, 0).getTime()
-}
-
 function formatDate(value: string | null) {
   if (!value) {
     return 'Date TBD'
@@ -94,30 +68,12 @@ function formatDate(value: string | null) {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(year, month - 1, day))
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
 function formatTime(value: string | null) {
-  if (!value) {
-    return 'Time TBD'
-  }
-
-  const [hoursText, minutesText] = value.split(':')
-  const hours = Number(hoursText)
-  const minutes = Number(minutesText)
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return value
-  }
-
-  const date = new Date()
-  date.setHours(hours, minutes, 0, 0)
-
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date)
+  return formatTimeValue(value)
 }
 
 function formatDateLabel(startDate: string | null, endDate: string | null) {
@@ -160,10 +116,12 @@ function buildStatus(
   endDate: string | null,
   endTime: string | null
 ): TripSheetCardItem['status'] {
-  const now = Date.now()
-  const startTimestamp = parseDateTimeToTimestamp(startDate, startTime) ?? Number.POSITIVE_INFINITY
+  const now = getCurrentComparableTimestampInAppTimeZone()
+  const startTimestamp =
+    parseDateTimeInAppTimeZoneToComparableTimestamp(startDate, startTime) ??
+    Number.POSITIVE_INFINITY
   const endTimestamp =
-    parseDateTimeToTimestamp(endDate ?? startDate, endTime, true) ??
+    parseDateTimeInAppTimeZoneToComparableTimestamp(endDate ?? startDate, endTime, true) ??
     Number.NEGATIVE_INFINITY
 
   if (startTimestamp <= now && now <= endTimestamp) {
@@ -184,8 +142,8 @@ function getSortTimestamp(
   endTime: string | null
 ) {
   return (
-    parseDateTimeToTimestamp(startDate, startTime) ??
-    parseDateTimeToTimestamp(endDate, endTime, true) ??
+    parseDateTimeInAppTimeZoneToComparableTimestamp(startDate, startTime) ??
+    parseDateTimeInAppTimeZoneToComparableTimestamp(endDate, endTime, true) ??
     0
   )
 }
