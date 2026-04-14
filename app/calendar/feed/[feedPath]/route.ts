@@ -28,29 +28,57 @@ type TripSheetRow = {
   trip: TripParentRecord | TripParentRecord[] | null
 }
 
-function escapeIcsText(value: string) {
+const ICS_LINE_BREAK = '\r\n'
+const ICS_MAX_OCTETS = 75
+
+function sanitizeIcsText(value: string) {
   return value
+    .normalize('NFKC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200D\u202F\u205F\u2060\u3000\uFEFF]/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function escapeIcsText(value: string) {
+  return sanitizeIcsText(value)
     .replace(/\\/g, '\\\\')
-    .replace(/\r?\n/g, '\\n')
+    .replace(/\n/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;')
 }
 
 function foldIcsLine(line: string) {
-  const maxLength = 75
-
-  if (line.length <= maxLength) {
+  if (Buffer.byteLength(line, 'utf8') <= ICS_MAX_OCTETS) {
     return line
   }
 
   const chunks: string[] = []
+  let currentChunk = ''
+  let currentOctets = 0
 
-  for (let index = 0; index < line.length; index += maxLength) {
-    const chunk = line.slice(index, index + maxLength)
-    chunks.push(index === 0 ? chunk : ` ${chunk}`)
+  for (const character of line) {
+    const characterOctets = Buffer.byteLength(character, 'utf8')
+    const maxOctets = chunks.length === 0 ? ICS_MAX_OCTETS : ICS_MAX_OCTETS - 1
+
+    if (currentChunk && currentOctets + characterOctets > maxOctets) {
+      chunks.push(chunks.length === 0 ? currentChunk : ` ${currentChunk}`)
+      currentChunk = character
+      currentOctets = characterOctets
+      continue
+    }
+
+    currentChunk += character
+    currentOctets += characterOctets
   }
 
-  return chunks.join('\r\n')
+  if (currentChunk) {
+    chunks.push(chunks.length === 0 ? currentChunk : ` ${currentChunk}`)
+  }
+
+  return chunks.join(ICS_LINE_BREAK)
 }
 
 function formatUtcTimestamp(date: Date) {
@@ -117,6 +145,10 @@ function buildDescription({
   return lines.join('\n')
 }
 
+function serializeIcs(lines: string[]) {
+  return lines.map(foldIcsLine).join(ICS_LINE_BREAK)
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ feedPath: string }> }
@@ -168,7 +200,7 @@ export async function GET(
   }
 
   const nowStamp = formatUtcTimestamp(new Date())
-  const events = ((tripSheetData as TripSheetRow[] | null) ?? [])
+  const eventLines = ((tripSheetData as TripSheetRow[] | null) ?? [])
     .map((tripSheet) => {
       const trip = getTripParent(tripSheet.trip)
 
@@ -199,11 +231,12 @@ export async function GET(
         'END:VEVENT',
       ]
 
-      return lines.map(foldIcsLine).join('\r\n')
+      return lines
     })
-    .filter((event): event is string => event !== null)
+    .filter((event): event is string[] => event !== null)
+    .flat()
 
-  const body = [
+  const body = serializeIcs([
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Trip Sheet//Resource Calendar Feed//EN',
@@ -221,10 +254,10 @@ export async function GET(
     'DTSTART:19700101T000000',
     'END:STANDARD',
     'END:VTIMEZONE',
-    ...events,
+    ...eventLines,
     'END:VCALENDAR',
     '',
-  ].join('\r\n')
+  ])
 
   return new NextResponse(body, {
     headers: {
