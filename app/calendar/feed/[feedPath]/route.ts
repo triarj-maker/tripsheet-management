@@ -30,6 +30,7 @@ type TripSheetRow = {
 
 const ICS_LINE_BREAK = '\r\n'
 const ICS_MAX_OCTETS = 75
+const IST_OFFSET_MINUTES = 5 * 60 + 30
 
 function sanitizeIcsText(value: string) {
   return value
@@ -98,6 +99,29 @@ function formatLocalizedDateTime(date: string, time: string) {
   return `${date.replace(/-/g, '')}T${normalizedTime.replace(/:/g, '')}`
 }
 
+function formatTimedDateTimeAsUtc(date: string, time: string) {
+  const [yearText, monthText, dayText] = date.split('-')
+  const [hoursText, minutesText, secondsText] = (time.length === 5 ? `${time}:00` : time).split(':')
+
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const hours = Number(hoursText)
+  const minutes = Number(minutesText)
+  const seconds = Number(secondsText)
+
+  if (
+    [year, month, day, hours, minutes, seconds].some((value) => Number.isNaN(value))
+  ) {
+    return formatLocalizedDateTime(date, time)
+  }
+
+  const utcTimestamp =
+    Date.UTC(year, month - 1, day, hours, minutes, seconds, 0) - IST_OFFSET_MINUTES * 60 * 1000
+
+  return formatUtcTimestamp(new Date(utcTimestamp))
+}
+
 function formatDateValue(date: string) {
   return date.replace(/-/g, '')
 }
@@ -114,8 +138,8 @@ function buildDateLines(tripSheet: Pick<TripSheetRow, 'start_date' | 'start_time
 
   if (startTime && endTime) {
     return [
-      `DTSTART;TZID=${APP_TIME_ZONE}:${formatLocalizedDateTime(startDate, startTime)}`,
-      `DTEND;TZID=${APP_TIME_ZONE}:${formatLocalizedDateTime(endDate, endTime)}`,
+      `DTSTART:${formatTimedDateTimeAsUtc(startDate, startTime)}`,
+      `DTEND:${formatTimedDateTimeAsUtc(endDate, endTime)}`,
     ]
   }
 
@@ -244,16 +268,6 @@ export async function GET(
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Trip Sheets',
     `X-WR-TIMEZONE:${APP_TIME_ZONE}`,
-    'BEGIN:VTIMEZONE',
-    `TZID:${APP_TIME_ZONE}`,
-    'X-LIC-LOCATION:Asia/Kolkata',
-    'BEGIN:STANDARD',
-    'TZOFFSETFROM:+0530',
-    'TZOFFSETTO:+0530',
-    'TZNAME:IST',
-    'DTSTART:19700101T000000',
-    'END:STANDARD',
-    'END:VTIMEZONE',
     ...eventLines,
     'END:VCALENDAR',
     '',
