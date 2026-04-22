@@ -18,6 +18,7 @@ type ResourceProfile = {
   full_name: string | null
   email: string | null
   phone: string | null
+  role: string | null
   is_active: boolean | null
   created_at: string | null
 }
@@ -51,6 +52,17 @@ function statusBadgeClass(isActive: boolean | null) {
   ].join(' ')
 }
 
+function roleLabel(role: string | null) {
+  return role === 'admin' ? 'Admin' : 'Resource'
+}
+
+function roleBadgeClass(role: string | null) {
+  return [
+    'ui-badge',
+    role === 'admin' ? 'ui-badge-blue' : 'ui-badge-neutral',
+  ].join(' ')
+}
+
 export default async function ResourcesPage({
   searchParams,
 }: ResourcesPageProps) {
@@ -58,8 +70,8 @@ export default async function ResourcesPage({
   const { supabase } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, is_active, created_at')
-    .eq('role', 'resource')
+    .select('id, full_name, email, phone, role, is_active, created_at')
+    .in('role', ['admin', 'resource'])
     .order('created_at', { ascending: false })
 
   const resources = (data as ResourceProfile[] | null) ?? []
@@ -103,6 +115,7 @@ export default async function ResourcesPage({
               <th className="px-3 py-2 font-medium text-gray-700">Name</th>
               <th className="px-3 py-2 font-medium text-gray-700">Email</th>
               <th className="px-3 py-2 font-medium text-gray-700">Phone</th>
+              <th className="px-3 py-2 font-medium text-gray-700">Role</th>
               <th className="px-3 py-2 font-medium text-gray-700">Status</th>
               <th className="px-3 py-2 font-medium text-gray-700">Created At</th>
               <th className="px-3 py-2 font-medium text-gray-700">Actions</th>
@@ -111,7 +124,7 @@ export default async function ResourcesPage({
           <tbody>
             {resources.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-gray-700">
+                <td colSpan={7} className="px-3 py-4 text-gray-700">
                   No resources found.
                 </td>
               </tr>
@@ -126,6 +139,11 @@ export default async function ResourcesPage({
                   </td>
                   <td className="px-3 py-2 text-gray-900">
                     {formatValue(resource.phone)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={roleBadgeClass(resource.role)}>
+                      {roleLabel(resource.role)}
+                    </span>
                   </td>
                   <td className="px-3 py-2">
                     <span className={statusBadgeClass(resource.is_active)}>

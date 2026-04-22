@@ -12,7 +12,14 @@ type NewTemplatePageProps = {
 
 type TripTemplate = {
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   body: string | null
+}
+
+function formatTimeInputValue(value: string | null) {
+  return value?.slice(0, 5) ?? ''
 }
 
 export default async function NewTemplatePage({
@@ -22,12 +29,15 @@ export default async function NewTemplatePage({
   const { supabase } = await requireAdmin()
   let duplicateError: string | null = null
   let initialTitle = ''
+  let initialHeading = ''
+  let initialDefaultStartTime = ''
+  let initialDefaultEndTime = ''
   let initialBody = ''
 
   if (params.duplicateFrom) {
     const { data, error } = await supabase
       .from('trip_templates')
-      .select('title, body')
+      .select('title, heading, default_start_time, default_end_time, body')
       .eq('id', params.duplicateFrom)
       .maybeSingle()
 
@@ -39,6 +49,9 @@ export default async function NewTemplatePage({
       duplicateError = 'Template to duplicate was not found.'
     } else {
       initialTitle = `${tripTemplate.title ?? ''} Copy`
+      initialHeading = tripTemplate.heading ?? ''
+      initialDefaultStartTime = formatTimeInputValue(tripTemplate.default_start_time)
+      initialDefaultEndTime = formatTimeInputValue(tripTemplate.default_end_time)
       initialBody = tripTemplate.body ?? ''
     }
   }
@@ -74,6 +87,9 @@ export default async function NewTemplatePage({
           action={createTemplate}
           submitLabel="Save Template"
           initialTitle={initialTitle}
+          initialHeading={initialHeading}
+          initialDefaultStartTime={initialDefaultStartTime}
+          initialDefaultEndTime={initialDefaultEndTime}
           initialBody={initialBody}
         />
     </>

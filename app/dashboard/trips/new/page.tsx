@@ -24,6 +24,9 @@ type DestinationOption = {
 type TripTemplate = {
   id: string
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   body: string | null
 }
 
@@ -74,7 +77,7 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
 
   const { data: templateData, error: templatesError } = await supabase
     .from('trip_templates')
-    .select('id, title, body')
+    .select('id, title, heading, default_start_time, default_end_time, body')
     .order('title', { ascending: true })
 
   const tripTemplates = (templateData as TripTemplate[] | null) ?? []

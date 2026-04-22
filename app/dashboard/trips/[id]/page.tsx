@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AdminNav from '@/app/dashboard/AdminNav'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
+import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import {
   formatTripTypeLabel,
@@ -12,8 +13,8 @@ import {
 } from '@/lib/trip-sheets'
 
 import SendTripNotificationButton from '../SendTripNotificationButton'
-import TripSheetAssignmentPopover from '../TripSheetAssignmentPopover'
 import { requireAdmin } from '../../lib'
+import BulkTripSheetAssignmentForm from './BulkTripSheetAssignmentForm'
 
 type TripDetailPageProps = {
   params: Promise<{
@@ -51,6 +52,14 @@ type TripSheetRow = {
   updated_at: string | null
 }
 
+type ConflictTripSheetRow = {
+  id: string
+  start_date: string | null
+  start_time: string | null
+  end_date: string | null
+  end_time: string | null
+}
+
 type AssignmentRow = {
   id: string
   trip_sheet_id: string
@@ -74,6 +83,16 @@ type TripNotificationSummaryRow = {
 function buildTripsRedirect(error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/trips?${params.toString()}`
+}
+
+function buildCalendarWeekHref(dateValue: string | null) {
+  const params = new URLSearchParams({ view: 'week' })
+
+  if (dateValue) {
+    params.set('date', dateValue)
+  }
+
+  return `/dashboard/calendar?${params.toString()}`
 }
 
 function formatValue(value: string | null) {
@@ -281,6 +300,43 @@ export default async function TripDetailPage({
       : { data: [], error: null }
 
   const resources = (resourceData as ResourceProfile[] | null) ?? []
+  const { data: conflictTripSheetData, error: conflictTripSheetsError } =
+    resourceUserIds.length > 0 && trip.start_date && trip.end_date
+      ? await supabase
+          .from('trip_sheets')
+          .select(
+            'id, start_date, start_time, end_date, end_time, trip:trips!inner(is_archived)'
+          )
+          .eq('is_archived', false)
+          .eq('trip.is_archived', false)
+          .not('start_date', 'is', null)
+          .not('end_date', 'is', null)
+          .lte('start_date', trip.end_date)
+          .gte('end_date', trip.start_date)
+      : { data: [], error: null }
+
+  const conflictTripSheets =
+    (conflictTripSheetData as ConflictTripSheetRow[] | null) ?? []
+  const conflictTripSheetIds = conflictTripSheets.map((tripSheet) => tripSheet.id)
+  const { data: conflictAssignmentData, error: conflictAssignmentsError } =
+    conflictTripSheetIds.length > 0 && resourceUserIds.length > 0
+      ? await supabase
+          .from('trip_sheet_assignments')
+          .select('trip_sheet_id, resource_user_id')
+          .in('trip_sheet_id', conflictTripSheetIds)
+          .in('resource_user_id', resourceUserIds)
+      : { data: [], error: null }
+
+  const conflictingTripSheetIds = getConflictingTripSheetIds(
+    conflictTripSheets,
+    (conflictAssignmentData as Pick<
+      AssignmentRow,
+      'trip_sheet_id' | 'resource_user_id'
+    >[] | null) ?? []
+  )
+  const hasTripConflict = tripSheetIds.some((tripSheetId) =>
+    conflictingTripSheetIds.has(tripSheetId)
+  )
   const { data: latestNotificationData, error: latestNotificationError } = await supabase
     .from('trip_notifications')
     .select('sent_at, status, recipient_count, success_count')
@@ -336,11 +392,14 @@ export default async function TripDetailPage({
     assignmentsError?.message ||
     activeResourcesError?.message ||
     resourcesError?.message ||
+    conflictTripSheetsError?.message ||
+    conflictAssignmentsError?.message ||
     latestNotificationError?.message ||
     null
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
   const tripColorStyle = getTripColorStyle(trip.trip_color)
   const returnPath = `/dashboard/trips/${trip.id}`
+  const calendarWeekHref = buildCalendarWeekHref(trip.start_date)
 
   return (
     <>
@@ -367,6 +426,27 @@ export default async function TripDetailPage({
         </div>
 
         <div className="flex flex-wrap items-start justify-end gap-2">
+          <Link
+            href={calendarWeekHref}
+            className="ui-button ui-button-secondary"
+            title={
+              hasTripConflict
+                ? 'Open the calendar week for this trip. Scheduling conflict detected.'
+                : 'Open the calendar week for this trip.'
+            }
+          >
+            <span>Open in Calendar</span>
+            {hasTripConflict ? (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full bg-red-500"
+                />
+                <span className="sr-only">Scheduling conflict detected</span>
+              </span>
+            ) : null}
+          </Link>
+
           <a
             href={`/dashboard/trips/${trip.id}/pdf`}
             download
@@ -470,20 +550,37 @@ export default async function TripDetailPage({
           </p>
         </div>
 
+        <BulkTripSheetAssignmentForm
+          tripId={trip.id}
+          returnPath={returnPath}
+          availableResources={activeResources.map((resource) => ({
+            id: resource.id,
+            label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${resource.role === 'admin' ? 'Admin' : 'Resource'})`,
+          }))}
+          tripSheetCount={tripSheets.length}
+        >
         <div className="app-table-wrap">
           <table className="app-table table-fixed">
             <thead>
               <tr>
-                <th className="w-[28%] px-4 py-3 font-medium text-gray-700">Schedule</th>
-                <th className="w-[28%] px-4 py-3 font-medium text-gray-700">Resource</th>
+                <th className="w-[4%] px-4 py-3 font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    data-bulk-select-all="true"
+                    aria-label="Select all visible trip sheets"
+                    className="h-4 w-4 rounded border-zinc-300"
+                  />
+                </th>
+                <th className="w-[27%] px-4 py-3 font-medium text-gray-700">Schedule</th>
+                <th className="w-[27%] px-4 py-3 font-medium text-gray-700">Resource</th>
                 <th className="w-[10%] px-4 py-3 font-medium text-gray-700">Updated</th>
-                <th className="w-[34%] px-4 py-3 font-medium text-gray-700">Actions</th>
+                <th className="w-[32%] px-4 py-3 font-medium text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {tripSheets.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-4 text-gray-700">
+                  <td colSpan={5} className="px-4 py-4 text-gray-700">
                     No trip sheets added yet.
                   </td>
                 </tr>
@@ -491,18 +588,25 @@ export default async function TripDetailPage({
                 tripSheets.map((tripSheet) => {
                   const assignedResources =
                     assignedResourcesByTripSheetId.get(tripSheet.id) ?? []
-                  const assignedResourceIds = new Set(
-                    assignedResources.map((resource) => resource.resourceUserId)
-                  )
-                  const availableResourcesForTripSheet = activeResources.filter(
-                    (resource) => !assignedResourceIds.has(resource.id)
-                  )
+                  const assignedResourceLabel =
+                    assignedResources.length > 0
+                      ? assignedResources.map((resource) => resource.label).join(', ')
+                      : 'Unassigned'
 
                   return (
                   <tr
                     key={tripSheet.id}
                     className="align-top"
                   >
+                    <td className="px-4 py-3.5 text-gray-900">
+                      <input
+                        type="checkbox"
+                        value={tripSheet.id}
+                        data-bulk-row="true"
+                        aria-label={`Select ${tripSheet.title ?? 'Untitled trip sheet'}`}
+                        className="h-4 w-4 rounded border-zinc-300"
+                      />
+                    </td>
                     <td className="px-4 py-3.5 text-gray-900">
                       <div className="space-y-1">
                         <p
@@ -530,18 +634,14 @@ export default async function TripDetailPage({
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-gray-900">
-                      <TripSheetAssignmentPopover
-                        tripSheetId={tripSheet.id}
-                        assignedResources={assignedResources.map((resource) => ({
-                          assignmentId: resource.assignmentId,
-                          label: resource.label,
-                        }))}
-                        availableResources={availableResourcesForTripSheet.map((resource) => ({
-                          id: resource.id,
-                          label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${resource.role === 'admin' ? 'Admin' : 'Resource'})`,
-                        }))}
-                        returnPath={returnPath}
-                      />
+                      <p
+                        className={`truncate text-sm font-medium ${
+                          assignedResources.length === 0 ? 'text-red-600' : 'text-gray-900'
+                        }`}
+                        title={assignedResourceLabel}
+                      >
+                        {assignedResourceLabel}
+                      </p>
                     </td>
                     <td className="px-4 py-3.5 text-gray-900">
                       <p className="whitespace-nowrap">{formatUpdatedAt(tripSheet.updated_at)}</p>
@@ -576,7 +676,7 @@ export default async function TripDetailPage({
                 )})
               )}
               <tr>
-                <td colSpan={4} className="px-4 pb-1 pt-3">
+                <td colSpan={5} className="px-4 pb-1 pt-3">
                   <div className="mx-auto w-full max-w-md">
                     <Link
                       href={`/dashboard/trip-sheets/new?tripId=${trip.id}`}
@@ -590,6 +690,7 @@ export default async function TripDetailPage({
             </tbody>
           </table>
         </div>
+        </BulkTripSheetAssignmentForm>
       </section>
 
     </>

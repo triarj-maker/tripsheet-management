@@ -21,6 +21,12 @@ function buildEditResourceRedirect(id: string, error: string) {
   return `/dashboard/resources/${id}/edit?${params.toString()}`
 }
 
+function normalizeRole(value: FormDataEntryValue | null) {
+  const role = String(value ?? '').trim()
+
+  return role === 'admin' || role === 'resource' ? role : null
+}
+
 export async function toggleResourceActive(formData: FormData) {
   const { supabase } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
@@ -36,7 +42,6 @@ export async function toggleResourceActive(formData: FormData) {
       is_active: nextIsActive,
     })
     .eq('id', id)
-    .eq('role', 'resource')
 
   if (error) {
     redirect(buildResourcesRedirect(error.message))
@@ -51,9 +56,10 @@ export async function createResource(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const phone = String(formData.get('phone') ?? '').trim()
   const password = String(formData.get('password') ?? '')
+  const role = normalizeRole(formData.get('role'))
 
-  if (!fullName || !email || !password) {
-    redirect(buildNewResourceRedirect('Full name, email, and password are required.'))
+  if (!fullName || !email || !password || !role) {
+    redirect(buildNewResourceRedirect('Full name, email, password, and role are required.'))
   }
 
   let adminClient: ReturnType<typeof createAdminClient>
@@ -83,7 +89,7 @@ export async function createResource(formData: FormData) {
     full_name: fullName,
     phone: phone || null,
     email,
-    role: 'resource',
+    role,
     is_active: true,
   })
 
@@ -104,14 +110,15 @@ export async function updateResource(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim()
   const fullName = String(formData.get('full_name') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
+  const role = normalizeRole(formData.get('role'))
   const isActive = formData.get('is_active') === 'on'
 
   if (!id) {
     redirect(buildResourcesRedirect('Resource not found.'))
   }
 
-  if (!fullName) {
-    redirect(buildEditResourceRedirect(id, 'Full name is required.'))
+  if (!fullName || !role) {
+    redirect(buildEditResourceRedirect(id, 'Full name and role are required.'))
   }
 
   const { error } = await supabase
@@ -119,14 +126,60 @@ export async function updateResource(formData: FormData) {
     .update({
       full_name: fullName,
       phone: phone || null,
+      role,
       is_active: isActive,
     })
     .eq('id', id)
-    .eq('role', 'resource')
 
   if (error) {
     redirect(buildEditResourceRedirect(id, error.message))
   }
 
   redirect(appendToastParam('/dashboard/resources'))
+}
+
+export async function updateResourcePassword(formData: FormData) {
+  await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  const password = String(formData.get('password') ?? '')
+  const confirmPassword = String(formData.get('confirm_password') ?? '')
+
+  if (!id) {
+    redirect(buildResourcesRedirect('Resource not found.'))
+  }
+
+  if (!password && !confirmPassword) {
+    redirect(buildEditResourceRedirect(id, 'Enter a new password to update.'))
+  }
+
+  if (password !== confirmPassword) {
+    redirect(buildEditResourceRedirect(id, 'New password and confirmation must match.'))
+  }
+
+  if (password.length < 6) {
+    redirect(buildEditResourceRedirect(id, 'Password must be at least 6 characters.'))
+  }
+
+  let adminClient: ReturnType<typeof createAdminClient>
+
+  try {
+    adminClient = createAdminClient()
+  } catch (error) {
+    redirect(
+      buildEditResourceRedirect(
+        id,
+        error instanceof Error ? error.message : 'Unable to update password.'
+      )
+    )
+  }
+
+  const { error } = await adminClient.auth.admin.updateUserById(id, {
+    password,
+  })
+
+  if (error) {
+    redirect(buildEditResourceRedirect(id, error.message))
+  }
+
+  redirect(appendToastParam(`/dashboard/resources/${id}/edit`, 'Password updated.'))
 }

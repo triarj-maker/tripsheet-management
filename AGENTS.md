@@ -31,6 +31,7 @@ Primary model:
 Key relationship rules:
 - Trip Sheets depend on Trips
 - Parent Trip changes may drive child Trip Sheet changes
+- When parent Trip dates change, existing child Trip Sheets may be shifted programmatically; update existing child rows, do not upsert them
 - Child entities should not be updated unless required by the parent change or explicit user action
 
 --------------------------------------------------
@@ -93,12 +94,20 @@ Do not expose admin-only controls in resource work views.
 - Do not trust stale client/form state for persisted values
 - Do not assume DB constraints fully enforce business logic
 - Keep mutation logic deterministic and explicit
+- Prefer `update` for existing rows; use `upsert` only for true create-or-update behavior
+- Avoid partial `upsert` payloads unless intentional, since they can trigger insert-style DB validation/constraint paths
 
 For trip date changes:
 - fetch the existing Trip from DB first
 - compute whether dates actually changed
 - only shift child Trip Sheets when parent dates changed
+- shift existing child Trip Sheets with update semantics, not upsert
 - preserve child duration, `start_time`, `end_time`, and `body_text`
+
+Database validation awareness:
+- mutation errors may originate from DB triggers/functions, not just application code
+- error messages may identify a DB validation path, not the true app-level failure step
+- trace mutation failures across fetch → compute → write before changing behavior
 
 --------------------------------------------------
 
@@ -109,6 +118,11 @@ For trip date changes:
 - Do not change DB schema unless explicitly instructed
 - Prefer existing repo patterns over introducing new architecture
 - Preserve working flows unless the task explicitly changes them
+
+Debugging guidance:
+- prefer targeted instrumentation/runtime verification before implementing fixes
+- verify DB state vs runtime state when behavior and inspected data disagree
+- isolate the failing step (fetch → compute → write) before changing logic
 
 High-signal folders:
 - `app/dashboard/trips/`

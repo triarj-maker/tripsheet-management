@@ -367,10 +367,10 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
               <th className="w-[14%] px-4 py-3 font-medium text-gray-700">Start</th>
               <th className="w-[12%] px-4 py-3 font-medium text-gray-700">Type</th>
               <th className="w-[14%] px-4 py-3 font-medium text-gray-700">Destination</th>
-              <th className="w-[16%] px-4 py-3 font-medium text-gray-700">Customer</th>
+              <th className="w-[10%] px-4 py-3 font-medium text-gray-700">Customer</th>
               <th className="w-[8%] px-4 py-3 font-medium text-gray-700">Trip Sheets</th>
               <th className="w-[8%] px-4 py-3 font-medium text-gray-700">State</th>
-              <th className="w-[20%] px-4 py-3 font-medium text-gray-700">Actions</th>
+              <th className="w-[26%] px-4 py-3 font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -411,8 +411,11 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                   <td className="px-4 py-3 text-gray-900">
                     <p className="truncate">{trip.destination}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-900">
-                    <p className="truncate" title={formatGuestCompanySummary(trip)}>
+                  <td className="max-w-0 px-4 py-3 text-gray-900">
+                    <p
+                      className="overflow-hidden text-ellipsis whitespace-nowrap"
+                      title={formatGuestCompanySummary(trip)}
+                    >
                       {formatGuestCompanySummary(trip)}
                     </p>
                   </td>

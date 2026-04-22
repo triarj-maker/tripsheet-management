@@ -249,11 +249,6 @@ async function getExistingTripForWrite(
   }
 
   if (errorMessage && !data) {
-    console.error('getExistingTripForWrite failed', {
-      tripId,
-      errorMessage,
-    })
-
     return {
       trip: null,
       error: errorMessage,
@@ -306,6 +301,16 @@ function getReturnPath(formData: FormData, fallback: string) {
   }
 
   return fallback
+}
+
+function appendErrorParam(path: string, error: string) {
+  const [pathname, queryString = ''] = path.split('?')
+  const params = new URLSearchParams(queryString)
+  params.set('error', error)
+
+  const nextQuery = params.toString()
+
+  return nextQuery ? `${pathname}?${nextQuery}` : pathname
 }
 
 function parseIsoDate(value: string) {
@@ -704,12 +709,12 @@ export async function updateTrip(formData: FormData) {
         trip_color: existingTrip.trip_color,
         adult_count: existingTrip.adult_count,
         kid_count: existingTrip.kid_count,
-      start_date: existingTrip.start_date,
-      end_date: existingTrip.end_date,
-      is_archived: existingTrip.is_archived,
-      guest_name: existingTrip.guest_name,
-      company: existingTrip.company,
-      phone_number: existingTrip.phone_number,
+        start_date: existingTrip.start_date,
+        end_date: existingTrip.end_date,
+        is_archived: existingTrip.is_archived,
+        guest_name: existingTrip.guest_name,
+        company: existingTrip.company,
+        phone_number: existingTrip.phone_number,
         last_updated_by: user.id,
       })
       .eq('id', id)
@@ -829,21 +834,55 @@ export async function updateTrip(formData: FormData) {
     })
 
     if (validShiftedChildTripSheets.length > 0) {
-      const { error: shiftedTripSheetsError } = await supabase
-        .from('trip_sheets')
-        .upsert(
-        validShiftedChildTripSheets.map((tripSheet) => ({
-          id: tripSheet.id,
-          start_date: tripSheet.start_date,
-          end_date: tripSheet.end_date,
-          last_updated_by: user.id,
-        })),
-        { onConflict: 'id' }
+      const updatedChildTripSheets: Array<{
+        id: string
+        start_date: string | null
+        end_date: string | null
+      }> = []
+      const childTripSheetById = new Map(
+        childTripSheets.map((tripSheet) => [tripSheet.id, tripSheet])
       )
 
-      if (shiftedTripSheetsError) {
-        await rollbackParentTripUpdate()
-        redirect(buildEditTripRedirect(id, shiftedTripSheetsError.message))
+      for (const tripSheet of validShiftedChildTripSheets) {
+        const { error: shiftedTripSheetError } = await supabase
+          .from('trip_sheets')
+          .update({
+            start_date: tripSheet.start_date,
+            end_date: tripSheet.end_date,
+            last_updated_by: user.id,
+          })
+          .eq('id', tripSheet.id)
+          .eq('trip_id', id)
+
+        if (shiftedTripSheetError) {
+          for (const updatedTripSheet of updatedChildTripSheets) {
+            await supabase
+              .from('trip_sheets')
+              .update({
+                start_date: updatedTripSheet.start_date,
+                end_date: updatedTripSheet.end_date,
+                last_updated_by: user.id,
+              })
+              .eq('id', updatedTripSheet.id)
+              .eq('trip_id', id)
+          }
+
+          await rollbackParentTripUpdate()
+          redirect(
+            buildEditTripRedirect(
+              id,
+              `Child trip sheet dates could not be updated: ${shiftedTripSheetError.message}`
+            )
+          )
+        }
+
+        const originalTripSheet = childTripSheetById.get(tripSheet.id)
+
+        updatedChildTripSheets.push({
+          id: tripSheet.id,
+          start_date: originalTripSheet?.start_date ?? null,
+          end_date: originalTripSheet?.end_date ?? null,
+        })
       }
     }
   }
@@ -1013,4 +1052,195 @@ export async function deleteTripFromList(formData: FormData) {
   }
 
   redirect(appendToastParam(returnPath))
+}
+
+export async function bulkAssignTripSheets(formData: FormData) {
+  const { supabase, user } = await requireAdmin()
+  const tripId = String(formData.get('trip_id') ?? '').trim()
+  const resourceUserId = String(formData.get('resource_user_id') ?? '').trim()
+  const bulkAction = String(formData.get('bulk_action') ?? '').trim()
+  const shouldReplaceExisting = formData.get('replace_existing') === 'true'
+  const returnPath = getReturnPath(formData, tripId ? `/dashboard/trips/${tripId}` : '/dashboard/trips')
+
+  if (!tripId) {
+    redirect(buildTripsRedirect('Trip not found.'))
+  }
+
+  if (bulkAction !== 'clear_selected' && !resourceUserId) {
+    redirect(appendErrorParam(returnPath, 'Select a resource before assigning.'))
+  }
+
+  let targetTripSheetIds = Array.from(
+    new Set(
+      formData
+        .getAll('selected_trip_sheet_ids')
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+    )
+  )
+
+  if (bulkAction === 'all_unassigned') {
+    const { data: tripSheetData, error: tripSheetsError } = await supabase
+      .from('trip_sheets')
+      .select('id')
+      .eq('trip_id', tripId)
+
+    if (tripSheetsError) {
+      redirect(appendErrorParam(returnPath, tripSheetsError.message))
+    }
+
+    const allTripSheetIds =
+      ((tripSheetData as Array<{ id: string }> | null) ?? []).map((tripSheet) => tripSheet.id)
+
+    if (allTripSheetIds.length === 0) {
+      redirect(appendErrorParam(returnPath, 'No trip sheets are available to assign.'))
+    }
+
+    const { data: assignmentData, error: assignmentsError } = await supabase
+      .from('trip_sheet_assignments')
+      .select('trip_sheet_id')
+      .in('trip_sheet_id', allTripSheetIds)
+
+    if (assignmentsError) {
+      redirect(appendErrorParam(returnPath, assignmentsError.message))
+    }
+
+    const assignedTripSheetIds = new Set(
+      ((assignmentData as Array<{ trip_sheet_id: string }> | null) ?? []).map(
+        (assignment) => assignment.trip_sheet_id
+      )
+    )
+
+    targetTripSheetIds = allTripSheetIds.filter(
+      (tripSheetId) => !assignedTripSheetIds.has(tripSheetId)
+    )
+  } else if (bulkAction !== 'selected' && bulkAction !== 'clear_selected') {
+    redirect(appendErrorParam(returnPath, 'Choose a bulk assignment action.'))
+  }
+
+  if (targetTripSheetIds.length === 0) {
+    redirect(appendErrorParam(returnPath, 'No trip sheets were selected for assignment.'))
+  }
+
+  const { data: validTripSheetData, error: validTripSheetsError } = await supabase
+    .from('trip_sheets')
+    .select('id')
+    .eq('trip_id', tripId)
+    .in('id', targetTripSheetIds)
+
+  if (validTripSheetsError) {
+    redirect(appendErrorParam(returnPath, validTripSheetsError.message))
+  }
+
+  const validTripSheetIds =
+    ((validTripSheetData as Array<{ id: string }> | null) ?? []).map((tripSheet) => tripSheet.id)
+
+  if (validTripSheetIds.length === 0) {
+    redirect(appendErrorParam(returnPath, 'No matching trip sheets were found for this trip.'))
+  }
+
+  if (bulkAction === 'clear_selected') {
+    const { error: deleteError } = await supabase
+      .from('trip_sheet_assignments')
+      .delete()
+      .in('trip_sheet_id', validTripSheetIds)
+
+    if (deleteError) {
+      redirect(appendErrorParam(returnPath, deleteError.message))
+    }
+
+    redirect(
+      appendToastParam(
+        returnPath,
+        `Cleared assignments from ${validTripSheetIds.length} trip sheet${
+          validTripSheetIds.length === 1 ? '' : 's'
+        }.`
+      )
+    )
+  }
+
+  const { data: resourceData, error: resourceError } = await supabase
+    .from('profiles')
+    .select('id, role, is_active')
+    .eq('id', resourceUserId)
+    .in('role', ['resource', 'admin'])
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (resourceError || !resourceData) {
+    redirect(
+      appendErrorParam(
+        returnPath,
+        resourceError?.message ?? 'Selected resource is not active or assignable.'
+      )
+    )
+  }
+
+  const { data: existingAssignmentData, error: existingAssignmentsError } = await supabase
+    .from('trip_sheet_assignments')
+    .select('id, trip_sheet_id, resource_user_id')
+    .in('trip_sheet_id', validTripSheetIds)
+
+  if (existingAssignmentsError) {
+    redirect(appendErrorParam(returnPath, existingAssignmentsError.message))
+  }
+
+  const existingAssignments =
+    (existingAssignmentData as Array<{
+      id: string
+      trip_sheet_id: string
+      resource_user_id: string
+    }> | null) ?? []
+  const existingTargetAssignmentIds = new Set(
+    existingAssignments
+      .filter((assignment) => assignment.resource_user_id === resourceUserId)
+      .map((assignment) => assignment.trip_sheet_id)
+  )
+  const tripSheetIdsToInsert = validTripSheetIds.filter(
+    (tripSheetId) => !existingTargetAssignmentIds.has(tripSheetId)
+  )
+
+  if (shouldReplaceExisting) {
+    const assignmentIdsToRemove = existingAssignments
+      .filter((assignment) => assignment.resource_user_id !== resourceUserId)
+      .map((assignment) => assignment.id)
+
+    if (assignmentIdsToRemove.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('trip_sheet_assignments')
+        .delete()
+        .in('id', assignmentIdsToRemove)
+
+      if (deleteError) {
+        redirect(appendErrorParam(returnPath, deleteError.message))
+      }
+    }
+  }
+
+  if (tripSheetIdsToInsert.length > 0) {
+    const { error: insertError } = await supabase.from('trip_sheet_assignments').insert(
+      tripSheetIdsToInsert.map((tripSheetId) => ({
+        trip_sheet_id: tripSheetId,
+        resource_user_id: resourceUserId,
+        assigned_by: user.id,
+      }))
+    )
+
+    if (insertError) {
+      redirect(appendErrorParam(returnPath, insertError.message))
+    }
+  }
+
+  const changedCount = shouldReplaceExisting
+    ? validTripSheetIds.length
+    : tripSheetIdsToInsert.length
+
+  redirect(
+    appendToastParam(
+      returnPath,
+      changedCount > 0
+        ? `Assigned resource to ${changedCount} trip sheet${changedCount === 1 ? '' : 's'}.`
+        : 'No assignment changes were needed.'
+    )
+  )
 }

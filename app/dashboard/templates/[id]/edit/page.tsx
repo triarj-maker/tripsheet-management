@@ -17,7 +17,14 @@ type EditTemplatePageProps = {
 type TripTemplate = {
   id: string
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   body: string | null
+}
+
+function formatTimeInputValue(value: string | null) {
+  return value?.slice(0, 5) ?? ''
 }
 
 function buildTemplatesRedirect(error: string) {
@@ -33,7 +40,7 @@ export default async function EditTemplatePage({
   const { supabase } = await requireAdmin()
   const { data, error } = await supabase
     .from('trip_templates')
-    .select('id, title, body')
+    .select('id, title, heading, default_start_time, default_end_time, body')
     .eq('id', id)
     .maybeSingle()
 
@@ -67,6 +74,9 @@ export default async function EditTemplatePage({
           submitLabel="Save Changes"
           templateId={tripTemplate.id}
           initialTitle={tripTemplate.title ?? ''}
+          initialHeading={tripTemplate.heading ?? ''}
+          initialDefaultStartTime={formatTimeInputValue(tripTemplate.default_start_time)}
+          initialDefaultEndTime={formatTimeInputValue(tripTemplate.default_end_time)}
           initialBody={tripTemplate.body ?? ''}
         />
     </>

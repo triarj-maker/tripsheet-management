@@ -27,6 +27,9 @@ type DestinationOption = {
 type TripTemplate = {
   id: string
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   body: string | null
 }
 
@@ -182,6 +185,26 @@ function buildScheduleLabel({
 const cloneTripSheetsOutsideRangeMessage =
   'Cloned trip sheet dates fall outside the new trip date range. Adjust the trip dates and try again.'
 
+function formatTemplateTime(value: string | null) {
+  return value?.slice(0, 5) ?? ''
+}
+
+function shouldApplyTemplateValue({
+  currentValue,
+  previousTemplateValue,
+  isEdited,
+}: {
+  currentValue: string
+  previousTemplateValue: string
+  isEdited: boolean
+}) {
+  return (
+    !isEdited ||
+    !currentValue ||
+    (!!previousTemplateValue && currentValue === previousTemplateValue)
+  )
+}
+
 export default function CreateTripFlowForm({
   destinations,
   tripTemplates,
@@ -215,6 +238,12 @@ export default function CreateTripFlowForm({
   })
   const [templateId, setTemplateId] = useState('')
   const [bodyText, setBodyText] = useState('')
+  const [editedTemplateFields, setEditedTemplateFields] = useState({
+    trip_sheet_title: false,
+    start_time: false,
+    end_time: false,
+    body: false,
+  })
   const [tripError, setTripError] = useState(
     errorMessage === guestOrCompanyRequiredMessage ? errorMessage : ''
   )
@@ -297,6 +326,13 @@ export default function CreateTripFlowForm({
       setHasEditedTripSheetStartDate(true)
     }
 
+    if (name === 'trip_sheet_title' || name === 'start_time' || name === 'end_time') {
+      setEditedTemplateFields((currentFields) => ({
+        ...currentFields,
+        [name]: true,
+      }))
+    }
+
     setTripSheetDraft((currentDraft) => ({
       ...currentDraft,
       [name]: value,
@@ -307,18 +343,82 @@ export default function CreateTripFlowForm({
     const nextTemplateId = event.target.value
     const currentTemplate = tripTemplates.find((template) => template.id === templateId)
     const nextTemplate = tripTemplates.find((template) => template.id === nextTemplateId)
+    const currentTemplateHeading = currentTemplate?.heading?.trim() ?? ''
+    const currentTemplateStartTime = formatTemplateTime(currentTemplate?.default_start_time ?? null)
+    const currentTemplateEndTime = formatTemplateTime(currentTemplate?.default_end_time ?? null)
+    const currentTemplateBody = currentTemplate?.body ?? ''
 
     setTemplateId(nextTemplateId)
 
     if (!nextTemplateId) {
-      if (bodyText === (currentTemplate?.body ?? '')) {
+      setTripSheetDraft((currentDraft) => ({
+        ...currentDraft,
+        trip_sheet_title:
+          currentDraft.trip_sheet_title === currentTemplateHeading
+            ? ''
+            : currentDraft.trip_sheet_title,
+        start_time:
+          currentDraft.start_time === currentTemplateStartTime
+            ? '09:00'
+            : currentDraft.start_time,
+        end_time:
+          currentDraft.end_time === currentTemplateEndTime
+            ? '17:30'
+            : currentDraft.end_time,
+      }))
+
+      if (bodyText === currentTemplateBody) {
         setBodyText('')
       }
 
       return
     }
 
-    setBodyText(nextTemplate?.body ?? '')
+    const nextTemplateHeading = nextTemplate?.heading?.trim() ?? ''
+    const nextTemplateStartTime = formatTemplateTime(nextTemplate?.default_start_time ?? null)
+    const nextTemplateEndTime = formatTemplateTime(nextTemplate?.default_end_time ?? null)
+    const nextTemplateBody = nextTemplate?.body ?? ''
+
+    setTripSheetDraft((currentDraft) => ({
+      ...currentDraft,
+      trip_sheet_title:
+        nextTemplateHeading &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.trip_sheet_title,
+          previousTemplateValue: currentTemplateHeading,
+          isEdited: editedTemplateFields.trip_sheet_title,
+        })
+          ? nextTemplateHeading
+          : currentDraft.trip_sheet_title,
+      start_time:
+        nextTemplateStartTime &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.start_time,
+          previousTemplateValue: currentTemplateStartTime,
+          isEdited: editedTemplateFields.start_time,
+        })
+          ? nextTemplateStartTime
+          : currentDraft.start_time,
+      end_time:
+        nextTemplateEndTime &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.end_time,
+          previousTemplateValue: currentTemplateEndTime,
+          isEdited: editedTemplateFields.end_time,
+        })
+          ? nextTemplateEndTime
+          : currentDraft.end_time,
+    }))
+
+    if (
+      shouldApplyTemplateValue({
+        currentValue: bodyText,
+        previousTemplateValue: currentTemplateBody,
+        isEdited: editedTemplateFields.body,
+      })
+    ) {
+      setBodyText(nextTemplateBody)
+    }
   }
 
   function handleAddResource() {
@@ -494,23 +594,6 @@ export default function CreateTripFlowForm({
           </div>
 
           <div>
-            <label htmlFor="trip_color" className="ui-label">Trip Color</label>
-            <TripColorSelector
-              id="trip_color"
-              name="trip_color"
-              value={tripDraft.trip_color}
-              onChange={(value) =>
-                setTripDraft((currentDraft) => ({
-                  ...currentDraft,
-                  trip_color: value,
-                }))
-              }
-              allowAuto
-              autoLabel="Auto-assign next color"
-            />
-          </div>
-
-          <div>
             <label htmlFor="adult_count" className="ui-label">Adult Numbers</label>
             <input
               id="adult_count"
@@ -576,30 +659,49 @@ export default function CreateTripFlowForm({
             />
           </div>
 
-          <div>
-            <label htmlFor="trip_start_date" className="ui-label">Trip Start Date</label>
-            <input
-              id="trip_start_date"
-              name="trip_start_date"
-              type="date"
-              value={tripDraft.start_date}
-              onChange={updateTripField}
-              required
-              className="ui-input ui-input-compact"
-            />
+          <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+            <div>
+              <label htmlFor="trip_start_date" className="ui-label">Trip Start Date</label>
+              <input
+                id="trip_start_date"
+                name="trip_start_date"
+                type="date"
+                value={tripDraft.start_date}
+                onChange={updateTripField}
+                required
+                className="ui-input ui-input-compact"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="trip_end_date" className="ui-label">Trip End Date</label>
+              <input
+                id="trip_end_date"
+                name="trip_end_date"
+                type="date"
+                min={tripDraft.start_date || undefined}
+                value={tripDraft.end_date}
+                onChange={updateTripField}
+                required
+                className="ui-input ui-input-compact"
+              />
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="trip_end_date" className="ui-label">Trip End Date</label>
-            <input
-              id="trip_end_date"
-              name="trip_end_date"
-              type="date"
-              min={tripDraft.start_date || undefined}
-              value={tripDraft.end_date}
-              onChange={updateTripField}
-              required
-              className="ui-input ui-input-compact"
+          <div className="md:col-span-2">
+            <label htmlFor="trip_color" className="ui-label">Trip Color</label>
+            <TripColorSelector
+              id="trip_color"
+              name="trip_color"
+              value={tripDraft.trip_color}
+              onChange={(value) =>
+                setTripDraft((currentDraft) => ({
+                  ...currentDraft,
+                  trip_color: value,
+                }))
+              }
+              allowAuto
+              autoLabel="Auto-assign next color"
             />
           </div>
         </div>
@@ -651,6 +753,24 @@ export default function CreateTripFlowForm({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label htmlFor="template_id" className="ui-label">Template</label>
+                <select
+                  id="template_id"
+                  name="template_id"
+                  value={templateId}
+                  onChange={handleTemplateChange}
+                  className="ui-select ui-select-compact"
+                >
+                  <option value="">Start from blank body</option>
+                  {tripTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.title ?? template.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="md:col-span-2">
                 <label htmlFor="trip_sheet_title" className="ui-label">Trip Sheet Title</label>
                 <input
@@ -717,23 +837,6 @@ export default function CreateTripFlowForm({
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label htmlFor="template_id" className="ui-label">Template</label>
-                <select
-                  id="template_id"
-                  name="template_id"
-                  value={templateId}
-                  onChange={handleTemplateChange}
-                  className="ui-select ui-select-compact"
-                >
-                  <option value="">Start from blank body</option>
-                  {tripTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.title ?? template.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {tripSheetError ? (
@@ -757,7 +860,13 @@ export default function CreateTripFlowForm({
                 name="body_text"
                 rows={14}
                 value={bodyText}
-                onChange={(event) => setBodyText(event.target.value)}
+                onChange={(event) => {
+                  setEditedTemplateFields((currentFields) => ({
+                    ...currentFields,
+                    body: true,
+                  }))
+                  setBodyText(event.target.value)
+                }}
                 required
                 className="ui-textarea"
               />

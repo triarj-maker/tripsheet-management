@@ -5,7 +5,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
 
-import { updateResource } from '../../actions'
+import { updateResource, updateResourcePassword } from '../../actions'
 
 type EditResourcePageProps = {
   params: Promise<{
@@ -21,6 +21,7 @@ type ResourceProfile = {
   full_name: string | null
   email: string | null
   phone: string | null
+  role: string | null
   is_active: boolean | null
 }
 
@@ -37,9 +38,8 @@ export default async function EditResourcePage({
   const { supabase } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, is_active')
+    .select('id, full_name, email, phone, role, is_active')
     .eq('id', id)
-    .eq('role', 'resource')
     .maybeSingle()
 
   const resource = (data as ResourceProfile | null) ?? null
@@ -104,6 +104,20 @@ export default async function EditResourcePage({
             />
           </div>
 
+          <div>
+            <label htmlFor="role" className="ui-label">Role</label>
+            <select
+              id="role"
+              name="role"
+              defaultValue={resource.role === 'admin' ? 'admin' : 'resource'}
+              required
+              className="ui-select"
+            >
+              <option value="resource">Resource</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input
               type="checkbox"
@@ -126,6 +140,47 @@ export default async function EditResourcePage({
               Cancel
             </Link>
           </div>
+        </form>
+
+        <form action={updateResourcePassword} className="app-section-card space-y-4">
+          <input type="hidden" name="id" value={resource.id} />
+
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Password</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Set a new sign-in password for this managed account.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="password" className="ui-label">New Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              className="ui-input"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="confirm_password" className="ui-label">Confirm Password</label>
+            <input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              className="ui-input"
+            />
+          </div>
+
+          <ActionSubmitButton
+            idleLabel="Update Password"
+            pendingLabel="Updating…"
+            className="ui-button-secondary"
+          />
         </form>
     </>
   )

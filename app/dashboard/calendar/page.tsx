@@ -7,6 +7,7 @@ import {
   type DestinationRelation,
 } from '@/lib/trip-sheets'
 
+import { getConflictingTripSheetIds } from './conflicts'
 import TripSheetCalendar from './TripSheetCalendar'
 import type { MonthCalendarEvent, WeekCalendarEvent } from './TripSheetCalendar'
 
@@ -67,14 +68,6 @@ type ResourceProfile = {
   role: string | null
 }
 
-type CalendarTripSheet = {
-  id: string
-  start_date: string | null
-  start_time: string | null
-  end_date: string | null
-  end_time: string | null
-}
-
 function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
   const summaryByTripId = new Map<
     string,
@@ -115,114 +108,6 @@ function addOneDay(dateString: string | null) {
   const date = new Date(Date.UTC(year, month - 1, day))
   date.setUTCDate(date.getUTCDate() + 1)
   return date.toISOString().slice(0, 10)
-}
-
-function parseTimeToMinutes(value: string | null) {
-  if (!value) {
-    return null
-  }
-
-  const [hoursText, minutesText] = value.split(':')
-  const hours = Number(hoursText)
-  const minutes = Number(minutesText)
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return null
-  }
-
-  return hours * 60 + minutes
-}
-
-function doTripSheetsConflictOnSameDay(
-  left: CalendarTripSheet,
-  right: CalendarTripSheet
-) {
-  if (
-    !left.start_date ||
-    !left.end_date ||
-    !right.start_date ||
-    !right.end_date
-  ) {
-    return false
-  }
-
-  const leftStartMinutes = parseTimeToMinutes(left.start_time)
-  const leftEndMinutes = parseTimeToMinutes(left.end_time)
-  const rightStartMinutes = parseTimeToMinutes(right.start_time)
-  const rightEndMinutes = parseTimeToMinutes(right.end_time)
-
-  if (
-    leftStartMinutes === null ||
-    leftEndMinutes === null ||
-    rightStartMinutes === null ||
-    rightEndMinutes === null
-  ) {
-    return false
-  }
-
-  if (leftEndMinutes <= leftStartMinutes || rightEndMinutes <= rightStartMinutes) {
-    return false
-  }
-
-  const sharesAtLeastOneDay =
-    left.start_date <= right.end_date && right.start_date <= left.end_date
-
-  if (!sharesAtLeastOneDay) {
-    return false
-  }
-
-  return leftStartMinutes < rightEndMinutes && rightStartMinutes < leftEndMinutes
-}
-
-function getConflictingTripSheetIds(
-  tripSheets: CalendarTripSheet[],
-  assignments: Assignment[]
-) {
-  const conflictIds = new Set<string>()
-  const tripSheetById = new Map(tripSheets.map((tripSheet) => [tripSheet.id, tripSheet]))
-  const tripSheetIdsByResourceUserId = new Map<string, string[]>()
-
-  for (const assignment of assignments) {
-    const currentTripSheetIds =
-      tripSheetIdsByResourceUserId.get(assignment.resource_user_id) ?? []
-    currentTripSheetIds.push(assignment.trip_sheet_id)
-    tripSheetIdsByResourceUserId.set(assignment.resource_user_id, currentTripSheetIds)
-  }
-
-  for (const tripSheetIds of tripSheetIdsByResourceUserId.values()) {
-    for (let leftIndex = 0; leftIndex < tripSheetIds.length; leftIndex += 1) {
-      const leftTripSheetId = tripSheetIds[leftIndex]
-      const leftTripSheet = leftTripSheetId
-        ? tripSheetById.get(leftTripSheetId) ?? null
-        : null
-
-      if (!leftTripSheet) {
-        continue
-      }
-
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < tripSheetIds.length;
-        rightIndex += 1
-      ) {
-        const rightTripSheetId = tripSheetIds[rightIndex]
-        const rightTripSheet = rightTripSheetId
-          ? tripSheetById.get(rightTripSheetId) ?? null
-          : null
-
-        if (!rightTripSheet) {
-          continue
-        }
-
-        if (doTripSheetsConflictOnSameDay(leftTripSheet, rightTripSheet)) {
-          conflictIds.add(leftTripSheet.id)
-          conflictIds.add(rightTripSheet.id)
-        }
-      }
-    }
-  }
-
-  return conflictIds
 }
 
 function parseIsoDate(value: string) {

@@ -14,6 +14,9 @@ type TemplatesPageProps = {
 type TripTemplate = {
   id: string
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   updated_at: string | null
 }
 
@@ -52,7 +55,7 @@ export default async function TemplatesPage({
   const { supabase } = await requireAdmin()
   const { data, error } = await supabase
     .from('trip_templates')
-    .select('id, title, updated_at')
+    .select('id, title, heading, default_start_time, default_end_time, updated_at')
     .order('updated_at', { ascending: false })
 
   const tripTemplates = (data as TripTemplate[] | null) ?? []

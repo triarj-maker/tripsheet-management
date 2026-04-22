@@ -9,6 +9,9 @@ type TemplateFormProps = {
   action: (formData: FormData) => void | Promise<void>
   submitLabel: string
   initialTitle?: string
+  initialHeading?: string
+  initialDefaultStartTime?: string
+  initialDefaultEndTime?: string
   initialBody?: string
   templateId?: string
 }
@@ -17,6 +20,9 @@ export default function TemplateForm({
   action,
   submitLabel,
   initialTitle = '',
+  initialHeading = '',
+  initialDefaultStartTime = '',
+  initialDefaultEndTime = '',
   initialBody = '',
   templateId,
 }: TemplateFormProps) {
@@ -26,7 +32,7 @@ export default function TemplateForm({
 
       <div>
         <label htmlFor="title" className="ui-label">
-          Title
+          Template Title
         </label>
         <input
           id="title"
@@ -37,6 +43,47 @@ export default function TemplateForm({
           maxLength={TEMPLATE_TITLE_MAX_LENGTH}
           className="ui-input"
         />
+      </div>
+
+      <div>
+        <label htmlFor="heading" className="ui-label">
+          Default Trip Sheet Heading
+        </label>
+        <input
+          id="heading"
+          name="heading"
+          type="text"
+          defaultValue={initialHeading}
+          className="ui-input"
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label htmlFor="default_start_time" className="ui-label">
+            Default Start Time
+          </label>
+          <input
+            id="default_start_time"
+            name="default_start_time"
+            type="time"
+            defaultValue={initialDefaultStartTime}
+            className="ui-input"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="default_end_time" className="ui-label">
+            Default End Time
+          </label>
+          <input
+            id="default_end_time"
+            name="default_end_time"
+            type="time"
+            defaultValue={initialDefaultEndTime}
+            className="ui-input"
+          />
+        </div>
       </div>
 
       <div>

@@ -73,6 +73,20 @@ export default async function NewResourcePage({
           </div>
 
           <div>
+            <label htmlFor="role" className="ui-label">Role</label>
+            <select
+              id="role"
+              name="role"
+              defaultValue="resource"
+              required
+              className="ui-select"
+            >
+              <option value="resource">Resource</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="password" className="ui-label">Password</label>
             <input
               id="password"

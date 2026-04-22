@@ -111,6 +111,11 @@ trip_notification_recipients
 
 6. Core Behavioral Rules
 
+Database Validation Awareness
+- Some business rules may be enforced at the database level (via triggers or functions)
+- Mutation failures may originate from database validation, not only application logic
+- Error messages may reflect database constraints rather than UI-level assumptions
+
 1. Parent-Child Relationship
 - Trip Sheets always belong to a Trip
 - Trip Sheets cannot exist independently
@@ -125,13 +130,20 @@ When Trip dates change:
 - Preserve:
   - time
   - duration
+  - body_text
 - Shift by:
   - delta = new_start_date - original_start_date
+
+Additional rules:
+- Existing Trip Sheets are updated, not recreated
+- Child rows must not be duplicated or reinserted during shifts
+- Shifted Trip Sheets must remain within Trip bounds
 
 4. Mutation Principle
 - Parent drives children
 - Child updates triggered only when parent date changes
 - Avoid unnecessary child rewrites
+- Child mutations operate on existing rows, not recreated rows
 
 5. Body Text Behavior
 - body_text is generated at creation

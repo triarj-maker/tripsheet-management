@@ -15,6 +15,9 @@ import {
 type TripTemplate = {
   id: string
   title: string | null
+  heading: string | null
+  default_start_time: string | null
+  default_end_time: string | null
   body: string | null
 }
 
@@ -62,6 +65,26 @@ type TripSheetDraft = {
   end_time: string
 }
 
+function formatTemplateTime(value: string | null) {
+  return value?.slice(0, 5) ?? ''
+}
+
+function shouldApplyTemplateValue({
+  currentValue,
+  previousTemplateValue,
+  isEdited,
+}: {
+  currentValue: string
+  previousTemplateValue: string
+  isEdited: boolean
+}) {
+  return (
+    !isEdited ||
+    !currentValue ||
+    (!!previousTemplateValue && currentValue === previousTemplateValue)
+  )
+}
+
 function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name ?? resource.email ?? resource.id
   const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
@@ -76,19 +99,29 @@ export default function TripSheetForm({
   initialValues,
 }: TripSheetFormProps) {
   const defaultStartDate = initialValues?.start_date ?? trip.start_date ?? ''
+  const initialTitle = initialValues?.title ?? ''
+  const initialStartTime = initialValues?.start_time ?? '09:00'
+  const initialEndTime = initialValues?.end_time ?? '17:30'
+  const initialBody = initialValues?.body ?? ''
 
   const [draft, setDraft] = useState<TripSheetDraft>({
-    title: initialValues?.title ?? '',
+    title: initialTitle,
     start_date: defaultStartDate,
-    start_time: initialValues?.start_time ?? '09:00',
+    start_time: initialStartTime,
     end_date: initialValues?.end_date ?? '',
-    end_time: initialValues?.end_time ?? '17:30',
+    end_time: initialEndTime,
   })
   const [templateId, setTemplateId] = useState(initialValues?.template_id ?? '')
-  const [body, setBody] = useState(initialValues?.body ?? '')
+  const [body, setBody] = useState(initialBody)
   const [transportationInfo, setTransportationInfo] = useState(
     initialValues?.transportation_info ?? ''
   )
+  const [editedTemplateFields, setEditedTemplateFields] = useState({
+    title: false,
+    start_time: false,
+    end_time: false,
+    body: false,
+  })
   const [fieldError, setFieldError] = useState('')
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([])
   const [nextResourceId, setNextResourceId] = useState('')
@@ -105,6 +138,13 @@ export default function TripSheetForm({
       setFieldError('')
     }
 
+    if (name === 'title' || name === 'start_time' || name === 'end_time') {
+      setEditedTemplateFields((currentFields) => ({
+        ...currentFields,
+        [name]: true,
+      }))
+    }
+
     setDraft((currentDraft) => ({
       ...currentDraft,
       [name]: value,
@@ -115,18 +155,79 @@ export default function TripSheetForm({
     const nextTemplateId = event.target.value
     const currentTemplate = tripTemplates.find((template) => template.id === templateId)
     const nextTemplate = tripTemplates.find((template) => template.id === nextTemplateId)
+    const currentTemplateHeading = currentTemplate?.heading?.trim() ?? ''
+    const currentTemplateStartTime = formatTemplateTime(currentTemplate?.default_start_time ?? null)
+    const currentTemplateEndTime = formatTemplateTime(currentTemplate?.default_end_time ?? null)
+    const currentTemplateBody = currentTemplate?.body ?? ''
 
     setTemplateId(nextTemplateId)
 
     if (!nextTemplateId) {
-      if (body === (currentTemplate?.body ?? '')) {
+      setDraft((currentDraft) => ({
+        ...currentDraft,
+        title: currentDraft.title === currentTemplateHeading ? '' : currentDraft.title,
+        start_time:
+          currentDraft.start_time === currentTemplateStartTime
+            ? initialStartTime
+            : currentDraft.start_time,
+        end_time:
+          currentDraft.end_time === currentTemplateEndTime
+            ? initialEndTime
+            : currentDraft.end_time,
+      }))
+
+      if (body === currentTemplateBody) {
         setBody('')
       }
 
       return
     }
 
-    setBody(nextTemplate?.body ?? '')
+    const nextTemplateHeading = nextTemplate?.heading?.trim() ?? ''
+    const nextTemplateStartTime = formatTemplateTime(nextTemplate?.default_start_time ?? null)
+    const nextTemplateEndTime = formatTemplateTime(nextTemplate?.default_end_time ?? null)
+    const nextTemplateBody = nextTemplate?.body ?? ''
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      title:
+        nextTemplateHeading &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.title,
+          previousTemplateValue: currentTemplateHeading,
+          isEdited: editedTemplateFields.title,
+        })
+          ? nextTemplateHeading
+          : currentDraft.title,
+      start_time:
+        nextTemplateStartTime &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.start_time,
+          previousTemplateValue: currentTemplateStartTime,
+          isEdited: editedTemplateFields.start_time,
+        })
+          ? nextTemplateStartTime
+          : currentDraft.start_time,
+      end_time:
+        nextTemplateEndTime &&
+        shouldApplyTemplateValue({
+          currentValue: currentDraft.end_time,
+          previousTemplateValue: currentTemplateEndTime,
+          isEdited: editedTemplateFields.end_time,
+        })
+          ? nextTemplateEndTime
+          : currentDraft.end_time,
+    }))
+
+    if (
+      shouldApplyTemplateValue({
+        currentValue: body,
+        previousTemplateValue: currentTemplateBody,
+        isEdited: editedTemplateFields.body,
+      })
+    ) {
+      setBody(nextTemplateBody)
+    }
   }
 
   function handleAddResource() {
@@ -210,6 +311,27 @@ export default function TripSheetForm({
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
+            <label htmlFor="template_id" className="ui-label">Template</label>
+            <select
+              id="template_id"
+              name="template_id"
+              value={templateId}
+              onChange={handleTemplateChange}
+              className="ui-select ui-select-compact"
+            >
+              <option value="">Start from blank body</option>
+              {tripTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.title ?? template.id}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-sm text-gray-600">
+              Select a template to auto-fill title, time, and content.
+            </p>
+          </div>
+
+          <div className="md:col-span-2">
             <label htmlFor="title" className="ui-label">Trip Sheet Title</label>
             <input
               id="title"
@@ -274,24 +396,6 @@ export default function TripSheetForm({
               className="ui-input ui-input-compact"
             />
           </div>
-
-          <div>
-            <label htmlFor="template_id" className="ui-label">Template</label>
-            <select
-              id="template_id"
-              name="template_id"
-              value={templateId}
-              onChange={handleTemplateChange}
-              className="ui-select ui-select-compact"
-            >
-              <option value="">Start from blank body</option>
-              {tripTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.title ?? template.id}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {fieldError ? (
@@ -314,7 +418,13 @@ export default function TripSheetForm({
             name="body"
             rows={14}
             value={body}
-            onChange={(event) => setBody(event.target.value)}
+            onChange={(event) => {
+              setEditedTemplateFields((currentFields) => ({
+                ...currentFields,
+                body: true,
+              }))
+              setBody(event.target.value)
+            }}
             required
             className="ui-textarea"
           />
