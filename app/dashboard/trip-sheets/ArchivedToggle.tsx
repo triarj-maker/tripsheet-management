@@ -8,6 +8,7 @@ type ArchivedToggleProps = {
   className?: string
   compact?: boolean
   label?: string
+  queryParam?: string
 }
 
 export default function ArchivedToggle({
@@ -15,23 +16,24 @@ export default function ArchivedToggle({
   className = '',
   compact = false,
   label = 'Archived',
+  queryParam = 'showArchived',
 }: ArchivedToggleProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [showArchived, setShowArchived] = useState(checked)
+  const [isChecked, setIsChecked] = useState(checked)
 
   useEffect(() => {
-    setShowArchived(checked)
+    setIsChecked(checked)
   }, [checked])
 
   function handleChange(nextChecked: boolean) {
     const params = new URLSearchParams(searchParams.toString())
 
     if (nextChecked) {
-      params.set('showArchived', 'true')
+      params.set(queryParam, 'true')
     } else {
-      params.delete('showArchived')
+      params.delete(queryParam)
     }
 
     const nextQuery = params.toString()
@@ -50,19 +52,19 @@ export default function ArchivedToggle({
       <button
         type="button"
         role="switch"
-        aria-checked={showArchived}
+        aria-checked={isChecked}
         onClick={() => {
-          const nextChecked = !showArchived
-          setShowArchived(nextChecked)
+          const nextChecked = !isChecked
+          setIsChecked(nextChecked)
           handleChange(nextChecked)
         }}
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${
-          showArchived ? 'bg-black' : 'bg-zinc-200'
+          isChecked ? 'bg-black' : 'bg-zinc-200'
         }`}
       >
         <span
           className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
-            showArchived ? 'translate-x-6' : 'translate-x-1'
+            isChecked ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
       </button>

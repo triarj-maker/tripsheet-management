@@ -21,6 +21,7 @@ type TripRow = {
   title: string | null
   start_date: string | null
   end_date: string | null
+  is_archived: boolean | null
   trip_type: string | null
   destination_id: string | null
   destination_ref: DestinationRelation
@@ -31,15 +32,17 @@ type TripRow = {
 type TripSheetSummaryRow = {
   id: string
   trip_id: string | null
-  is_archived: boolean | null
 }
 
 type TripsPageProps = {
   searchParams: Promise<{
     error?: string
     showArchived?: string
+    showCompleted?: string
   }>
 }
+
+type TripListState = 'active' | 'completed' | 'archived'
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -80,13 +83,7 @@ function formatGuestCompanySummary(trip: Pick<TripRow, 'guest_name' | 'company'>
 }
 
 function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
-  const summaryByTripId = new Map<
-    string,
-    {
-      total: number
-      active: number
-    }
-  >()
+  const summaryByTripId = new Map<string, { total: number }>()
 
   for (const tripSheet of tripSheets) {
     if (!tripSheet.trip_id) {
@@ -95,14 +92,9 @@ function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
 
     const currentSummary = summaryByTripId.get(tripSheet.trip_id) ?? {
       total: 0,
-      active: 0,
     }
 
     currentSummary.total += 1
-
-    if (!tripSheet.is_archived) {
-      currentSummary.active += 1
-    }
 
     summaryByTripId.set(tripSheet.trip_id, currentSummary)
   }
@@ -110,18 +102,38 @@ function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
   return summaryByTripId
 }
 
-function getTripStatusLine({
-  startDate,
+function getTripState({
   endDate,
   isArchived,
   today,
 }: {
-  startDate: string | null
   endDate: string | null
   isArchived: boolean
   today: string
-}) {
+}): TripListState {
   if (isArchived) {
+    return 'archived'
+  }
+
+  if (endDate && today > endDate) {
+    return 'completed'
+  }
+
+  return 'active'
+}
+
+function getTripStatusLine({
+  startDate,
+  endDate,
+  state,
+  today,
+}: {
+  startDate: string | null
+  endDate: string | null
+  state: TripListState
+  today: string
+}) {
+  if (state !== 'active') {
     return null
   }
 
@@ -153,15 +165,15 @@ function getTripStatusLine({
 function getSortMeta({
   startDate,
   endDate,
-  isArchived,
+  state,
   today,
 }: {
   startDate: string | null
   endDate: string | null
-  isArchived: boolean
+  state: TripListState
   today: string
 }) {
-  if (isArchived) {
+  if (state === 'archived') {
     return {
       rank: 4,
       dateValue: startDate ?? '',
@@ -169,12 +181,16 @@ function getSortMeta({
     }
   }
 
-  if (!startDate || !endDate) {
+  if (state === 'completed') {
     return {
       rank: 3,
-      dateValue: '',
-      descending: false,
+      dateValue: endDate ?? startDate ?? '',
+      descending: true,
     }
+  }
+
+  if (!startDate || !endDate) {
+    return { rank: 2, dateValue: '', descending: false }
   }
 
   if (startDate <= today && endDate >= today) {
@@ -203,12 +219,13 @@ function getSortMeta({
 export default async function TripsPage({ searchParams }: TripsPageProps) {
   const params = await searchParams
   const showArchived = params.showArchived === 'true'
+  const showCompleted = params.showCompleted === 'true'
   const { supabase } = await requireAdmin()
 
   const { data: tripData, error } = await supabase
     .from('trips')
     .select(
-      'id, title, start_date, end_date, trip_type, destination_id, destination_ref:destinations(name), guest_name, company'
+      'id, title, start_date, end_date, is_archived, trip_type, destination_id, destination_ref:destinations(name), guest_name, company'
     )
 
   const trips = ((tripData as TripRow[] | null) ?? []).map((trip) => ({
@@ -223,7 +240,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     tripIds.length > 0
       ? await supabase
           .from('trip_sheets')
-          .select('id, trip_id, is_archived')
+          .select('id, trip_id')
           .in('trip_id', tripIds)
       : { data: [], error: null }
 
@@ -235,28 +252,42 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     .map((trip) => {
       const summary = summaryByTripId.get(trip.id)
       const childSheetCount = summary?.total ?? 0
-      const isArchived = childSheetCount > 0 && (summary?.active ?? 0) === 0
+      const state = getTripState({
+        endDate: trip.end_date,
+        isArchived: trip.is_archived === true,
+        today,
+      })
       const sortMeta = getSortMeta({
         startDate: trip.start_date,
         endDate: trip.end_date,
-        isArchived,
+        state,
         today,
       })
 
       return {
         ...trip,
         childSheetCount,
-        isArchived,
+        state,
         statusLine: getTripStatusLine({
           startDate: trip.start_date,
           endDate: trip.end_date,
-          isArchived,
+          state,
           today,
         }),
         sortMeta,
       }
     })
-    .filter((trip) => showArchived || !trip.isArchived)
+    .filter((trip) => {
+      if (trip.state === 'archived') {
+        return showArchived
+      }
+
+      if (trip.state === 'completed') {
+        return showCompleted
+      }
+
+      return true
+    })
     .sort((left, right) => {
       if (left.sortMeta.rank !== right.sortMeta.rank) {
         return left.sortMeta.rank - right.sortMeta.rank
@@ -274,7 +305,18 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     })
 
   const errorMessage = error?.message || tripSheetsError?.message || null
-  const returnPath = `/dashboard/trips${showArchived ? '?showArchived=true' : ''}`
+  const returnParams = new URLSearchParams()
+
+  if (showCompleted) {
+    returnParams.set('showCompleted', 'true')
+  }
+
+  if (showArchived) {
+    returnParams.set('showArchived', 'true')
+  }
+
+  const returnQuery = returnParams.toString()
+  const returnPath = `/dashboard/trips${returnQuery ? `?${returnQuery}` : ''}`
 
   return (
     <>
@@ -290,11 +332,19 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
         <div className="flex flex-wrap items-center gap-3">
           <Suspense fallback={null}>
-            <ArchivedToggle
-              checked={showArchived}
-              compact
-              label="Show Archived"
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <ArchivedToggle
+                checked={showCompleted}
+                compact
+                label="Show Completed"
+                queryParam="showCompleted"
+              />
+              <ArchivedToggle
+                checked={showArchived}
+                compact
+                label="Show Archived"
+              />
+            </div>
           </Suspense>
 
           <ActionLinkButton
@@ -334,7 +384,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
               visibleTrips.map((trip) => (
                 <tr
                   key={trip.id}
-                  className={`align-top${trip.isArchived ? ' opacity-70' : ''}`}
+                  className={`align-top${trip.state === 'archived' ? ' opacity-70' : ''}`}
                 >
                   <td className="px-4 py-3 text-gray-900">
                     <div className="min-w-0">
@@ -370,23 +420,23 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                   <td className="px-4 py-3 text-gray-900">
                     <span
                       className={
-                        trip.isArchived
+                        trip.state === 'archived'
                           ? 'ui-badge ui-badge-red'
-                          : trip.childSheetCount === 0
-                            ? 'ui-badge bg-zinc-100 text-zinc-700'
+                          : trip.state === 'completed'
+                            ? 'ui-badge bg-amber-100 text-amber-700'
                             : 'ui-badge ui-badge-green'
                       }
                     >
-                      {trip.childSheetCount === 0
-                        ? 'Open'
-                        : trip.isArchived
-                          ? 'Archived'
+                      {trip.state === 'archived'
+                        ? 'Archived'
+                        : trip.state === 'completed'
+                          ? 'Completed'
                           : 'Active'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      {trip.isArchived ? (
+                      {trip.state === 'archived' ? (
                         <>
                           <DeleteTripButton tripId={trip.id} returnPath={returnPath} />
                           <ActionLinkButton

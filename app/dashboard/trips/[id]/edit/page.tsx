@@ -27,6 +27,7 @@ type TripRow = {
   kid_count: number | null
   start_date: string | null
   end_date: string | null
+  is_archived: boolean | null
   destination_ref: DestinationRelation
   guest_name: string | null
   company: string | null
@@ -62,7 +63,7 @@ export default async function EditTripPage({
   const { data, error } = await supabase
     .from('trips')
     .select(
-      'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, destination_ref:destinations(name), guest_name, company, phone_number'
+      'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, destination_ref:destinations(name), guest_name, company, phone_number'
     )
     .eq('id', id)
     .maybeSingle()
@@ -82,10 +83,7 @@ export default async function EditTripPage({
 
   const tripSheets = (tripSheetData as TripSheetSummaryRow[] | null) ?? []
   const hasChildTripSheets = tripSheets.length > 0
-  const archiveState =
-    hasChildTripSheets && tripSheets.every((tripSheet) => tripSheet.is_archived === true)
-      ? 'archived'
-      : 'active'
+  const archiveState = trip.is_archived ? 'archived' : 'active'
 
   const { data: destinationData, error: destinationsError } = await supabase
     .from('destinations')

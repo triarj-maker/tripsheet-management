@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server'
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { addDaysToDateString, getCurrentDateStringInAppTimeZone } from '@/lib/time'
-
 function getBearerToken(authorizationHeader: string | null) {
   if (!authorizationHeader?.startsWith('Bearer ')) {
     return ''
   }
 
   return authorizationHeader.slice('Bearer '.length).trim()
-}
-
-function getArchiveCutoffDate() {
-  return addDaysToDateString(getCurrentDateStringInAppTimeZone(), -3)
 }
 
 export async function GET(request: Request) {
@@ -31,22 +24,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
   }
 
-  const cutoffDate = getArchiveCutoffDate()
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('trip_sheets')
-    .update({ is_archived: true })
-    .eq('is_archived', false)
-    .lt('end_date', cutoffDate)
-    .select('id')
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
   return NextResponse.json({
-    archivedCount: data?.length ?? 0,
-    cutoffDate,
+    archivedCount: 0,
+    disabled: true,
+    reason: 'Automatic trip archiving is disabled. Completed trips remain distinct from archived trips.',
     ok: true,
   })
 }

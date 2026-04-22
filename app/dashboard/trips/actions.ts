@@ -41,6 +41,7 @@ type TripRecordForWrite = {
   kid_count: number | null
   start_date: string | null
   end_date: string | null
+  is_archived: boolean | null
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -220,7 +221,7 @@ async function getExistingTripForWrite(
   let errorMessage: string | null = null
 
   const selectClause =
-    'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, guest_name, company, phone_number'
+    'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, guest_name, company, phone_number'
 
   const { data: sessionData, error: sessionError } = await supabase
     .from('trips')
@@ -703,11 +704,12 @@ export async function updateTrip(formData: FormData) {
         trip_color: existingTrip.trip_color,
         adult_count: existingTrip.adult_count,
         kid_count: existingTrip.kid_count,
-        start_date: existingTrip.start_date,
-        end_date: existingTrip.end_date,
-        guest_name: existingTrip.guest_name,
-        company: existingTrip.company,
-        phone_number: existingTrip.phone_number,
+      start_date: existingTrip.start_date,
+      end_date: existingTrip.end_date,
+      is_archived: existingTrip.is_archived,
+      guest_name: existingTrip.guest_name,
+      company: existingTrip.company,
+      phone_number: existingTrip.phone_number,
         last_updated_by: user.id,
       })
       .eq('id', id)
@@ -724,6 +726,7 @@ export async function updateTrip(formData: FormData) {
       kid_count: kidCount,
       start_date: tripStartDate,
       end_date: tripEndDate,
+      is_archived: archiveState === 'archived',
       guest_name: guestName || null,
       company: company || null,
       phone_number: phoneNumber || null,
@@ -878,6 +881,18 @@ export async function archiveTripFromList(formData: FormData) {
     redirect(buildTripsRedirect('Trip not found.'))
   }
 
+  const { error: tripError } = await supabase
+    .from('trips')
+    .update({
+      is_archived: true,
+      last_updated_by: user.id,
+    })
+    .eq('id', id)
+
+  if (tripError) {
+    redirect(buildTripsRedirect(tripError.message))
+  }
+
   const { error } = await supabase
     .from('trip_sheets')
     .update({
@@ -887,6 +902,14 @@ export async function archiveTripFromList(formData: FormData) {
     .eq('trip_id', id)
 
   if (error) {
+    await supabase
+      .from('trips')
+      .update({
+        is_archived: false,
+        last_updated_by: user.id,
+      })
+      .eq('id', id)
+
     redirect(buildTripsRedirect(error.message))
   }
 
@@ -902,6 +925,18 @@ export async function restoreTripFromList(formData: FormData) {
     redirect(buildTripsRedirect('Trip not found.'))
   }
 
+  const { error: tripError } = await supabase
+    .from('trips')
+    .update({
+      is_archived: false,
+      last_updated_by: user.id,
+    })
+    .eq('id', id)
+
+  if (tripError) {
+    redirect(buildTripsRedirect(tripError.message))
+  }
+
   const { error } = await supabase
     .from('trip_sheets')
     .update({
@@ -911,6 +946,14 @@ export async function restoreTripFromList(formData: FormData) {
     .eq('trip_id', id)
 
   if (error) {
+    await supabase
+      .from('trips')
+      .update({
+        is_archived: true,
+        last_updated_by: user.id,
+      })
+      .eq('id', id)
+
     redirect(buildTripsRedirect(error.message))
   }
 
