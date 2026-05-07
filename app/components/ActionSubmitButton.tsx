@@ -12,6 +12,7 @@ type ActionSubmitButtonProps = {
   disabled?: boolean
   name?: string
   value?: string
+  form?: string
 }
 
 export default function ActionSubmitButton({
@@ -21,6 +22,7 @@ export default function ActionSubmitButton({
   disabled = false,
   name,
   value,
+  form,
 }: ActionSubmitButtonProps) {
   const { pending } = useFormStatus()
   const previousPending = useRef(false)
@@ -38,6 +40,7 @@ export default function ActionSubmitButton({
       type="submit"
       name={name}
       value={value}
+      form={form}
       disabled={pending || disabled}
       className={`ui-button ${className}`}
     >

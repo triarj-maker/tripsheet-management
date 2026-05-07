@@ -4,6 +4,8 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { type DestinationRelation } from '@/lib/trip-sheets'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import ArchiveTripButton from '../../ArchiveTripButton'
+import RestoreTripButton from '../../RestoreTripButton'
 import TripForm from '../../TripForm'
 import { updateTrip } from '../../actions'
 import { requireAdmin } from '../../../lib'
@@ -22,12 +24,15 @@ type TripRow = {
   title: string | null
   trip_type: string | null
   destination_id: string | null
+  company_id: string | null
+  school_id: string | null
   trip_color: string | null
   adult_count: number | null
   kid_count: number | null
   start_date: string | null
   end_date: string | null
   is_archived: boolean | null
+  workflow_state: string | null
   destination_ref: DestinationRelation
   guest_name: string | null
   company: string | null
@@ -48,6 +53,8 @@ type DestinationOption = {
   is_active: boolean | null
 }
 
+type LookupOption = DestinationOption
+
 function buildTripsRedirect(error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/trips?${params.toString()}`
@@ -63,7 +70,7 @@ export default async function EditTripPage({
   const { data, error } = await supabase
     .from('trips')
     .select(
-      'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, destination_ref:destinations(name), guest_name, company, phone_number'
+      'id, title, trip_type, destination_id, company_id, school_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, workflow_state, destination_ref:destinations(name), company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number'
     )
     .eq('id', id)
     .maybeSingle()
@@ -83,8 +90,6 @@ export default async function EditTripPage({
 
   const tripSheets = (tripSheetData as TripSheetSummaryRow[] | null) ?? []
   const hasChildTripSheets = tripSheets.length > 0
-  const archiveState = trip.is_archived ? 'archived' : 'active'
-
   const { data: destinationData, error: destinationsError } = await supabase
     .from('destinations')
     .select('id, name, is_active')
@@ -92,6 +97,22 @@ export default async function EditTripPage({
     .order('name', { ascending: true })
 
   let destinations = (destinationData as DestinationOption[] | null) ?? []
+
+  const { data: schoolData, error: schoolsError } = await supabase
+    .from('schools')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let schools = (schoolData as LookupOption[] | null) ?? []
+
+  const { data: companyData, error: companiesError } = await supabase
+    .from('companies')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let companies = (companyData as LookupOption[] | null) ?? []
 
   if (
     trip.destination_id &&
@@ -115,6 +136,36 @@ export default async function EditTripPage({
     } catch {}
   }
 
+  if (trip.school_id && !schools.some((school) => school.id === trip.school_id)) {
+    const { data: selectedSchoolData } = await supabase
+      .from('schools')
+      .select('id, name, is_active')
+      .eq('id', trip.school_id)
+      .maybeSingle()
+    const selectedSchool = (selectedSchoolData as LookupOption | null) ?? null
+
+    if (selectedSchool) {
+      schools = [...schools, selectedSchool].sort((left, right) =>
+        (left.name ?? '').localeCompare(right.name ?? '')
+      )
+    }
+  }
+
+  if (trip.company_id && !companies.some((company) => company.id === trip.company_id)) {
+    const { data: selectedCompanyData } = await supabase
+      .from('companies')
+      .select('id, name, is_active')
+      .eq('id', trip.company_id)
+      .maybeSingle()
+    const selectedCompany = (selectedCompanyData as LookupOption | null) ?? null
+
+    if (selectedCompany) {
+      companies = [...companies, selectedCompany].sort((left, right) =>
+        (left.name ?? '').localeCompare(right.name ?? '')
+      )
+    }
+  }
+
   return (
     <>
       <AdminNav current="trips" />
@@ -130,6 +181,8 @@ export default async function EditTripPage({
 
       {query.error ? <p className="app-banner-error">{query.error}</p> : null}
       {destinationsError ? <p className="app-banner-error">{destinationsError.message}</p> : null}
+      {schoolsError ? <p className="app-banner-error">{schoolsError.message}</p> : null}
+      {companiesError ? <p className="app-banner-error">{companiesError.message}</p> : null}
       {tripSheetsError ? <p className="app-banner-error">{tripSheetsError.message}</p> : null}
 
       <TripForm
@@ -141,6 +194,8 @@ export default async function EditTripPage({
           title: trip.title ?? '',
           trip_type: trip.trip_type ?? '',
           destination_id: trip.destination_id ?? '',
+          company_id: trip.company_id ?? '',
+          school_id: trip.school_id ?? '',
           trip_color: trip.trip_color ?? '',
           adult_count: String(trip.adult_count ?? 0),
           kid_count: String(trip.kid_count ?? 0),
@@ -149,7 +204,7 @@ export default async function EditTripPage({
           guest_name: trip.guest_name ?? '',
           company: trip.company ?? '',
           phone_number: trip.phone_number ?? '',
-          archive_state: archiveState,
+          workflow_state: trip.workflow_state === 'tentative' ? 'tentative' : 'active',
           has_child_trip_sheets: hasChildTripSheets,
           child_trip_sheets: tripSheets.map((tripSheet) => ({
             id: tripSheet.id,
@@ -162,8 +217,35 @@ export default async function EditTripPage({
           id: destination.id,
           name: destination.name ?? destination.id,
         }))}
+        schools={schools.map((school) => ({
+          id: school.id,
+          name: school.name ?? school.id,
+        }))}
+        companies={companies.map((company) => ({
+          id: company.id,
+          name: company.name ?? company.id,
+        }))}
         submitAction={updateTrip}
         cancelHref={`/dashboard/trips/${trip.id}`}
+        footerLeadingContent={
+          trip.is_archived ? (
+            <RestoreTripButton
+              tripId={trip.id}
+              returnPath={`/dashboard/trips/${trip.id}`}
+              idleLabel="Unarchive Trip"
+              pendingLabel="Unarchiving…"
+              confirmMessage="Unarchive this trip and all of its child trip sheets?"
+            />
+          ) : (
+            <ArchiveTripButton
+              tripId={trip.id}
+              returnPath={`/dashboard/trips/${trip.id}`}
+              idleLabel="Archive Trip"
+              pendingLabel="Archiving…"
+              confirmMessage="Archive this trip and all of its child trip sheets?"
+            />
+          )
+        }
       />
     </>
   )

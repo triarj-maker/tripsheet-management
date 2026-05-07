@@ -4,9 +4,11 @@ import { redirect } from 'next/navigation'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
 import {
+  formatTripCustomerSummary,
   formatTripTypeLabel,
   getDestinationName,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
 
 type TripViewPageProps = {
@@ -25,6 +27,10 @@ type TripRow = {
   start_date: string | null
   end_date: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -136,25 +142,6 @@ function sortTripSheetsChronologically(tripSheets: TripSheetRow[]) {
   })
 }
 
-function formatCustomerSummary(trip: Pick<TripRow, 'guest_name' | 'company'>) {
-  const guestName = trip.guest_name?.trim() ?? ''
-  const company = trip.company?.trim() ?? ''
-
-  if (guestName && company) {
-    return `${guestName} · ${company}`
-  }
-
-  if (guestName) {
-    return guestName
-  }
-
-  if (company) {
-    return company
-  }
-
-  return '-'
-}
-
 export default async function AssignedTripViewPage({
   params,
   searchParams,
@@ -174,7 +161,7 @@ export default async function AssignedTripViewPage({
   const { data: tripData } = await supabase
     .from('trips')
     .select(
-      'id, title, trip_type, start_date, end_date, destination_ref:destinations(name), guest_name, company, phone_number, adult_count, kid_count'
+      'id, title, trip_type, start_date, end_date, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number, adult_count, kid_count'
     )
     .eq('id', id)
     .maybeSingle()
@@ -285,7 +272,7 @@ export default async function AssignedTripViewPage({
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <dt className="text-xs font-medium text-gray-500">Customer</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatCustomerSummary(trip)}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{formatTripCustomerSummary(trip)}</dd>
               </div>
               <div>
                 <dt className="text-xs font-medium text-gray-500">Trip Type</dt>

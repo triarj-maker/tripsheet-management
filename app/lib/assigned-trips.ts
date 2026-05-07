@@ -1,5 +1,6 @@
 import {
   type DestinationRelation,
+  type LookupNameRelation,
   getDestinationName,
   getTripParent,
 } from '@/lib/trip-sheets'
@@ -15,6 +16,10 @@ type AssignedTripParent = {
   start_date: string | null
   end_date: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
 }
 
 export type AssignedTripSheetRow = {

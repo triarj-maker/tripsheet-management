@@ -6,11 +6,20 @@ import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetBu
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
 import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
 import { getTripColorStyle } from '@/lib/trip-colors'
+import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
 import {
+  formatTripCustomerSummary,
   formatTripTypeLabel,
   getDestinationName,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
+import {
+  formatVisibleTripStateLabel,
+  getVisibleTripState,
+  isTripNotificationAllowed,
+  type VisibleTripState,
+} from '@/lib/trip-workflow'
 
 import SendTripNotificationButton from '../SendTripNotificationButton'
 import { requireAdmin } from '../../lib'
@@ -32,8 +41,14 @@ type TripRow = {
   trip_type: string | null
   start_date: string | null
   end_date: string | null
+  workflow_state: string | null
+  is_archived: boolean | null
   destination_id: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -78,6 +93,22 @@ type TripNotificationSummaryRow = {
   status: 'success' | 'partial_failure' | 'failed' | null
   recipient_count: number | null
   success_count: number | null
+}
+
+function getVisibleStateBadgeClasses(state: VisibleTripState) {
+  if (state === 'archived') {
+    return 'ui-badge bg-red-100 text-red-700'
+  }
+
+  if (state === 'completed') {
+    return 'ui-badge bg-amber-100 text-amber-700'
+  }
+
+  if (state === 'tentative') {
+    return 'ui-badge bg-slate-100 text-slate-700'
+  }
+
+  return 'ui-badge bg-green-100 text-green-700'
 }
 
 function buildTripsRedirect(error: string) {
@@ -179,25 +210,6 @@ function formatTripSheetSchedule(
   return `${formattedStart} → ${formattedEnd}`
 }
 
-function formatCustomerSummary(trip: Pick<TripRow, 'guest_name' | 'company'>) {
-  const guestName = trip.guest_name?.trim() ?? ''
-  const company = trip.company?.trim() ?? ''
-
-  if (guestName && company) {
-    return `${guestName} · ${company}`
-  }
-
-  if (guestName) {
-    return guestName
-  }
-
-  if (company) {
-    return company
-  }
-
-  return '-'
-}
-
 function formatAssignedName(resource: ResourceProfile | null) {
   if (!resource) {
     return 'Unnamed resource'
@@ -247,7 +259,7 @@ export default async function TripDetailPage({
   const { data, error } = await supabase
     .from('trips')
     .select(
-      'id, title, trip_color, trip_type, start_date, end_date, destination_id, destination_ref:destinations(name), guest_name, company, phone_number, adult_count, kid_count'
+      'id, title, trip_color, trip_type, start_date, end_date, workflow_state, is_archived, destination_id, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number, adult_count, kid_count'
     )
     .eq('id', id)
     .maybeSingle()
@@ -400,6 +412,19 @@ export default async function TripDetailPage({
   const tripColorStyle = getTripColorStyle(trip.trip_color)
   const returnPath = `/dashboard/trips/${trip.id}`
   const calendarWeekHref = buildCalendarWeekHref(trip.start_date)
+  const visibleTripState = getVisibleTripState({
+    workflowState: trip.workflow_state,
+    isArchived: trip.is_archived === true,
+    endDate: trip.end_date,
+    today: getCurrentDateStringInAppTimeZone(),
+  })
+  const notifyDisabledReason = isTripNotificationAllowed(visibleTripState)
+    ? undefined
+    : visibleTripState === 'tentative'
+      ? 'Notifications are only available after a trip is marked Active.'
+      : visibleTripState === 'archived'
+        ? 'Notifications are not available for archived trips.'
+        : 'Notifications are only available for Active trips.'
 
   return (
     <>
@@ -419,6 +444,9 @@ export default async function TripDetailPage({
               }}
             />
             <span>{trip.title ?? 'Untitled trip'}</span>
+            <span className={getVisibleStateBadgeClasses(visibleTripState)}>
+              {formatVisibleTripStateLabel(visibleTripState)}
+            </span>
           </h1>
           <p className="app-page-subtitle">
             Review the parent trip and manage its child trip sheets underneath.
@@ -460,6 +488,7 @@ export default async function TripDetailPage({
               tripId={trip.id}
               tripTitle={trip.title ?? 'Untitled trip'}
               recipientCount={resourceUserIds.length}
+              disabledReason={notifyDisabledReason}
             />
           ) : null}
         </div>
@@ -485,7 +514,7 @@ export default async function TripDetailPage({
           <div>
             <dt className="text-xs font-medium text-gray-500">Customer</dt>
             <dd className="mt-1 text-sm text-gray-900">
-              {formatCustomerSummary(trip)}
+              {formatTripCustomerSummary(trip)}
             </dd>
           </div>
           <div>

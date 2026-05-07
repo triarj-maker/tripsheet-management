@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { APP_TIME_ZONE, addDaysToDateString } from '@/lib/time'
-import { getDestinationName, getTripParent, type DestinationRelation } from '@/lib/trip-sheets'
+import {
+  getDestinationName,
+  getTripParent,
+  getTripSchoolCustomerName,
+  type DestinationRelation,
+  type LookupNameRelation,
+} from '@/lib/trip-sheets'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -12,6 +18,8 @@ type TripParentRecord = {
   title: string | null
   is_archived: boolean | null
   destination_ref: DestinationRelation
+  school_id: string | null
+  school_ref: LookupNameRelation
   guest_name: string | null
   phone_number: string | null
 }
@@ -210,7 +218,7 @@ export async function GET(
       ? await supabase
           .from('trip_sheets')
           .select(
-            'id, title, start_date, start_time, end_date, end_time, body_text, is_archived, trip:trips!inner(id, title, is_archived, destination_ref:destinations(name), guest_name, phone_number)'
+            'id, title, start_date, start_time, end_date, end_time, body_text, is_archived, trip:trips!inner(id, title, is_archived, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, phone_number)'
           )
           .eq('is_archived', false)
           .eq('trip.is_archived', false)
@@ -238,7 +246,7 @@ export async function GET(
       const destination =
         getDestinationName(trip.destination_ref, 'Unknown destination') ?? 'Unknown destination'
       const description = buildDescription({
-        customer: trip.guest_name?.trim() || '-',
+        customer: getTripSchoolCustomerName(trip, '-') ?? '-',
         phone: trip.phone_number?.trim() || '-',
         destination,
         bodyText: tripSheet.body_text ?? '',

@@ -23,6 +23,7 @@ export type CalendarAssignedResource = {
 export type MonthCalendarEvent = EventInput & {
   extendedProps: {
     isArchived: boolean
+    isTentative: boolean
     hasConflict: boolean
     conflictDayIds: string[]
     textColor: string
@@ -36,6 +37,7 @@ export type WeekCalendarEvent = EventInput & {
     assignedLabel: string
     isUnassigned: boolean
     isArchived: boolean
+    isTentative: boolean
     tripSheetTitle: string
     parentTripTitle: string
     startDate: string | null
@@ -995,6 +997,8 @@ export default function TripSheetCalendar({
                         type="button"
                         className={`trip-calendar-month-bar${
                           extendedProps.isArchived ? ' trip-calendar-month-bar--archived' : ''
+                        }${
+                          extendedProps.isTentative ? ' trip-calendar-month-bar--tentative' : ''
                         }`}
                         style={{
                           gridColumn: `${placement.columnStart} / ${placement.columnEnd + 1}`,
@@ -1009,8 +1013,19 @@ export default function TripSheetCalendar({
                           }
                         }}
                       >
-                        <span className="trip-calendar-event-title">
-                          {placement.event.title}
+                        <span className="trip-calendar-month-bar-content">
+                          <span className="trip-calendar-event-title">
+                            {placement.event.title}
+                          </span>
+                          {extendedProps.isTentative ? (
+                            <span
+                              className="trip-calendar-tentative-marker trip-calendar-tentative-marker--month"
+                              aria-label="Tentative"
+                              title="Tentative"
+                            >
+                              T
+                            </span>
+                          ) : null}
                         </span>
                       </button>
                     )
@@ -1094,10 +1109,12 @@ export default function TripSheetCalendar({
                     gridRow: row,
                   }}
                 >
-                  <button
-                    type="button"
-                    className={`trip-calendar-week-card${
-                      event.extendedProps.isArchived ? ' trip-calendar-week-card--archived' : ''
+                    <button
+                      type="button"
+                      className={`trip-calendar-week-card${
+                        event.extendedProps.isArchived ? ' trip-calendar-week-card--archived' : ''
+                    }${
+                      event.extendedProps.isTentative ? ' trip-calendar-week-card--tentative' : ''
                     }${
                       event.extendedProps.hasConflict
                         ? ' trip-calendar-week-card--conflict'
@@ -1249,7 +1266,11 @@ export default function TripSheetCalendar({
                     <button
                       key={`month-overflow-${monthOverflowPopover.dayIso}-${String(item.id)}`}
                       type="button"
-                      className="trip-calendar-month-overflow-item"
+                      className={`trip-calendar-month-overflow-item${
+                        item.extendedProps.isTentative
+                          ? ' trip-calendar-month-overflow-item--tentative'
+                          : ''
+                      }`}
                       onClick={() => {
                         setMonthOverflowPopover(null)
 
@@ -1259,7 +1280,11 @@ export default function TripSheetCalendar({
                       }}
                     >
                       <span
-                        className="trip-calendar-month-overflow-swatch"
+                        className={`trip-calendar-month-overflow-swatch${
+                          item.extendedProps.isTentative
+                            ? ' trip-calendar-month-overflow-swatch--tentative'
+                            : ''
+                        }`}
                         style={{
                           backgroundColor: String(item.backgroundColor || '#f5f7fa'),
                           borderColor: String(item.borderColor || '#d7dde5'),

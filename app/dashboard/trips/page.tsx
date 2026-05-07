@@ -4,12 +4,19 @@ import { Suspense } from 'react'
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
 import ArchivedToggle from '@/app/dashboard/trip-sheets/ArchivedToggle'
+import FilterSelect from '@/app/dashboard/trip-sheets/FilterSelect'
+import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
 import {
   formatTripTypeLabel,
   getDestinationName,
   type DestinationRelation,
 } from '@/lib/trip-sheets'
 import { diffDateStringsInDays, getCurrentDateStringInAppTimeZone } from '@/lib/time'
+import {
+  formatVisibleTripStateLabel,
+  getVisibleTripState,
+  type VisibleTripState,
+} from '@/lib/trip-workflow'
 
 import ArchiveTripButton from './ArchiveTripButton'
 import DeleteTripButton from './DeleteTripButton'
@@ -22,27 +29,39 @@ type TripRow = {
   start_date: string | null
   end_date: string | null
   is_archived: boolean | null
+  workflow_state: string | null
   trip_type: string | null
   destination_id: string | null
   destination_ref: DestinationRelation
-  guest_name: string | null
-  company: string | null
+  company_id: string | null
+  school_id: string | null
 }
 
 type TripSheetSummaryRow = {
   id: string
   trip_id: string | null
+  start_date: string | null
+  start_time: string | null
+  end_date: string | null
+  end_time: string | null
+  is_archived: boolean | null
+  trip_sheet_assignments?: { id: string; resource_user_id: string }[] | null
+}
+
+type LookupOption = {
+  id: string
+  name: string | null
 }
 
 type TripsPageProps = {
   searchParams: Promise<{
+    company_id?: string
     error?: string
+    school_id?: string
     showArchived?: string
     showCompleted?: string
   }>
 }
-
-type TripListState = 'active' | 'completed' | 'archived'
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -63,27 +82,14 @@ function formatDate(value: string | null) {
   }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
-function formatGuestCompanySummary(trip: Pick<TripRow, 'guest_name' | 'company'>) {
-  const guestName = trip.guest_name?.trim() ?? ''
-  const company = trip.company?.trim() ?? ''
-
-  if (guestName && company) {
-    return `${guestName} · ${company}`
-  }
-
-  if (guestName) {
-    return guestName
-  }
-
-  if (company) {
-    return company
-  }
-
-  return '-'
-}
-
-function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
-  const summaryByTripId = new Map<string, { total: number }>()
+function buildTripSummary(
+  tripSheets: TripSheetSummaryRow[],
+  conflictingTripSheetIds: Set<string>
+) {
+  const summaryByTripId = new Map<
+    string,
+    { total: number; unassigned: number; hasConflict: boolean }
+  >()
 
   for (const tripSheet of tripSheets) {
     if (!tripSheet.trip_id) {
@@ -92,34 +98,22 @@ function buildTripSummary(tripSheets: TripSheetSummaryRow[]) {
 
     const currentSummary = summaryByTripId.get(tripSheet.trip_id) ?? {
       total: 0,
+      unassigned: 0,
+      hasConflict: false,
     }
 
     currentSummary.total += 1
+    if ((tripSheet.trip_sheet_assignments ?? []).length === 0) {
+      currentSummary.unassigned += 1
+    }
+    if (conflictingTripSheetIds.has(tripSheet.id)) {
+      currentSummary.hasConflict = true
+    }
 
     summaryByTripId.set(tripSheet.trip_id, currentSummary)
   }
 
   return summaryByTripId
-}
-
-function getTripState({
-  endDate,
-  isArchived,
-  today,
-}: {
-  endDate: string | null
-  isArchived: boolean
-  today: string
-}): TripListState {
-  if (isArchived) {
-    return 'archived'
-  }
-
-  if (endDate && today > endDate) {
-    return 'completed'
-  }
-
-  return 'active'
 }
 
 function getTripStatusLine({
@@ -130,10 +124,10 @@ function getTripStatusLine({
 }: {
   startDate: string | null
   endDate: string | null
-  state: TripListState
+  state: VisibleTripState
   today: string
 }) {
-  if (state !== 'active') {
+  if (state === 'completed' || state === 'archived') {
     return null
   }
 
@@ -170,7 +164,7 @@ function getSortMeta({
 }: {
   startDate: string | null
   endDate: string | null
-  state: TripListState
+  state: VisibleTripState
   today: string
 }) {
   if (state === 'archived') {
@@ -190,7 +184,7 @@ function getSortMeta({
   }
 
   if (!startDate || !endDate) {
-    return { rank: 2, dateValue: '', descending: false }
+    return { rank: 1, dateValue: '', descending: false }
   }
 
   if (startDate <= today && endDate >= today) {
@@ -220,14 +214,40 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
   const params = await searchParams
   const showArchived = params.showArchived === 'true'
   const showCompleted = params.showCompleted === 'true'
+  const selectedCompanyId = params.company_id?.trim() ?? ''
+  const selectedSchoolId = params.school_id?.trim() ?? ''
   const { supabase } = await requireAdmin()
 
-  const { data: tripData, error } = await supabase
+  let tripQuery = supabase
     .from('trips')
     .select(
-      'id, title, start_date, end_date, is_archived, trip_type, destination_id, destination_ref:destinations(name), guest_name, company'
+      'id, title, start_date, end_date, is_archived, workflow_state, trip_type, destination_id, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name)'
     )
 
+  if (selectedCompanyId) {
+    tripQuery = tripQuery.eq('company_id', selectedCompanyId)
+  }
+
+  if (selectedSchoolId) {
+    tripQuery = tripQuery.eq('school_id', selectedSchoolId)
+  }
+
+  const { data: tripData, error } = await tripQuery
+
+  const { data: companyData, error: companiesError } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const { data: schoolData, error: schoolsError } = await supabase
+    .from('schools')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const companies = (companyData as LookupOption[] | null) ?? []
+  const schools = (schoolData as LookupOption[] | null) ?? []
   const trips = ((tripData as TripRow[] | null) ?? []).map((trip) => ({
     ...trip,
     destination:
@@ -240,19 +260,43 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     tripIds.length > 0
       ? await supabase
           .from('trip_sheets')
-          .select('id, trip_id')
+          .select(
+            'id, trip_id, start_date, start_time, end_date, end_time, is_archived, trip_sheet_assignments(id, resource_user_id)'
+          )
           .in('trip_id', tripIds)
       : { data: [], error: null }
 
   const tripSheets = (tripSheetData as TripSheetSummaryRow[] | null) ?? []
-  const summaryByTripId = buildTripSummary(tripSheets)
+  const conflictTripIds = new Set(
+    trips.filter((trip) => trip.is_archived !== true).map((trip) => trip.id)
+  )
+  const conflictTripSheets = tripSheets.filter(
+    (tripSheet) =>
+      tripSheet.trip_id &&
+      conflictTripIds.has(tripSheet.trip_id) &&
+      tripSheet.is_archived !== true
+  )
+  const tripSheetAssignments = conflictTripSheets.flatMap((tripSheet) =>
+    (tripSheet.trip_sheet_assignments ?? []).map((assignment) => ({
+      trip_sheet_id: tripSheet.id,
+      resource_user_id: assignment.resource_user_id,
+    }))
+  )
+  const conflictingTripSheetIds = getConflictingTripSheetIds(
+    conflictTripSheets,
+    tripSheetAssignments
+  )
+  const summaryByTripId = buildTripSummary(tripSheets, conflictingTripSheetIds)
   const today = getCurrentDateStringInAppTimeZone()
 
   const visibleTrips = trips
     .map((trip) => {
       const summary = summaryByTripId.get(trip.id)
       const childSheetCount = summary?.total ?? 0
-      const state = getTripState({
+      const unassignedChildSheetCount = summary?.unassigned ?? 0
+      const hasChildSheetConflict = summary?.hasConflict ?? false
+      const state = getVisibleTripState({
+        workflowState: trip.workflow_state,
         endDate: trip.end_date,
         isArchived: trip.is_archived === true,
         today,
@@ -267,6 +311,8 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
       return {
         ...trip,
         childSheetCount,
+        unassignedChildSheetCount,
+        hasChildSheetConflict,
         state,
         statusLine: getTripStatusLine({
           startDate: trip.start_date,
@@ -304,8 +350,21 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
       return (left.title ?? '').localeCompare(right.title ?? '')
     })
 
-  const errorMessage = error?.message || tripSheetsError?.message || null
+  const errorMessage =
+    error?.message ||
+    companiesError?.message ||
+    schoolsError?.message ||
+    tripSheetsError?.message ||
+    null
   const returnParams = new URLSearchParams()
+
+  if (selectedCompanyId) {
+    returnParams.set('company_id', selectedCompanyId)
+  }
+
+  if (selectedSchoolId) {
+    returnParams.set('school_id', selectedSchoolId)
+  }
 
   if (showCompleted) {
     returnParams.set('showCompleted', 'true')
@@ -333,6 +392,30 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
         <div className="flex flex-wrap items-center gap-3">
           <Suspense fallback={null}>
             <div className="flex flex-wrap items-center gap-3">
+              <FilterSelect
+                id="company_id"
+                label="Company"
+                value={selectedCompanyId}
+                options={[
+                  { label: 'All Companies', value: '' },
+                  ...companies.map((company) => ({
+                    label: company.name ?? company.id,
+                    value: company.id,
+                  })),
+                ]}
+              />
+              <FilterSelect
+                id="school_id"
+                label="School"
+                value={selectedSchoolId}
+                options={[
+                  { label: 'All Schools', value: '' },
+                  ...schools.map((school) => ({
+                    label: school.name ?? school.id,
+                    value: school.id,
+                  })),
+                ]}
+              />
               <ArchivedToggle
                 checked={showCompleted}
                 compact
@@ -349,9 +432,15 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
           <ActionLinkButton
             href="/dashboard/trips/new"
-            idleLabel="Create Trip"
+            idleLabel="New"
             pendingLabel="Creating…"
             className="ui-button-primary"
+          />
+          <ActionLinkButton
+            href="/dashboard/trips/clone"
+            idleLabel="Clone"
+            pendingLabel="Opening…"
+            className="ui-button-secondary"
           />
         </div>
       </div>
@@ -367,16 +456,15 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
               <th className="w-[14%] px-4 py-3 font-medium text-gray-700">Start</th>
               <th className="w-[12%] px-4 py-3 font-medium text-gray-700">Type</th>
               <th className="w-[14%] px-4 py-3 font-medium text-gray-700">Destination</th>
-              <th className="w-[10%] px-4 py-3 font-medium text-gray-700">Customer</th>
-              <th className="w-[8%] px-4 py-3 font-medium text-gray-700">Trip Sheets</th>
+              <th className="w-[12%] px-4 py-3 font-medium text-gray-700">Trip Sheets</th>
               <th className="w-[8%] px-4 py-3 font-medium text-gray-700">State</th>
-              <th className="w-[26%] px-4 py-3 font-medium text-gray-700">Actions</th>
+              <th className="w-[20%] px-4 py-3 font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
             {visibleTrips.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-4 text-gray-700">
+                <td colSpan={7} className="px-4 py-4 text-gray-700">
                   No trips created yet.
                 </td>
               </tr>
@@ -411,15 +499,31 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                   <td className="px-4 py-3 text-gray-900">
                     <p className="truncate">{trip.destination}</p>
                   </td>
-                  <td className="max-w-0 px-4 py-3 text-gray-900">
-                    <p
-                      className="overflow-hidden text-ellipsis whitespace-nowrap"
-                      title={formatGuestCompanySummary(trip)}
-                    >
-                      {formatGuestCompanySummary(trip)}
-                    </p>
+                  <td className="px-4 py-3 text-gray-900">
+                    <p className="font-medium leading-5">{trip.childSheetCount}</p>
+                    {trip.unassignedChildSheetCount > 0 ||
+                    trip.hasChildSheetConflict ? (
+                      <p className="mt-0.5 whitespace-nowrap text-xs font-medium leading-4">
+                        {trip.unassignedChildSheetCount > 0 ? (
+                          <span className="text-red-600">
+                            {trip.unassignedChildSheetCount} unassigned
+                          </span>
+                        ) : null}
+                        {trip.unassignedChildSheetCount > 0 &&
+                        trip.hasChildSheetConflict ? (
+                          <span className="px-1 text-gray-400">·</span>
+                        ) : null}
+                        {trip.hasChildSheetConflict ? (
+                          <span
+                            className="text-amber-600"
+                            title="Scheduling conflict detected"
+                          >
+                            ⚠
+                          </span>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </td>
-                  <td className="px-4 py-3 text-gray-900">{trip.childSheetCount}</td>
                   <td className="px-4 py-3 text-gray-900">
                     <span
                       className={
@@ -427,14 +531,12 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                           ? 'ui-badge ui-badge-red'
                           : trip.state === 'completed'
                             ? 'ui-badge bg-amber-100 text-amber-700'
+                            : trip.state === 'tentative'
+                              ? 'ui-badge bg-slate-100 text-slate-700'
                             : 'ui-badge ui-badge-green'
                       }
                     >
-                      {trip.state === 'archived'
-                        ? 'Archived'
-                        : trip.state === 'completed'
-                          ? 'Completed'
-                          : 'Active'}
+                      {formatVisibleTripStateLabel(trip.state)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

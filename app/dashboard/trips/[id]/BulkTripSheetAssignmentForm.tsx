@@ -130,7 +130,6 @@ export default function BulkTripSheetAssignmentForm({
               id="bulk_resource_user_id"
               name="resource_user_id"
               className="ui-select ui-select-compact"
-              required
             >
               <option value="">Select a resource</option>
               {availableResources.map((resource) => (
@@ -147,8 +146,8 @@ export default function BulkTripSheetAssignmentForm({
           </label>
 
           <ActionSubmitButton
-            name="bulk_action"
-            value="selected"
+            name="action_type"
+            value="assign_selected"
             idleLabel={`Assign to Selected${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
             pendingLabel="Assigning..."
             className="ui-button-secondary ui-button-compact"
@@ -156,8 +155,8 @@ export default function BulkTripSheetAssignmentForm({
           />
 
           <ActionSubmitButton
-            name="bulk_action"
-            value="all_unassigned"
+            name="action_type"
+            value="assign_unassigned"
             idleLabel="Assign to All Unassigned"
             pendingLabel="Assigning..."
             className="ui-button-primary ui-button-compact"
@@ -166,7 +165,7 @@ export default function BulkTripSheetAssignmentForm({
         </div>
         <div className="mt-3 border-t border-zinc-200 pt-3">
           <ActionSubmitButton
-            name="bulk_action"
+            name="action_type"
             value="clear_selected"
             idleLabel="Clear Selected Assignments"
             pendingLabel="Clearing..."

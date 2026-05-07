@@ -16,10 +16,16 @@ import {
   tripSheetWithinTripRangeMessage,
 } from '@/lib/trip-date-validation'
 import { toTripTypeFormValue } from '@/lib/trip-sheets'
+import { normalizeTripWorkflowState, type TripWorkflowState } from '@/lib/trip-workflow'
 
 import TripColorSelector from './TripColorSelector'
 
 type DestinationOption = {
+  id: string
+  name: string
+}
+
+type LookupOption = {
   id: string
   name: string
 }
@@ -43,6 +49,8 @@ type ResourceProfile = {
 
 type CreateTripFlowFormProps = {
   destinations: DestinationOption[]
+  schools: LookupOption[]
+  companies: LookupOption[]
   tripTemplates: TripTemplate[]
   availableResources: ResourceProfile[]
   submitAction: (formData: FormData) => void
@@ -72,9 +80,12 @@ type TripDraft = {
   kid_count: string
   guest_name: string
   company: string
+  company_id?: string
+  school_id?: string
   phone_number: string
   start_date: string
   end_date: string
+  workflow_state: TripWorkflowState
 }
 
 type TripSheetDraft = {
@@ -207,6 +218,8 @@ function shouldApplyTemplateValue({
 
 export default function CreateTripFlowForm({
   destinations,
+  schools,
+  companies,
   tripTemplates,
   availableResources,
   submitAction,
@@ -225,10 +238,23 @@ export default function CreateTripFlowForm({
     kid_count: initialTripValues?.kid_count ?? '0',
     guest_name: initialTripValues?.guest_name ?? '',
     company: initialTripValues?.company ?? '',
+    company_id: initialTripValues?.company_id ?? '',
+    school_id: initialTripValues?.school_id ?? '',
     phone_number: initialTripValues?.phone_number ?? '',
     start_date: initialTripValues?.start_date ?? '',
     end_date: initialTripValues?.end_date ?? '',
+    workflow_state: normalizeTripWorkflowState(initialTripValues?.workflow_state ?? 'tentative'),
   })
+  const hasCustomerOrLookup = Boolean(
+    hasGuestOrCompany(tripDraft.guest_name, tripDraft.company) ||
+      tripDraft.company_id ||
+      tripDraft.school_id
+  )
+  const isEducationalTrip = tripDraft.trip_type === 'educational'
+  const companyLookupLabel = isEducationalTrip
+    ? 'Partner / Company'
+    : 'Company'
+  const phoneLabel = isEducationalTrip ? 'Coordinator Phone Number' : 'Phone Number'
   const [tripSheetDraft, setTripSheetDraft] = useState<TripSheetDraft>({
     trip_sheet_title: '',
     start_date: initialTripValues?.start_date ?? '',
@@ -291,8 +317,13 @@ export default function CreateTripFlowForm({
 
       if (
         tripError &&
-        (fieldName === 'guest_name' || fieldName === 'company') &&
-        hasGuestOrCompany(nextDraft.guest_name, nextDraft.company)
+        (fieldName === 'guest_name' ||
+          fieldName === 'company' ||
+          fieldName === 'company_id' ||
+          fieldName === 'school_id') &&
+        (hasGuestOrCompany(nextDraft.guest_name, nextDraft.company) ||
+          nextDraft.company_id ||
+          nextDraft.school_id)
       ) {
         setTripError('')
       }
@@ -437,7 +468,7 @@ export default function CreateTripFlowForm({
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (!hasGuestOrCompany(tripDraft.guest_name, tripDraft.company)) {
+    if (!hasCustomerOrLookup) {
       event.preventDefault()
       setTripError(guestOrCompanyRequiredMessage)
       return
@@ -533,7 +564,6 @@ export default function CreateTripFlowForm({
       {cloneSource ? (
         <input type="hidden" name="clone_source_trip_id" value={cloneSource.tripId} />
       ) : null}
-
       <section className="app-section-card space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Trip Details</h2>
@@ -556,6 +586,20 @@ export default function CreateTripFlowForm({
               required
               className="ui-input ui-input-compact"
             />
+          </div>
+
+          <div>
+            <label htmlFor="workflow_state" className="ui-label">Workflow State</label>
+            <select
+              id="workflow_state"
+              name="workflow_state"
+              value={tripDraft.workflow_state}
+              onChange={updateTripField}
+              className="ui-select ui-select-compact"
+            >
+              <option value="tentative">Tentative</option>
+              <option value="active">Active</option>
+            </select>
           </div>
 
           <div>
@@ -623,32 +667,66 @@ export default function CreateTripFlowForm({
             />
           </div>
 
-          <div>
-            <label htmlFor="guest_name" className="ui-label">Guest / School Name</label>
-            <input
-              id="guest_name"
-              name="guest_name"
-              type="text"
-              value={tripDraft.guest_name}
-              onChange={updateTripField}
-              className="ui-input ui-input-compact"
-            />
-          </div>
+          {isEducationalTrip ? (
+            <div>
+              <label htmlFor="school_id" className="ui-label">School</label>
+              <select
+                id="school_id"
+                name="school_id"
+                value={tripDraft.school_id ?? ''}
+                onChange={updateTripField}
+                className="ui-select ui-select-compact"
+              >
+                <option value="">No school selected</option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : tripDraft.school_id ? (
+            <input type="hidden" name="school_id" value={tripDraft.school_id} />
+          ) : null}
 
           <div>
-            <label htmlFor="company" className="ui-label">Company</label>
-            <input
-              id="company"
-              name="company"
-              type="text"
-              value={tripDraft.company}
+            <label htmlFor="company_id" className="ui-label">{companyLookupLabel}</label>
+            <select
+              id="company_id"
+              name="company_id"
+              value={tripDraft.company_id ?? ''}
               onChange={updateTripField}
-              className="ui-input ui-input-compact"
-            />
+              className="ui-select ui-select-compact"
+            >
+              <option value="">No company selected</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
           </div>
 
+          {isEducationalTrip ? (
+            <input type="hidden" name="guest_name" value={tripDraft.guest_name} />
+          ) : (
+            <div>
+              <label htmlFor="guest_name" className="ui-label">Guest Name</label>
+              <input
+                id="guest_name"
+                name="guest_name"
+                type="text"
+                value={tripDraft.guest_name}
+                onChange={updateTripField}
+                className="ui-input ui-input-compact"
+              />
+            </div>
+          )}
+
+          <input type="hidden" name="company" value={tripDraft.company} />
+
           <div>
-            <label htmlFor="phone_number" className="ui-label">Phone Number</label>
+            <label htmlFor="phone_number" className="ui-label">{phoneLabel}</label>
             <input
               id="phone_number"
               name="phone_number"

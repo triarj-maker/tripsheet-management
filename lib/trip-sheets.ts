@@ -8,12 +8,18 @@ export type DestinationRelation =
   | null
   | undefined
 
+export type LookupNameRelation = DestinationRelation
+
 export type TripParentRecord = {
   id: string
   title: string | null
   trip_type: string | null
   destination_id: string | null
   destination_ref: DestinationRelation
+  company_id?: string | null
+  school_id?: string | null
+  company_ref?: LookupNameRelation
+  school_ref?: LookupNameRelation
 }
 
 export type TripParentRelation = TripParentRecord | TripParentRecord[] | null | undefined
@@ -29,6 +35,72 @@ export function getDestinationName(
   }
 
   return destinationRelation?.name ?? fallback
+}
+
+export function getLookupName(
+  lookupRelation: LookupNameRelation,
+  fallback: string | null = null
+) {
+  return getDestinationName(lookupRelation, fallback)
+}
+
+export function getTripSchoolCustomerName(
+  trip: {
+    school_id?: string | null
+    school_ref?: LookupNameRelation
+    guest_name?: string | null
+  },
+  fallback: string | null = null
+) {
+  if (trip.school_id) {
+    const schoolName = getLookupName(trip.school_ref)
+
+    if (schoolName?.trim()) {
+      return schoolName.trim()
+    }
+  }
+
+  return trip.guest_name?.trim() || fallback
+}
+
+export function getTripCompanyPartnerName(
+  trip: {
+    company_id?: string | null
+    company_ref?: LookupNameRelation
+    company?: string | null
+  },
+  fallback: string | null = null
+) {
+  if (trip.company_id) {
+    const companyName = getLookupName(trip.company_ref)
+
+    if (companyName?.trim()) {
+      return companyName.trim()
+    }
+  }
+
+  return trip.company?.trim() || fallback
+}
+
+export function formatTripCustomerSummary(
+  trip: {
+    school_id?: string | null
+    school_ref?: LookupNameRelation
+    guest_name?: string | null
+    company_id?: string | null
+    company_ref?: LookupNameRelation
+    company?: string | null
+  },
+  fallback = '-'
+) {
+  const schoolCustomerName = getTripSchoolCustomerName(trip)
+  const companyPartnerName = getTripCompanyPartnerName(trip)
+
+  if (schoolCustomerName && companyPartnerName) {
+    return `${schoolCustomerName} · ${companyPartnerName}`
+  }
+
+  return schoolCustomerName || companyPartnerName || fallback
 }
 
 export function normalizeTripTypeInput(value: string): TripType | '' {

@@ -89,7 +89,7 @@ export default async function EditTripSheetPage({
   const { data, error } = await supabase
     .from('trip_sheets')
     .select(
-      'id, trip_id, trip:trips(id, title, trip_type, destination_id, destination_ref:destinations(name)), title, start_date, start_time, end_date, end_time, template_id, template:trip_templates(title, heading, default_start_time, default_end_time), body_text, transportation_info'
+      'id, trip_id, trip:trips(id, title, trip_type, destination_id, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name)), title, start_date, start_time, end_date, end_time, template_id, template:trip_templates(title, heading, default_start_time, default_end_time), body_text, transportation_info'
     )
     .eq('id', id)
     .maybeSingle()

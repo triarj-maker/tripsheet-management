@@ -5,8 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { buildSimplePdfPages, createSimplePdf } from '@/lib/pdf'
 import {
   formatTripTypeLabel,
+  getTripCompanyPartnerName,
+  getTripSchoolCustomerName,
   getDestinationName,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
 
 type TripRow = {
@@ -16,6 +19,10 @@ type TripRow = {
   start_date: string | null
   end_date: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   phone_number: string | null
   company: string | null
@@ -260,16 +267,19 @@ function buildPdfLines({
     lines.push({ text: `Dates: ${tripDateRange}`, lineHeight: 16 })
   }
 
-  if (trip.guest_name?.trim()) {
-    lines.push({ text: `Guest Name: ${trip.guest_name.trim()}`, lineHeight: 16 })
+  const schoolCustomerName = getTripSchoolCustomerName(trip)
+  const companyPartnerName = getTripCompanyPartnerName(trip)
+
+  if (schoolCustomerName) {
+    lines.push({ text: `Guest Name: ${schoolCustomerName}`, lineHeight: 16 })
   }
 
   if (trip.phone_number?.trim()) {
     lines.push({ text: `Phone Number: ${trip.phone_number.trim()}`, lineHeight: 16 })
   }
 
-  if (trip.company?.trim()) {
-    lines.push({ text: `Company: ${trip.company.trim()}`, lineHeight: 16 })
+  if (companyPartnerName) {
+    lines.push({ text: `Company: ${companyPartnerName}`, lineHeight: 16 })
   }
 
   if (tripSheets.length > 0) {
@@ -372,7 +382,7 @@ export async function GET(
   const { data: tripData, error: tripError } = await adminClient
     .from('trips')
     .select(
-      'id, title, trip_type, start_date, end_date, destination_ref:destinations(name), guest_name, phone_number, company'
+      'id, title, trip_type, start_date, end_date, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, phone_number, company'
     )
     .eq('id', tripId)
     .maybeSingle()

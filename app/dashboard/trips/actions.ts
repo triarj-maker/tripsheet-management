@@ -18,6 +18,7 @@ import {
 } from '@/lib/trip-date-validation'
 import { normalizeTripTypeInput } from '@/lib/trip-sheets'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizeTripWorkflowState } from '@/lib/trip-workflow'
 
 import { insertTripSheetAssignments } from '../trip-sheets/trip-sheet-assignments'
 import {
@@ -36,12 +37,15 @@ type TripRecordForWrite = {
   title: string | null
   trip_type: string | null
   destination_id: string | null
+  company_id: string | null
+  school_id: string | null
   trip_color: string | null
   adult_count: number | null
   kid_count: number | null
   start_date: string | null
   end_date: string | null
   is_archived: boolean | null
+  workflow_state: string | null
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -60,6 +64,26 @@ type SourceTripSheetCloneRecord = {
   end_time: string | null
   body_text: string | null
   template_id: string | null
+}
+
+type ReferenceTripCloneRecord = {
+  id: string
+  trip_type: string | null
+  destination_id: string | null
+  company_id: string | null
+  school_id: string | null
+  start_date: string | null
+  end_date: string | null
+  is_archived: boolean | null
+}
+
+type ReferenceTripSheetCloneRecord = {
+  title: string | null
+  start_date: string | null
+  start_time: string | null
+  end_date: string | null
+  end_time: string | null
+  body_text: string | null
 }
 
 function shiftTripSheetDatesFromTripStart({
@@ -147,6 +171,12 @@ function parseCountInput(value: FormDataEntryValue | null) {
   return parsedValue
 }
 
+function parseOptionalIdInput(value: FormDataEntryValue | null) {
+  const normalizedValue = String(value ?? '').trim()
+
+  return normalizedValue || null
+}
+
 async function getDestinationForWrite(
   supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
   destinationId: string
@@ -221,7 +251,7 @@ async function getExistingTripForWrite(
   let errorMessage: string | null = null
 
   const selectClause =
-    'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, guest_name, company, phone_number'
+    'id, title, trip_type, destination_id, company_id, school_id, trip_color, adult_count, kid_count, start_date, end_date, is_archived, guest_name, company, phone_number'
 
   const { data: sessionData, error: sessionError } = await supabase
     .from('trips')
@@ -286,6 +316,11 @@ function buildNewTripRedirect(error: string, options?: { cloneFrom?: string }) {
 function buildEditTripRedirect(id: string, error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/trips/${id}/edit?${params.toString()}`
+}
+
+function buildCloneReferenceTripRedirect(error: string) {
+  const params = new URLSearchParams({ error })
+  return `/dashboard/trips/clone?${params.toString()}`
 }
 
 function buildTripDetailRedirect(id: string, error: string) {
@@ -369,6 +404,7 @@ export async function createTrip(formData: FormData) {
   const tripType = normalizeTripTypeInput(String(formData.get('trip_type') ?? ''))
   const destinationId = String(formData.get('destination_id') ?? '').trim()
   const selectedTripColor = normalizeTripColorInput(String(formData.get('trip_color') ?? ''))
+  const workflowState = normalizeTripWorkflowState(String(formData.get('workflow_state') ?? 'tentative'))
   const cloneSourceTripId = String(formData.get('clone_source_trip_id') ?? '').trim()
   const adultCount = parseCountInput(formData.get('adult_count'))
   const kidCount = parseCountInput(formData.get('kid_count'))
@@ -376,6 +412,8 @@ export async function createTrip(formData: FormData) {
   const tripEndDate = String(formData.get('trip_end_date') ?? '').trim()
   const guestName = String(formData.get('guest_name') ?? '').trim()
   const company = String(formData.get('company') ?? '').trim()
+  const companyId = parseOptionalIdInput(formData.get('company_id'))
+  const schoolId = parseOptionalIdInput(formData.get('school_id'))
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
   const tripSheetTitle = String(formData.get('trip_sheet_title') ?? '').trim()
   const startDate = String(formData.get('start_date') ?? '').trim()
@@ -444,7 +482,7 @@ export async function createTrip(formData: FormData) {
     }
   }
 
-  if (!hasGuestOrCompany(guestName, company)) {
+  if (!hasGuestOrCompany(guestName, company) && !companyId && !schoolId) {
     redirect(buildNewTripRedirect(guestOrCompanyRequiredMessage, cloneRedirectOptions))
   }
 
@@ -472,8 +510,11 @@ export async function createTrip(formData: FormData) {
       kid_count: kidCount,
       start_date: tripStartDate,
       end_date: tripEndDate,
+      workflow_state: workflowState,
       guest_name: guestName || null,
       company: company || null,
+      company_id: companyId,
+      school_id: schoolId,
       phone_number: phoneNumber || null,
       created_by: user.id,
       last_updated_by: user.id,
@@ -629,6 +670,184 @@ export async function createTrip(formData: FormData) {
   redirect(appendToastParam(`/dashboard/trips/${data.id}`))
 }
 
+export async function createTripFromReference(formData: FormData) {
+  const { supabase, user } = await requireAdmin()
+
+  const referenceTripId = String(formData.get('reference_trip_id') ?? '').trim()
+  const title = String(formData.get('title') ?? '').trim()
+  const selectedTripColor = normalizeTripColorInput(String(formData.get('trip_color') ?? ''))
+  const workflowState = normalizeTripWorkflowState(
+    String(formData.get('workflow_state') ?? 'tentative')
+  )
+  const adultCount = parseCountInput(formData.get('adult_count'))
+  const kidCount = parseCountInput(formData.get('kid_count'))
+  const tripStartDate = String(formData.get('trip_start_date') ?? '').trim()
+  const tripEndDate = String(formData.get('trip_end_date') ?? '').trim()
+  const guestName = String(formData.get('guest_name') ?? '').trim()
+  const company = String(formData.get('company') ?? '').trim()
+  const companyId = parseOptionalIdInput(formData.get('company_id'))
+  const schoolId = parseOptionalIdInput(formData.get('school_id'))
+  const phoneNumber = String(formData.get('phone_number') ?? '').trim()
+
+  if (!referenceTripId) {
+    redirect(buildCloneReferenceTripRedirect('Select an archived reference trip.'))
+  }
+
+  if (!title) {
+    redirect(buildCloneReferenceTripRedirect('New trip title is required.'))
+  }
+
+  if (!tripStartDate || !tripEndDate) {
+    redirect(buildCloneReferenceTripRedirect(tripDateRequiredMessage))
+  }
+
+  if (!isDateRangeOrdered(tripStartDate, tripEndDate)) {
+    redirect(buildCloneReferenceTripRedirect(tripDateRangeMessage))
+  }
+
+  if (!hasGuestOrCompany(guestName, company) && !companyId && !schoolId) {
+    redirect(buildCloneReferenceTripRedirect(guestOrCompanyRequiredMessage))
+  }
+
+  const { data: referenceTripData, error: referenceTripError } = await supabase
+    .from('trips')
+    .select('id, trip_type, destination_id, company_id, school_id, start_date, end_date, is_archived')
+    .eq('id', referenceTripId)
+    .eq('is_archived', true)
+    .maybeSingle()
+
+  const referenceTrip = (referenceTripData as ReferenceTripCloneRecord | null) ?? null
+  const copiedTripType = normalizeTripTypeInput(referenceTrip?.trip_type ?? '')
+
+  if (
+    referenceTripError ||
+    !referenceTrip ||
+    !referenceTrip.start_date ||
+    !referenceTrip.end_date ||
+    !copiedTripType ||
+    !referenceTrip.destination_id
+  ) {
+    redirect(
+      buildCloneReferenceTripRedirect(
+        referenceTripError?.message ??
+          'Archived reference trip must have trip type, destination, and valid dates.'
+      )
+    )
+  }
+
+  const { data: referenceTripSheetData, error: referenceTripSheetsError } = await supabase
+    .from('trip_sheets')
+    .select('title, start_date, start_time, end_date, end_time, body_text')
+    .eq('trip_id', referenceTrip.id)
+    .order('start_date', { ascending: true })
+    .order('start_time', { ascending: true, nullsFirst: true })
+
+  if (referenceTripSheetsError) {
+    redirect(buildCloneReferenceTripRedirect(referenceTripSheetsError.message))
+  }
+
+  const referenceTripSheets =
+    (referenceTripSheetData as ReferenceTripSheetCloneRecord[] | null) ?? []
+
+  if (referenceTripSheets.length === 0) {
+    redirect(
+      buildCloneReferenceTripRedirect(
+        'Selected reference trip has no child trip sheets to copy.'
+      )
+    )
+  }
+
+  const copiedTripSheets = referenceTripSheets.map((tripSheet) => {
+    const shiftedDates = shiftTripSheetDatesFromTripStart({
+      sourceTripStartDate: referenceTrip.start_date ?? '',
+      targetTripStartDate: tripStartDate,
+      targetTripEndDate: tripEndDate,
+      tripSheetStartDate: tripSheet.start_date,
+      tripSheetEndDate: tripSheet.end_date,
+      missingDatesMessage:
+        'A reference trip sheet is missing valid dates and could not be copied.',
+      shiftFailureMessage:
+        'Reference trip sheet dates could not be shifted for the new trip.',
+      outOfRangeMessage:
+        'Copied trip sheet dates fall outside the new trip date range. Adjust the new trip dates and try again.',
+    })
+
+    if ('error' in shiftedDates) {
+      return shiftedDates
+    }
+
+    return {
+      title: tripSheet.title?.trim() || 'Untitled trip sheet',
+      start_date: shiftedDates.startDate,
+      start_time: tripSheet.start_time || null,
+      end_date: shiftedDates.endDate,
+      end_time: tripSheet.end_time || null,
+      body_text: tripSheet.body_text ?? '',
+      is_archived: false,
+      created_by: user.id,
+      last_updated_by: user.id,
+    }
+  })
+
+  const copyValidationError = copiedTripSheets.find(
+    (
+      value
+    ): value is {
+      error: string
+    } => 'error' in value
+  )
+
+  if (copyValidationError) {
+    redirect(buildCloneReferenceTripRedirect(copyValidationError.error))
+  }
+
+  const tripColor = selectedTripColor ?? (await getNextAutoAssignedTripColor(supabase))
+
+  const { data: tripData, error: tripError } = await supabase
+    .from('trips')
+    .insert({
+      title,
+      trip_type: copiedTripType,
+      destination_id: referenceTrip.destination_id,
+      trip_color: tripColor,
+      adult_count: adultCount,
+      kid_count: kidCount,
+      start_date: tripStartDate,
+      end_date: tripEndDate,
+      workflow_state: workflowState,
+      guest_name: guestName || null,
+      company: company || null,
+      company_id: companyId ?? referenceTrip.company_id,
+      school_id: schoolId ?? referenceTrip.school_id,
+      phone_number: phoneNumber || null,
+      is_archived: false,
+      created_by: user.id,
+      last_updated_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (tripError || !tripData) {
+    redirect(
+      buildCloneReferenceTripRedirect(tripError?.message ?? 'Trip could not be created.')
+    )
+  }
+
+  const { error: copiedTripSheetsError } = await supabase.from('trip_sheets').insert(
+    copiedTripSheets.map((tripSheet) => ({
+      ...tripSheet,
+      trip_id: tripData.id,
+    }))
+  )
+
+  if (copiedTripSheetsError) {
+    await supabase.from('trips').delete().eq('id', tripData.id)
+    redirect(buildCloneReferenceTripRedirect(copiedTripSheetsError.message))
+  }
+
+  redirect(appendToastParam(`/dashboard/trips/${tripData.id}`))
+}
+
 export async function updateTrip(formData: FormData) {
   const { supabase, user } = await requireAdmin()
 
@@ -637,14 +856,16 @@ export async function updateTrip(formData: FormData) {
   const tripType = normalizeTripTypeInput(String(formData.get('trip_type') ?? ''))
   const destinationId = String(formData.get('destination_id') ?? '').trim()
   const selectedTripColor = normalizeTripColorInput(String(formData.get('trip_color') ?? ''))
+  const workflowState = normalizeTripWorkflowState(String(formData.get('workflow_state') ?? 'active'))
   const adultCount = parseCountInput(formData.get('adult_count'))
   const kidCount = parseCountInput(formData.get('kid_count'))
   const tripStartDate = String(formData.get('start_date') ?? '').trim()
   const tripEndDate = String(formData.get('end_date') ?? '').trim()
   const guestName = String(formData.get('guest_name') ?? '').trim()
   const company = String(formData.get('company') ?? '').trim()
+  const companyId = parseOptionalIdInput(formData.get('company_id'))
+  const schoolId = parseOptionalIdInput(formData.get('school_id'))
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
-  const archiveState = String(formData.get('archive_state') ?? '').trim()
 
   if (!id) {
     redirect(buildTripsRedirect('Trip not found.'))
@@ -662,7 +883,7 @@ export async function updateTrip(formData: FormData) {
     redirect(buildEditTripRedirect(id, tripDateRangeMessage))
   }
 
-  if (!hasGuestOrCompany(guestName, company)) {
+  if (!hasGuestOrCompany(guestName, company) && !companyId && !schoolId) {
     redirect(buildEditTripRedirect(id, guestOrCompanyRequiredMessage))
   }
 
@@ -703,17 +924,20 @@ export async function updateTrip(formData: FormData) {
     await supabase
       .from('trips')
       .update({
-        title: existingTrip.title,
-        trip_type: existingTrip.trip_type,
-        destination_id: existingTrip.destination_id,
-        trip_color: existingTrip.trip_color,
-        adult_count: existingTrip.adult_count,
-        kid_count: existingTrip.kid_count,
+      title: existingTrip.title,
+      trip_type: existingTrip.trip_type,
+      destination_id: existingTrip.destination_id,
+      trip_color: existingTrip.trip_color,
+      adult_count: existingTrip.adult_count,
+      kid_count: existingTrip.kid_count,
         start_date: existingTrip.start_date,
         end_date: existingTrip.end_date,
         is_archived: existingTrip.is_archived,
+        workflow_state: normalizeTripWorkflowState(existingTrip.workflow_state),
         guest_name: existingTrip.guest_name,
         company: existingTrip.company,
+        company_id: existingTrip.company_id,
+        school_id: existingTrip.school_id,
         phone_number: existingTrip.phone_number,
         last_updated_by: user.id,
       })
@@ -731,9 +955,11 @@ export async function updateTrip(formData: FormData) {
       kid_count: kidCount,
       start_date: tripStartDate,
       end_date: tripEndDate,
-      is_archived: archiveState === 'archived',
+      workflow_state: workflowState,
       guest_name: guestName || null,
       company: company || null,
+      company_id: companyId,
+      school_id: schoolId,
       phone_number: phoneNumber || null,
       last_updated_by: user.id,
     })
@@ -884,20 +1110,6 @@ export async function updateTrip(formData: FormData) {
           end_date: originalTripSheet?.end_date ?? null,
         })
       }
-    }
-  }
-
-  if (archiveState === 'active' || archiveState === 'archived') {
-    const { error: archiveError } = await supabase
-      .from('trip_sheets')
-      .update({
-        is_archived: archiveState === 'archived',
-        last_updated_by: user.id,
-      })
-      .eq('trip_id', id)
-
-    if (archiveError) {
-      redirect(buildEditTripRedirect(id, archiveError.message))
     }
   }
 
@@ -1058,16 +1270,12 @@ export async function bulkAssignTripSheets(formData: FormData) {
   const { supabase, user } = await requireAdmin()
   const tripId = String(formData.get('trip_id') ?? '').trim()
   const resourceUserId = String(formData.get('resource_user_id') ?? '').trim()
-  const bulkAction = String(formData.get('bulk_action') ?? '').trim()
+  const actionType = String(formData.get('action_type') ?? '').trim()
   const shouldReplaceExisting = formData.get('replace_existing') === 'true'
   const returnPath = getReturnPath(formData, tripId ? `/dashboard/trips/${tripId}` : '/dashboard/trips')
 
   if (!tripId) {
     redirect(buildTripsRedirect('Trip not found.'))
-  }
-
-  if (bulkAction !== 'clear_selected' && !resourceUserId) {
-    redirect(appendErrorParam(returnPath, 'Select a resource before assigning.'))
   }
 
   let targetTripSheetIds = Array.from(
@@ -1079,7 +1287,19 @@ export async function bulkAssignTripSheets(formData: FormData) {
     )
   )
 
-  if (bulkAction === 'all_unassigned') {
+  if (actionType === 'assign_selected') {
+    if (!resourceUserId) {
+      redirect(appendErrorParam(returnPath, 'Select a resource before assigning.'))
+    }
+
+    if (targetTripSheetIds.length === 0) {
+      redirect(appendErrorParam(returnPath, 'Select at least one trip sheet to assign.'))
+    }
+  } else if (actionType === 'assign_unassigned') {
+    if (!resourceUserId) {
+      redirect(appendErrorParam(returnPath, 'Select a resource before assigning.'))
+    }
+
     const { data: tripSheetData, error: tripSheetsError } = await supabase
       .from('trip_sheets')
       .select('id')
@@ -1114,12 +1334,23 @@ export async function bulkAssignTripSheets(formData: FormData) {
     targetTripSheetIds = allTripSheetIds.filter(
       (tripSheetId) => !assignedTripSheetIds.has(tripSheetId)
     )
-  } else if (bulkAction !== 'selected' && bulkAction !== 'clear_selected') {
+  } else if (actionType === 'clear_selected') {
+    if (targetTripSheetIds.length === 0) {
+      redirect(appendErrorParam(returnPath, 'Select at least one trip sheet to clear.'))
+    }
+  } else {
     redirect(appendErrorParam(returnPath, 'Choose a bulk assignment action.'))
   }
 
   if (targetTripSheetIds.length === 0) {
-    redirect(appendErrorParam(returnPath, 'No trip sheets were selected for assignment.'))
+    redirect(
+      appendErrorParam(
+        returnPath,
+        actionType === 'assign_unassigned'
+          ? 'No unassigned trip sheets are available to assign.'
+          : 'No trip sheets were selected for assignment.'
+      )
+    )
   }
 
   const { data: validTripSheetData, error: validTripSheetsError } = await supabase
@@ -1139,7 +1370,7 @@ export async function bulkAssignTripSheets(formData: FormData) {
     redirect(appendErrorParam(returnPath, 'No matching trip sheets were found for this trip.'))
   }
 
-  if (bulkAction === 'clear_selected') {
+  if (actionType === 'clear_selected') {
     const { error: deleteError } = await supabase
       .from('trip_sheet_assignments')
       .delete()

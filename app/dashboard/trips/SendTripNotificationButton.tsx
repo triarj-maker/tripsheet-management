@@ -11,6 +11,7 @@ type SendTripNotificationButtonProps = {
   tripId: string
   tripTitle: string
   recipientCount: number
+  disabledReason?: string
 }
 
 type SendResultState = {
@@ -22,6 +23,7 @@ export default function SendTripNotificationButton({
   tripId,
   tripTitle,
   recipientCount,
+  disabledReason,
 }: SendTripNotificationButtonProps) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -62,10 +64,16 @@ export default function SendTripNotificationButton({
           type="button"
           className="ui-button ui-button-primary"
           onClick={() => setIsOpen(true)}
-          disabled={isPending}
+          disabled={isPending || Boolean(disabledReason)}
+          aria-disabled={isPending || Boolean(disabledReason)}
+          title={disabledReason}
         >
           {isPending ? 'Sending…' : 'Notify Resources'}
         </button>
+
+        {disabledReason ? (
+          <p className="max-w-sm text-right text-sm text-gray-600">{disabledReason}</p>
+        ) : null}
 
         {result ? (
           <p

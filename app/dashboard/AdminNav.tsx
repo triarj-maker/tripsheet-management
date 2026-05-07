@@ -4,6 +4,8 @@ type Section =
   | 'profile'
   | 'trips'
   | 'calendar'
+  | 'companies'
+  | 'schools'
   | 'my-trips'
   | 'templates'
   | 'resources'
@@ -32,6 +34,8 @@ const adminNavGroups: NavGroup[] = [
     items: [
   { href: '/dashboard/trips', key: 'trips', label: 'Trips' },
   { href: '/dashboard/calendar', key: 'calendar', label: 'Calendar' },
+  { href: '/dashboard/companies', key: 'companies', label: 'Companies' },
+  { href: '/dashboard/schools', key: 'schools', label: 'Schools' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
   { href: '/dashboard/resources', key: 'resources', label: 'Resources' },
     ],

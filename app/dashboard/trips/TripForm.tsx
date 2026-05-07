@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import {
@@ -14,10 +14,16 @@ import {
   tripDateRangeMessage,
 } from '@/lib/trip-date-validation'
 import { toTripTypeFormValue } from '@/lib/trip-sheets'
+import { normalizeTripWorkflowState, type TripWorkflowState } from '@/lib/trip-workflow'
 
 import TripColorSelector from './TripColorSelector'
 
 type DestinationOption = {
+  id: string
+  name: string
+}
+
+type LookupOption = {
   id: string
   name: string
 }
@@ -43,8 +49,10 @@ type TripFormInitialValues = {
   end_date: string
   guest_name: string
   company: string
+  company_id?: string
+  school_id?: string
   phone_number: string
-  archive_state: 'active' | 'archived'
+  workflow_state: TripWorkflowState
   has_child_trip_sheets: boolean
   child_trip_sheets?: ChildTripSheetPreview[]
 }
@@ -52,9 +60,12 @@ type TripFormInitialValues = {
 type TripFormProps = {
   mode: 'create' | 'edit'
   destinations: DestinationOption[]
+  schools: LookupOption[]
+  companies: LookupOption[]
   initialValues?: TripFormInitialValues
   submitAction: (formData: FormData) => void
   cancelHref: string
+  footerLeadingContent?: ReactNode
 }
 
 type TripDraft = {
@@ -68,8 +79,10 @@ type TripDraft = {
   end_date: string
   guest_name: string
   company: string
+  company_id: string
+  school_id: string
   phone_number: string
-  archive_state: 'active' | 'archived'
+  workflow_state: TripWorkflowState
 }
 
 function parseIsoDate(value: string) {
@@ -126,9 +139,12 @@ function formatPreviewDateRange(startDate: string, endDate: string) {
 export default function TripForm({
   mode,
   destinations,
+  schools,
+  companies,
   initialValues,
   submitAction,
   cancelHref,
+  footerLeadingContent,
 }: TripFormProps) {
   const [draft, setDraft] = useState<TripDraft>({
     title: initialValues?.title ?? '',
@@ -141,13 +157,25 @@ export default function TripForm({
     end_date: initialValues?.end_date ?? '',
     guest_name: initialValues?.guest_name ?? '',
     company: initialValues?.company ?? '',
+    company_id: initialValues?.company_id ?? '',
+    school_id: initialValues?.school_id ?? '',
     phone_number: initialValues?.phone_number ?? '',
-    archive_state: initialValues?.archive_state ?? 'active',
+    workflow_state: normalizeTripWorkflowState(initialValues?.workflow_state),
   })
   const [fieldError, setFieldError] = useState('')
   const originalTripStartDate = initialValues?.original_start_date ?? ''
   const originalTripEndDate = initialValues?.original_end_date ?? ''
   const childTripSheets = initialValues?.child_trip_sheets ?? []
+  const hasCustomerOrLookup = Boolean(
+    hasGuestOrCompany(draft.guest_name, draft.company) ||
+      draft.company_id ||
+      draft.school_id
+  )
+  const isEducationalTrip = draft.trip_type === 'educational'
+  const companyLookupLabel = isEducationalTrip
+    ? 'Partner / Company'
+    : 'Company'
+  const phoneLabel = isEducationalTrip ? 'Coordinator Phone Number' : 'Phone Number'
   const isTripDateShiftPreviewActive =
     mode === 'edit' &&
     childTripSheets.length > 0 &&
@@ -211,6 +239,10 @@ export default function TripForm({
     (tripSheet) => tripSheet.fallsOutsideRange
   )
   const previewExamples = tripShiftPreview.slice(0, 3)
+  const formId =
+    mode === 'edit' && initialValues?.id
+      ? `trip-form-${initialValues.id}`
+      : 'trip-form-create'
 
   function normalizeCountInput(value: string) {
     if (value.trim() === '') {
@@ -243,8 +275,13 @@ export default function TripForm({
 
       if (
         fieldError &&
-        (name === 'guest_name' || name === 'company') &&
-        hasGuestOrCompany(nextDraft.guest_name, nextDraft.company)
+        (name === 'guest_name' ||
+          name === 'company' ||
+          name === 'company_id' ||
+          name === 'school_id') &&
+        (hasGuestOrCompany(nextDraft.guest_name, nextDraft.company) ||
+          nextDraft.company_id ||
+          nextDraft.school_id)
       ) {
         setFieldError('')
       }
@@ -258,7 +295,7 @@ export default function TripForm({
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (!hasGuestOrCompany(draft.guest_name, draft.company)) {
+    if (!hasCustomerOrLookup) {
       event.preventDefault()
       setFieldError(guestOrCompanyRequiredMessage)
       return
@@ -271,25 +308,30 @@ export default function TripForm({
   }
 
   return (
-    <form action={submitAction} onSubmit={handleSubmit} className="space-y-5">
-      {initialValues?.id !== undefined ? (
-        <input type="hidden" name="id" value={initialValues.id} />
-      ) : null}
-      {mode === 'edit' ? (
-        <input
-          type="hidden"
-          name="original_start_date"
-          value={initialValues?.original_start_date ?? ''}
-        />
-      ) : null}
-      {mode === 'edit' ? (
-        <input
-          type="hidden"
-          name="original_end_date"
-          value={initialValues?.original_end_date ?? ''}
-        />
-      ) : null}
-
+    <div className="space-y-5">
+      <form
+        id={formId}
+        action={submitAction}
+        onSubmit={handleSubmit}
+        className="space-y-5"
+      >
+        {initialValues?.id !== undefined ? (
+          <input type="hidden" name="id" value={initialValues.id} />
+        ) : null}
+        {mode === 'edit' ? (
+          <input
+            type="hidden"
+            name="original_start_date"
+            value={initialValues?.original_start_date ?? ''}
+          />
+        ) : null}
+        {mode === 'edit' ? (
+          <input
+            type="hidden"
+            name="original_end_date"
+            value={initialValues?.original_end_date ?? ''}
+          />
+        ) : null}
       <section className="app-section-card space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Trip Details</h2>
@@ -435,21 +477,67 @@ export default function TripForm({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label htmlFor="guest_name" className="ui-label">Guest / School Name</label>
-              <input
-                id="guest_name"
-                name="guest_name"
-                type="text"
-                value={draft.guest_name}
-                onChange={updateField}
-                className="ui-input ui-input-compact"
-              />
-            </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {isEducationalTrip ? (
+              <div>
+                <label htmlFor="school_id" className="ui-label">School</label>
+                <select
+                  id="school_id"
+                  name="school_id"
+                  value={draft.school_id}
+                  onChange={updateField}
+                  className="ui-select ui-select-compact"
+                >
+                  <option value="">No school selected</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : draft.school_id ? (
+              <input type="hidden" name="school_id" value={draft.school_id} />
+            ) : null}
 
             <div>
-              <label htmlFor="phone_number" className="ui-label">Phone Number</label>
+              <label htmlFor="company_id" className="ui-label">{companyLookupLabel}</label>
+              <select
+                id="company_id"
+                name="company_id"
+                value={draft.company_id}
+                onChange={updateField}
+                className="ui-select ui-select-compact"
+              >
+                <option value="">No company selected</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {isEducationalTrip ? (
+              <input type="hidden" name="guest_name" value={draft.guest_name} />
+            ) : (
+              <div>
+                <label htmlFor="guest_name" className="ui-label">Guest Name</label>
+                <input
+                  id="guest_name"
+                  name="guest_name"
+                  type="text"
+                  value={draft.guest_name}
+                  onChange={updateField}
+                  className="ui-input ui-input-compact"
+                />
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="phone_number" className="ui-label">{phoneLabel}</label>
               <input
                 id="phone_number"
                 name="phone_number"
@@ -460,17 +548,7 @@ export default function TripForm({
               />
             </div>
 
-            <div>
-              <label htmlFor="company" className="ui-label">Company</label>
-              <input
-                id="company"
-                name="company"
-                type="text"
-                value={draft.company}
-                onChange={updateField}
-                className="ui-input ui-input-compact"
-              />
-            </div>
+            <input type="hidden" name="company" value={draft.company} />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -507,6 +585,20 @@ export default function TripForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
+              <label htmlFor="workflow_state" className="ui-label">Workflow State</label>
+              <select
+                id="workflow_state"
+                name="workflow_state"
+                value={draft.workflow_state}
+                onChange={updateField}
+                className="ui-select ui-select-compact"
+              >
+                <option value="tentative">Tentative</option>
+                <option value="active">Active</option>
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="trip_color" className="ui-label">Trip Color</label>
               <TripColorSelector
                 id="trip_color"
@@ -520,42 +612,46 @@ export default function TripForm({
                 }
               />
             </div>
-
-            <div>
-              <label htmlFor="archive_state" className="ui-label">Archive State</label>
-              <select
-                id="archive_state"
-                name="archive_state"
-                value={draft.archive_state}
-                onChange={updateField}
-                className="ui-select ui-select-compact"
-                disabled={!initialValues?.has_child_trip_sheets}
-              >
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                {initialValues?.has_child_trip_sheets
-                  ? 'This applies the chosen state across all child trip sheets.'
-                  : 'Archive state is controlled by child trip sheets after they are created.'}
-              </p>
-            </div>
           </div>
         </div>
 
         {fieldError ? <p className="text-sm text-red-700">{fieldError}</p> : null}
       </section>
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <ActionSubmitButton
-          idleLabel={mode === 'create' ? 'Create Trip' : 'Save Changes'}
-          pendingLabel={mode === 'create' ? 'Creating…' : 'Saving…'}
-          className="ui-button-primary ui-button-compact"
-        />
-        <Link href={cancelHref} className="ui-button ui-button-secondary ui-button-compact">
-          Cancel
-        </Link>
-      </div>
-    </form>
+        {!footerLeadingContent ? (
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <Link href={cancelHref} className="ui-button ui-button-secondary ui-button-compact">
+              Cancel
+            </Link>
+            <ActionSubmitButton
+              idleLabel={mode === 'create' ? 'Create Trip' : 'Save Changes'}
+              pendingLabel={mode === 'create' ? 'Creating…' : 'Saving…'}
+              className="ui-button-primary ui-button-compact"
+            />
+          </div>
+        ) : null}
+      </form>
+
+      {footerLeadingContent ? (
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {footerLeadingContent}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link href={cancelHref} className="ui-button ui-button-secondary ui-button-compact">
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              form={formId}
+              className="ui-button ui-button-primary ui-button-compact"
+            >
+              {mode === 'create' ? 'Create Trip' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }

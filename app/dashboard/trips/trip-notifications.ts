@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendTripNotificationEmail } from '@/lib/email'
+import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
+import { getVisibleTripState } from '@/lib/trip-workflow'
 
 type TripNotificationResult = {
   ok: boolean
@@ -19,6 +21,10 @@ type TripRecord = {
   title: string | null
   start_date: string | null
   end_date: string | null
+  workflow_state: string | null
+  is_archived: boolean | null
+  company_id: string | null
+  school_id: string | null
   destination:
     | {
         name: string | null
@@ -140,7 +146,7 @@ export async function sendTripNotification(tripId: string): Promise<TripNotifica
   const adminClient = createAdminClient()
   const { data: tripData, error: tripError } = await adminClient
     .from('trips')
-    .select('id, title, start_date, end_date, destination:destinations(name)')
+    .select('id, title, start_date, end_date, workflow_state, is_archived, company_id, school_id, company_ref:companies(name), school_ref:schools(name), destination:destinations(name)')
     .eq('id', normalizedTripId)
     .maybeSingle()
 
@@ -155,6 +161,32 @@ export async function sendTripNotification(tripId: string): Promise<TripNotifica
       failureCount: 0,
       status: 'failed',
       message: tripError?.message ?? 'Trip not found.',
+    }
+  }
+
+  const visibleTripState = getVisibleTripState({
+    workflowState: trip.workflow_state,
+    isArchived: trip.is_archived === true,
+    endDate: trip.end_date,
+    today: getCurrentDateStringInAppTimeZone(),
+  })
+
+  if (visibleTripState !== 'active') {
+    const message =
+      visibleTripState === 'tentative'
+        ? 'Notifications are only available after a trip is marked Active.'
+        : visibleTripState === 'archived'
+          ? 'Notifications are not available for archived trips.'
+          : 'Notifications are only available for Active trips.'
+
+    return {
+      ok: false,
+      tripId: normalizedTripId,
+      recipientCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      status: 'failed',
+      message,
     }
   }
 

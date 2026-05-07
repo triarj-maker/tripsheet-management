@@ -43,6 +43,8 @@ type TripRow = {
   end_date: string | null
   destination_id: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -103,7 +105,7 @@ export default async function NewTripSheetPage({
   const { data: tripData, error: tripError } = await supabase
     .from('trips')
     .select(
-      'id, title, trip_type, start_date, end_date, destination_id, destination_ref:destinations(name), guest_name, company, phone_number'
+      'id, title, trip_type, start_date, end_date, destination_id, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number'
     )
     .eq('id', tripId)
     .maybeSingle()

@@ -3,9 +3,12 @@ import Link from 'next/link'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdminOrResource } from '@/app/dashboard/lib'
 import {
+  getTripCompanyPartnerName,
+  getTripSchoolCustomerName,
   getDestinationName,
   getTripParent,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
 import {
   formatTimeValue,
@@ -17,6 +20,10 @@ type TripParentRecord = {
   id: string
   title: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   phone_number: string | null
   company: string | null
@@ -180,9 +187,9 @@ function buildTripSheetItems(rows: AssignedTripSheetRow[]) {
         endTime: row.end_time,
         parentTripTitle: trip.title?.trim() || 'Untitled trip',
         destination: getDestinationName(trip.destination_ref, 'Unknown destination') || 'Unknown destination',
-        guestName: trip.guest_name?.trim() || '-',
+        guestName: getTripSchoolCustomerName(trip, '-') ?? '-',
         phoneNumber: trip.phone_number?.trim() || '',
-        company: trip.company?.trim() || '',
+        company: getTripCompanyPartnerName(trip, '') ?? '',
         status,
         sortTimestamp: getSortTimestamp(row.start_date, row.start_time, row.end_date, row.end_time),
       } satisfies TripSheetCardItem
@@ -358,7 +365,7 @@ export default async function MyTripSheetsPage() {
       ? await supabase
           .from('trip_sheets')
           .select(
-            'id, title, start_date, start_time, end_date, end_time, trip:trips!inner(id, title, destination_ref:destinations(name), guest_name, phone_number, company)'
+            'id, title, start_date, start_time, end_date, end_time, trip:trips!inner(id, title, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, phone_number, company)'
           )
           .eq('is_archived', false)
           .in('id', tripSheetIds)

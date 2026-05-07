@@ -2,9 +2,11 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdmin } from '@/app/dashboard/lib'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import {
+  getTripSchoolCustomerName,
   getDestinationName,
   getTripParent,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
 
 import { getConflictingTripSheetIds } from './conflicts'
@@ -17,7 +19,12 @@ type CalendarTripParent = {
   start_date: string | null
   end_date: string | null
   is_archived: boolean | null
+  workflow_state: string | null
   trip_color: string | null
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -46,8 +53,13 @@ type TripRow = {
   start_date: string | null
   end_date: string | null
   is_archived: boolean | null
+  workflow_state: string | null
   trip_color: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
 }
 
 type TripSheetSummaryRow = {
@@ -174,7 +186,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
 
   const { data: tripData, error: tripsError } = await supabase
     .from('trips')
-    .select('id, title, start_date, end_date, is_archived, trip_color, destination_ref:destinations(name)')
+    .select('id, title, start_date, end_date, is_archived, workflow_state, trip_color, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name)')
     .eq('is_archived', false)
     .not('start_date', 'is', null)
     .not('end_date', 'is', null)
@@ -214,7 +226,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const { data: tripSheetData, error: tripSheetsError } = await supabase
     .from('trip_sheets')
     .select(
-      'id, trip_id, title, trip:trips!inner(id, title, start_date, end_date, is_archived, trip_color, guest_name, company, phone_number, trip_type, destination_id, destination_ref:destinations(name)), start_date, start_time, end_date, end_time, is_archived'
+      'id, trip_id, title, trip:trips!inner(id, title, start_date, end_date, is_archived, workflow_state, trip_color, company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number, trip_type, destination_id, destination_ref:destinations(name)), start_date, start_time, end_date, end_time, is_archived'
     )
     .eq('is_archived', false)
     .eq('trip.is_archived', false)
@@ -233,7 +245,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       destination:
         getDestinationName(trip?.destination_ref, 'Unknown destination') ??
         'Unknown destination',
-      guest_name: trip?.guest_name ?? trip?.company,
+      guest_name: trip ? getTripSchoolCustomerName(trip, trip.company ?? null) : null,
+      workflow_state: trip?.workflow_state ?? null,
     }
   })
   const tripSheetIds = tripSheets.map((tripSheet) => tripSheet.id)
@@ -370,6 +383,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       borderColor: colorStyle.border,
       extendedProps: {
         isArchived: trip.isArchived,
+        isTentative: trip.workflow_state === 'tentative',
         hasConflict: conflictDayIds.length > 0,
         conflictDayIds,
         textColor: colorStyle.text,
@@ -400,6 +414,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
           assignedLabel: formatAssignedLabel(assignedNames),
           isUnassigned: assignedNames.length === 0,
           isArchived,
+          isTentative: tripSheet.workflow_state === 'tentative',
           tripSheetTitle: tripSheet.trip_sheet_title ?? 'Untitled trip sheet',
           parentTripTitle: tripSheet.parent_trip_title ?? 'Untitled trip',
           startDate: tripSheet.start_date,

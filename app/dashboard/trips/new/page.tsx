@@ -21,6 +21,12 @@ type DestinationOption = {
   name: string | null
 }
 
+type LookupOption = {
+  id: string
+  name: string | null
+  is_active: boolean | null
+}
+
 type TripTemplate = {
   id: string
   title: string | null
@@ -43,6 +49,8 @@ type SourceTrip = {
   title: string | null
   trip_type: string | null
   destination_id: string | null
+  company_id: string | null
+  school_id: string | null
   trip_color: string | null
   adult_count: number | null
   kid_count: number | null
@@ -75,6 +83,22 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
 
   const destinations = (data as DestinationOption[] | null) ?? []
 
+  const { data: schoolData, error: schoolsError } = await supabase
+    .from('schools')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let schools = (schoolData as LookupOption[] | null) ?? []
+
+  const { data: companyData, error: companiesError } = await supabase
+    .from('companies')
+    .select('id, name, is_active')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  let companies = (companyData as LookupOption[] | null) ?? []
+
   const { data: templateData, error: templatesError } = await supabase
     .from('trip_templates')
     .select('id, title, heading, default_start_time, default_end_time, body')
@@ -101,9 +125,12 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
         kid_count: string
         guest_name: string
         company: string
+        company_id?: string
+        school_id?: string
         phone_number: string
         start_date: string
         end_date: string
+        workflow_state: 'tentative' | 'active'
       }
     | undefined
   let cloneSource:
@@ -125,7 +152,7 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
     const { data: sourceTripData, error: sourceTripError } = await supabase
       .from('trips')
       .select(
-        'id, title, trip_type, destination_id, trip_color, adult_count, kid_count, guest_name, company, phone_number, start_date, end_date'
+        'id, title, trip_type, destination_id, company_id, school_id, trip_color, adult_count, kid_count, guest_name, company, phone_number, start_date, end_date'
       )
       .eq('id', cloneFromId)
       .maybeSingle()
@@ -165,6 +192,8 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
       title: buildDuplicatedTripTitle(sourceTrip.title),
       trip_type: toTripTypeFormValue(sourceTrip.trip_type),
       destination_id: sourceTrip.destination_id ?? '',
+      company_id: sourceTrip.company_id ?? '',
+      school_id: sourceTrip.school_id ?? '',
       trip_color: sourceTrip.trip_color ?? '',
       adult_count: String(sourceTrip.adult_count ?? 0),
       kid_count: String(sourceTrip.kid_count ?? 0),
@@ -173,6 +202,7 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
       phone_number: sourceTrip.phone_number ?? '',
       start_date: sourceTrip.start_date ?? '',
       end_date: sourceTrip.end_date ?? '',
+      workflow_state: 'tentative',
     }
 
     cloneSource = {
@@ -186,6 +216,42 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
         end_date: tripSheet.end_date ?? '',
         end_time: tripSheet.end_time ?? '',
       })),
+    }
+
+    if (
+      sourceTrip.school_id &&
+      !schools.some((school) => school.id === sourceTrip.school_id)
+    ) {
+      const { data: selectedSchoolData } = await supabase
+        .from('schools')
+        .select('id, name, is_active')
+        .eq('id', sourceTrip.school_id)
+        .maybeSingle()
+      const selectedSchool = (selectedSchoolData as LookupOption | null) ?? null
+
+      if (selectedSchool) {
+        schools = [...schools, selectedSchool].sort((left, right) =>
+          (left.name ?? '').localeCompare(right.name ?? '')
+        )
+      }
+    }
+
+    if (
+      sourceTrip.company_id &&
+      !companies.some((company) => company.id === sourceTrip.company_id)
+    ) {
+      const { data: selectedCompanyData } = await supabase
+        .from('companies')
+        .select('id, name, is_active')
+        .eq('id', sourceTrip.company_id)
+        .maybeSingle()
+      const selectedCompany = (selectedCompanyData as LookupOption | null) ?? null
+
+      if (selectedCompany) {
+        companies = [...companies, selectedCompany].sort((left, right) =>
+          (left.name ?? '').localeCompare(right.name ?? '')
+        )
+      }
     }
   }
 
@@ -210,6 +276,8 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
         <p className="app-banner-error">{params.error}</p>
       ) : null}
       {error ? <p className="app-banner-error">{error.message}</p> : null}
+      {schoolsError ? <p className="app-banner-error">{schoolsError.message}</p> : null}
+      {companiesError ? <p className="app-banner-error">{companiesError.message}</p> : null}
       {templatesError ? <p className="app-banner-error">{templatesError.message}</p> : null}
       {resourcesError ? <p className="app-banner-error">{resourcesError.message}</p> : null}
 
@@ -220,6 +288,14 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
           destinations={destinations.map((destination) => ({
             id: destination.id,
             name: destination.name ?? destination.id,
+          }))}
+          schools={schools.map((school) => ({
+            id: school.id,
+            name: school.name ?? school.id,
+          }))}
+          companies={companies.map((company) => ({
+            id: company.id,
+            name: company.name ?? company.id,
           }))}
           tripTemplates={tripTemplates}
           availableResources={availableResources}

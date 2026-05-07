@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
 import {
+  formatTripCustomerSummary,
   formatTripTypeLabel,
   getDestinationName,
   getTripParent,
   type DestinationRelation,
+  type LookupNameRelation,
 } from '@/lib/trip-sheets'
 
 type TripSheet = {
@@ -30,6 +32,10 @@ type TripParentRecord = {
   start_date: string | null
   end_date: string | null
   destination_ref: DestinationRelation
+  company_id: string | null
+  school_id: string | null
+  company_ref: LookupNameRelation
+  school_ref: LookupNameRelation
   guest_name: string | null
   company: string | null
   phone_number: string | null
@@ -95,25 +101,6 @@ function formatDateTime(value: string | null, time: string | null) {
   return formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate
 }
 
-function formatCustomerSummary(trip: Pick<TripParentRecord, 'guest_name' | 'company'>) {
-  const guestName = trip.guest_name?.trim() ?? ''
-  const company = trip.company?.trim() ?? ''
-
-  if (guestName && company) {
-    return `${guestName} · ${company}`
-  }
-
-  if (guestName) {
-    return guestName
-  }
-
-  if (company) {
-    return company
-  }
-
-  return '-'
-}
-
 export async function renderTripSheetDetailPage({
   id,
   from,
@@ -131,7 +118,7 @@ export async function renderTripSheetDetailPage({
   const { data } = await supabase
     .from('trip_sheets')
     .select(
-      'id, title, start_date, start_time, end_date, end_time, body_text, transportation_info, trip_id, trip:trips(id, title, trip_type, start_date, end_date, destination_ref:destinations(name), guest_name, company, phone_number, adult_count, kid_count)'
+      'id, title, start_date, start_time, end_date, end_time, body_text, transportation_info, trip_id, trip:trips(id, title, trip_type, start_date, end_date, destination_ref:destinations(name), company_id, school_id, company_ref:companies(name), school_ref:schools(name), guest_name, company, phone_number, adult_count, kid_count)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -226,7 +213,7 @@ export async function renderTripSheetDetailPage({
               <div className="min-w-0 space-y-0.5">
                 <dt className="text-[11px] font-medium text-gray-500">Customer</dt>
                 <dd className="break-words text-sm font-medium leading-5 text-gray-900">
-                  {formatCustomerSummary(trip)}
+                  {formatTripCustomerSummary(trip)}
                 </dd>
               </div>
               <div className="min-w-0 space-y-0.5">
