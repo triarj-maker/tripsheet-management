@@ -1,5 +1,10 @@
 import { redirect } from 'next/navigation'
 
+import {
+  canAccessAssignedWork,
+  isAdminRole,
+  isOperationalRole,
+} from '@/lib/roles'
 import { createClient } from '@/lib/supabase/server'
 
 export type DashboardProfile = {
@@ -15,7 +20,15 @@ function buildLoginRedirect(error: string) {
 }
 
 export function getSignedInHomePath(role: string | null | undefined) {
-  return role === 'resource' ? '/my-trips' : '/dashboard/trips'
+  if (isAdminRole(role)) {
+    return '/dashboard/trips'
+  }
+
+  if (isOperationalRole(role)) {
+    return '/my-trips'
+  }
+
+  return '/dashboard/trips'
 }
 
 export async function getCurrentUserProfile() {
@@ -47,11 +60,11 @@ export async function getCurrentUserProfile() {
 export async function requireAdmin() {
   const context = await getCurrentUserProfile()
 
-  if (context.profile?.role === 'resource') {
+  if (isOperationalRole(context.profile?.role)) {
     redirect('/my-trip-sheets')
   }
 
-  if (context.profile?.role !== 'admin') {
+  if (!isAdminRole(context.profile?.role)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 
@@ -61,11 +74,11 @@ export async function requireAdmin() {
 export async function requireResource() {
   const context = await getCurrentUserProfile()
 
-  if (context.profile?.role === 'admin') {
+  if (isAdminRole(context.profile?.role)) {
     redirect(getSignedInHomePath(context.profile?.role))
   }
 
-  if (context.profile?.role !== 'resource') {
+  if (!isOperationalRole(context.profile?.role)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 
@@ -75,7 +88,7 @@ export async function requireResource() {
 export async function requireAdminOrResource() {
   const context = await getCurrentUserProfile()
 
-  if (context.profile?.role !== 'admin' && context.profile?.role !== 'resource') {
+  if (!canAccessAssignedWork(context.profile?.role)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 

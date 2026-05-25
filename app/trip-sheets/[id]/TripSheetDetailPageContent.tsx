@@ -4,6 +4,11 @@ import { redirect } from 'next/navigation'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
 import {
+  canAccessAssignedWork,
+  isAdminRole,
+  isOperationalRole,
+} from '@/lib/roles'
+import {
   formatTripCustomerSummary,
   formatTripTypeLabel,
   getDestinationName,
@@ -111,7 +116,7 @@ export async function renderTripSheetDetailPage({
   const { supabase, user, profile } = await getCurrentUserProfile()
   const role = profile?.role ?? null
 
-  if (role !== 'admin' && role !== 'resource') {
+  if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
   }
 
@@ -135,7 +140,7 @@ export async function renderTripSheetDetailPage({
     redirect(getSignedInHomePath(role))
   }
 
-  if (role === 'resource') {
+  if (isOperationalRole(role)) {
     const { data: assignmentRows, error: assignmentError } = await supabase
       .from('trip_sheet_assignments')
       .select('id')
@@ -151,25 +156,25 @@ export async function renderTripSheetDetailPage({
     }
   }
 
-  const resolvedFrom = from ?? (role === 'resource' ? 'my-trip-sheets' : undefined)
+  const resolvedFrom = from ?? (isOperationalRole(role) ? 'my-trip-sheets' : undefined)
   const currentNav =
     resolvedFrom === 'my-trip-sheets'
       ? 'my-trip-sheets'
       : resolvedFrom === 'my-trips'
         ? 'my-trips'
-        : role === 'resource'
+        : isOperationalRole(role)
           ? 'my-trip-sheets'
           : 'trips'
   const backHref =
     resolvedFrom === 'my-trips' || resolvedFrom === 'my-trip-sheets'
       ? `/trips/${trip.id}?from=${resolvedFrom}`
-      : role === 'admin'
+      : isAdminRole(role)
         ? `/dashboard/trips/${trip.id}`
         : '/my-trip-sheets'
   const backLabel =
     resolvedFrom === 'my-trips' || resolvedFrom === 'my-trip-sheets'
       ? 'Back to Trip'
-      : role === 'admin'
+      : isAdminRole(role)
         ? 'Back to Trip'
         : 'Back to My Trip Sheets'
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')

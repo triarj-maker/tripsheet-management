@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import { isOperationalRole } from '@/lib/roles'
+
 type Section =
   | 'profile'
   | 'trips'
@@ -79,7 +81,7 @@ export default function AdminNav({
   role = 'admin',
   className = '',
 }: AdminNavProps) {
-  const navGroups = role === 'resource' ? resourceNavGroups : adminNavGroups
+  const navGroups = isOperationalRole(role) ? resourceNavGroups : adminNavGroups
 
   return (
     <nav className={`mb-6 flex flex-wrap items-start gap-5 ${className}`}>

@@ -77,12 +77,13 @@ export default async function NewResourcePage({
             <select
               id="role"
               name="role"
-              defaultValue="resource"
+              defaultValue="facilitator"
               required
               className="ui-select"
             >
-              <option value="resource">Resource</option>
               <option value="admin">Admin</option>
+              <option value="facilitator">Facilitator</option>
+              <option value="expert">Expert</option>
             </select>
           </div>
 

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
+import { ASSIGNABLE_ROLES, canBeAssignedToTripSheet } from '@/lib/roles'
 import {
   getNextTripColorByIndex,
   normalizeTripColorInput,
@@ -13,14 +14,11 @@ import {
   tripDateRangeMessage,
   tripDateRequiredMessage,
   tripSheetDateRangeMessage,
-  tripSheetDateRequiredMessage,
-  tripSheetWithinTripRangeMessage,
 } from '@/lib/trip-date-validation'
 import { normalizeTripTypeInput } from '@/lib/trip-sheets'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeTripWorkflowState } from '@/lib/trip-workflow'
 
-import { insertTripSheetAssignments } from '../trip-sheets/trip-sheet-assignments'
 import {
   guestOrCompanyRequiredMessage,
   hasGuestOrCompany,
@@ -323,11 +321,6 @@ function buildCloneReferenceTripRedirect(error: string) {
   return `/dashboard/trips/clone?${params.toString()}`
 }
 
-function buildTripDetailRedirect(id: string, error: string) {
-  const params = new URLSearchParams({ error })
-  return `/dashboard/trips/${id}?${params.toString()}`
-}
-
 function getReturnPath(formData: FormData, fallback: string) {
   const returnPath = String(formData.get('return_path') ?? '').trim()
 
@@ -415,21 +408,6 @@ export async function createTrip(formData: FormData) {
   const companyId = parseOptionalIdInput(formData.get('company_id'))
   const schoolId = parseOptionalIdInput(formData.get('school_id'))
   const phoneNumber = String(formData.get('phone_number') ?? '').trim()
-  const tripSheetTitle = String(formData.get('trip_sheet_title') ?? '').trim()
-  const startDate = String(formData.get('start_date') ?? '').trim()
-  const startTime = String(formData.get('start_time') ?? '').trim()
-  const endDate = String(formData.get('end_date') ?? '').trim() || startDate
-  const endTime = String(formData.get('end_time') ?? '').trim()
-  const templateId = String(formData.get('template_id') ?? '').trim()
-  const bodyText = String(formData.get('body_text') ?? '')
-  const resourceUserIds = Array.from(
-    new Set(
-      formData
-        .getAll('resource_user_ids')
-        .map((value) => String(value).trim())
-        .filter(Boolean)
-    )
-  )
   const cloneRedirectOptions = cloneSourceTripId
     ? { cloneFrom: cloneSourceTripId }
     : undefined
@@ -439,7 +417,7 @@ export async function createTrip(formData: FormData) {
       buildNewTripRedirect(
         cloneSourceTripId
           ? 'Trip details are required before cloning.'
-          : 'Trip details, first trip sheet details, and body text are required.',
+          : 'Trip details are required.',
         cloneRedirectOptions
       )
     )
@@ -451,35 +429,6 @@ export async function createTrip(formData: FormData) {
 
   if (!isDateRangeOrdered(tripStartDate, tripEndDate)) {
     redirect(buildNewTripRedirect(tripDateRangeMessage, cloneRedirectOptions))
-  }
-
-  if (!cloneSourceTripId) {
-    if (!tripSheetTitle || !startDate || !bodyText.trim()) {
-      redirect(
-        buildNewTripRedirect(
-          'Trip details, first trip sheet details, and body text are required.'
-        )
-      )
-    }
-
-    if (!startDate) {
-      redirect(buildNewTripRedirect(tripSheetDateRequiredMessage))
-    }
-
-    if (!isDateRangeOrdered(startDate, endDate)) {
-      redirect(buildNewTripRedirect(tripSheetDateRangeMessage))
-    }
-
-    if (
-      !isTripSheetWithinTripRange({
-        tripStartDate,
-        tripEndDate,
-        tripSheetStartDate: startDate,
-        tripSheetEndDate: endDate,
-      })
-    ) {
-      redirect(buildNewTripRedirect(tripSheetWithinTripRangeMessage))
-    }
   }
 
   if (!hasGuestOrCompany(guestName, company) && !companyId && !schoolId) {
@@ -622,49 +571,6 @@ export async function createTrip(formData: FormData) {
     }
 
     redirect(appendToastParam(`/dashboard/trips/${data.id}`))
-  }
-
-  const { data: tripSheet, error: tripSheetError } = await supabase
-    .from('trip_sheets')
-    .insert({
-      trip_id: data.id,
-      title: tripSheetTitle,
-      start_date: startDate,
-      start_time: startTime || null,
-      end_date: endDate,
-      end_time: endTime || null,
-      template_id: templateId || null,
-      body_text: bodyText,
-      is_archived: false,
-      created_by: user.id,
-      last_updated_by: user.id,
-    })
-    .select('id')
-    .single()
-
-  if (tripSheetError || !tripSheet) {
-    await supabase.from('trips').delete().eq('id', data.id)
-    redirect(
-      buildNewTripRedirect(tripSheetError?.message ?? 'First trip sheet could not be created.')
-    )
-  }
-
-  if (resourceUserIds.length > 0) {
-    const { error: assignmentError } = await insertTripSheetAssignments({
-      supabase,
-      tripSheetId: tripSheet.id,
-      resourceUserIds,
-      assignedBy: user.id,
-    })
-
-    if (assignmentError) {
-      redirect(
-        buildTripDetailRedirect(
-          data.id,
-          `Trip was created, but assignments could not be saved: ${assignmentError.message}`
-        )
-      )
-    }
   }
 
   redirect(appendToastParam(`/dashboard/trips/${data.id}`))
@@ -1394,11 +1300,19 @@ export async function bulkAssignTripSheets(formData: FormData) {
     .from('profiles')
     .select('id, role, is_active')
     .eq('id', resourceUserId)
-    .in('role', ['resource', 'admin'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .maybeSingle()
 
-  if (resourceError || !resourceData) {
+  const assignableProfile =
+    (resourceData as { id: string; role: string | null; is_active: boolean | null } | null) ??
+    null
+
+  if (
+    resourceError ||
+    !assignableProfile ||
+    !canBeAssignedToTripSheet(assignableProfile.role)
+  ) {
     redirect(
       appendErrorParam(
         returnPath,

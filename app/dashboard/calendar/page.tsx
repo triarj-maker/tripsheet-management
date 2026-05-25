@@ -1,5 +1,6 @@
 import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdmin } from '@/app/dashboard/lib'
+import { ASSIGNABLE_ROLES, getRoleLabel } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import {
   getTripSchoolCustomerName,
@@ -166,7 +167,7 @@ function getInclusiveDateRange(startDate: string | null, endDate: string | null)
 
 function formatAssignableLabel(resource: Pick<ResourceProfile, 'id' | 'full_name' | 'email' | 'role'>) {
   const baseLabel = resource.full_name?.trim() || resource.email?.trim() || resource.id
-  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+  const roleLabel = getRoleLabel(resource.role)
 
   return `${baseLabel} (${roleLabel})`
 }
@@ -274,7 +275,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
     .select('id, full_name, email, role')
-    .in('role', ['resource', 'admin'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 

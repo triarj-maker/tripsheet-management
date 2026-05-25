@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
+import {
+  ASSIGNABLE_ROLES,
+  canBeAssignedToTripSheet,
+  isAdminRole,
+} from '@/lib/roles'
 import { createClient } from '@/lib/supabase/server'
 import {
   isDateRangeOrdered,
@@ -328,6 +333,31 @@ export async function assignResourceToTripSheet(formData: FormData) {
     redirect(appendErrorParam(returnPath, 'Please select a resource to assign.'))
   }
 
+  const { data: resourceProfile, error: resourceError } = await supabase
+    .from('profiles')
+    .select('id, role, is_active')
+    .eq('id', resourceUserId)
+    .in('role', [...ASSIGNABLE_ROLES])
+    .eq('is_active', true)
+    .maybeSingle()
+
+  const assignableProfile =
+    (resourceProfile as { id: string; role: string | null; is_active: boolean | null } | null) ??
+    null
+
+  if (
+    resourceError ||
+    !assignableProfile ||
+    !canBeAssignedToTripSheet(assignableProfile.role)
+  ) {
+    redirect(
+      appendErrorParam(
+        returnPath,
+        resourceError?.message ?? 'Selected resource is not active or assignable.'
+      )
+    )
+  }
+
   const { data: existingAssignment } = await supabase
     .from('trip_sheet_assignments')
     .select('id')
@@ -427,7 +457,7 @@ export async function replaceTripSheetAssignments(
 
   const profileRow = (profile as { role: string | null; is_active: boolean | null } | null) ?? null
 
-  if (profileRow?.is_active === false || profileRow?.role !== 'admin') {
+  if (profileRow?.is_active === false || !isAdminRole(profileRow?.role)) {
     return {
       ok: false,
       tripSheetId: normalizedTripSheetId,
@@ -493,6 +523,43 @@ export async function replaceTripSheetAssignments(
   }
 
   if (toAdd.length > 0) {
+    const { data: resourceProfileData, error: resourceProfileError } = await supabase
+      .from('profiles')
+      .select('id, role, is_active')
+      .in('id', toAdd)
+      .in('role', [...ASSIGNABLE_ROLES])
+      .eq('is_active', true)
+
+    if (resourceProfileError) {
+      return {
+        ok: false,
+        tripSheetId: normalizedTripSheetId,
+        addedCount: 0,
+        removedCount: 0,
+        message: resourceProfileError.message,
+      }
+    }
+
+    const assignableResourceIds = new Set(
+      ((resourceProfileData as Array<{
+        id: string
+        role: string | null
+        is_active: boolean | null
+      }> | null) ?? [])
+        .filter((profile) => canBeAssignedToTripSheet(profile.role))
+        .map((profile) => profile.id)
+    )
+
+    if (toAdd.some((resourceUserId) => !assignableResourceIds.has(resourceUserId))) {
+      return {
+        ok: false,
+        tripSheetId: normalizedTripSheetId,
+        addedCount: 0,
+        removedCount: 0,
+        message: 'Selected resource is not active or assignable.',
+      }
+    }
+
     const { error: insertError } = await supabase.from('trip_sheet_assignments').insert(
       toAdd.map((resourceUserId) => ({
         trip_sheet_id: normalizedTripSheetId,

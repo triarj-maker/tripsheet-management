@@ -27,23 +27,6 @@ type LookupOption = {
   is_active: boolean | null
 }
 
-type TripTemplate = {
-  id: string
-  title: string | null
-  heading: string | null
-  default_start_time: string | null
-  default_end_time: string | null
-  body: string | null
-}
-
-type ResourceProfile = {
-  id: string
-  full_name: string | null
-  email: string | null
-  phone: string | null
-  role: string | null
-}
-
 type SourceTrip = {
   id: string
   title: string | null
@@ -98,22 +81,6 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
     .order('name', { ascending: true })
 
   let companies = (companyData as LookupOption[] | null) ?? []
-
-  const { data: templateData, error: templatesError } = await supabase
-    .from('trip_templates')
-    .select('id, title, heading, default_start_time, default_end_time, body')
-    .order('title', { ascending: true })
-
-  const tripTemplates = (templateData as TripTemplate[] | null) ?? []
-
-  const { data: resourceData, error: resourcesError } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, phone, role')
-    .in('role', ['resource', 'admin'])
-    .eq('is_active', true)
-    .order('full_name', { ascending: true })
-
-  const availableResources = (resourceData as ResourceProfile[] | null) ?? []
 
   let initialTripValues:
     | {
@@ -267,7 +234,7 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
           <p className="app-page-subtitle">
             {cloneSource
               ? 'Review the parent trip details. Child trip sheets will be duplicated under the new trip when you save.'
-              : 'Create the parent trip and its first child trip sheet in one compact flow.'}
+              : 'Create the parent trip record. Add child trip sheets after the trip exists.'}
           </p>
         </div>
       </div>
@@ -278,8 +245,6 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
       {error ? <p className="app-banner-error">{error.message}</p> : null}
       {schoolsError ? <p className="app-banner-error">{schoolsError.message}</p> : null}
       {companiesError ? <p className="app-banner-error">{companiesError.message}</p> : null}
-      {templatesError ? <p className="app-banner-error">{templatesError.message}</p> : null}
-      {resourcesError ? <p className="app-banner-error">{resourcesError.message}</p> : null}
 
       {destinations.length === 0 ? (
         <p className="text-sm text-gray-700">No destinations are available yet.</p>
@@ -297,8 +262,6 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
             id: company.id,
             name: company.name ?? company.id,
           }))}
-          tripTemplates={tripTemplates}
-          availableResources={availableResources}
           submitAction={createTrip}
           cancelHref="/dashboard/trips"
           errorMessage={params.error}

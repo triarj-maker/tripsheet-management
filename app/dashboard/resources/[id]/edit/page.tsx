@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
+import { isLegacyResourceRole } from '@/lib/roles'
 
 import { updateResource, updateResourcePassword } from '../../actions'
 
@@ -30,6 +31,14 @@ function buildResourcesRedirect(error: string) {
   return `/dashboard/resources?${params.toString()}`
 }
 
+function getEditableRoleValue(role: string | null) {
+  if (role === 'admin' || role === 'facilitator' || role === 'expert') {
+    return role
+  }
+
+  return 'facilitator'
+}
+
 export default async function EditResourcePage({
   params,
   searchParams,
@@ -47,6 +56,8 @@ export default async function EditResourcePage({
   if (!resource) {
     redirect(buildResourcesRedirect(error?.message ?? 'Resource not found.'))
   }
+
+  const isLegacyResource = isLegacyResourceRole(resource.role)
 
   return (
     <>
@@ -109,13 +120,19 @@ export default async function EditResourcePage({
             <select
               id="role"
               name="role"
-              defaultValue={resource.role === 'admin' ? 'admin' : 'resource'}
+              defaultValue={getEditableRoleValue(resource.role)}
               required
               className="ui-select"
             >
-              <option value="resource">Resource</option>
               <option value="admin">Admin</option>
+              <option value="facilitator">Facilitator</option>
+              <option value="expert">Expert</option>
             </select>
+            {isLegacyResource ? (
+              <p className="mt-1 text-sm text-amber-700">
+                Current role is legacy Resource. Save as Facilitator, Expert, or Admin.
+              </p>
+            ) : null}
           </div>
 
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">

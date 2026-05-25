@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildSimplePdfPages, createSimplePdf } from '@/lib/pdf'
+import { isAdminRole } from '@/lib/roles'
 import {
   formatTripTypeLabel,
   getTripCompanyPartnerName,
@@ -374,7 +375,11 @@ export async function GET(
   const currentProfile =
     (profile as { id: string; role: string | null; is_active: boolean | null } | null) ?? null
 
-  if (!currentProfile || currentProfile.is_active === false || currentProfile.role !== 'admin') {
+  if (
+    !currentProfile ||
+    currentProfile.is_active === false ||
+    !isAdminRole(currentProfile.role)
+  ) {
     return new NextResponse('Forbidden.', { status: 403 })
   }
 

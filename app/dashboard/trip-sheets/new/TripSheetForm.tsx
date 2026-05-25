@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { createTripSheet } from '@/app/dashboard/trip-sheets/actions'
+import { getRoleLabel } from '@/lib/roles'
 import { formatTripTypeLabel } from '@/lib/trip-sheets'
 import {
   isDateRangeOrdered,
@@ -87,7 +88,7 @@ function shouldApplyTemplateValue({
 
 function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name ?? resource.email ?? resource.id
-  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+  const roleLabel = getRoleLabel(resource.role)
 
   return `${baseLabel} (${roleLabel})`
 }

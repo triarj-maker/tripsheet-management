@@ -4,6 +4,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
+import { ASSIGNABLE_ROLES, getRoleLabel } from '@/lib/roles'
 import {
   getDestinationName,
   getTripParent,
@@ -74,7 +75,7 @@ function buildTripsRedirect(error: string) {
 
 function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name ?? resource.email ?? resource.id
-  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
+  const roleLabel = getRoleLabel(resource.role)
 
   return `${baseLabel} (${roleLabel})`
 }
@@ -119,7 +120,7 @@ export default async function EditTripSheetPage({
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role')
-    .in('role', ['resource', 'admin'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 

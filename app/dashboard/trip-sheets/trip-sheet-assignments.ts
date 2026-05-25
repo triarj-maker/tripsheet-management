@@ -1,6 +1,7 @@
 'use server'
 
 import { requireAdmin } from './lib'
+import { ASSIGNABLE_ROLES, canBeAssignedToTripSheet } from '@/lib/roles'
 
 type DashboardSupabaseClient = Awaited<ReturnType<typeof requireAdmin>>['supabase']
 
@@ -22,6 +23,37 @@ export async function insertTripSheetAssignments({
   if (uniqueResourceUserIds.length === 0) {
     return {
       error: null,
+    }
+  }
+
+  const { data: resourceProfiles, error: resourceProfileError } = await supabase
+    .from('profiles')
+    .select('id, role, is_active')
+    .in('id', uniqueResourceUserIds)
+    .in('role', [...ASSIGNABLE_ROLES])
+    .eq('is_active', true)
+
+  if (resourceProfileError) {
+    return { error: resourceProfileError }
+  }
+
+  const assignableResourceIds = new Set(
+    ((resourceProfiles as Array<{
+      id: string
+      role: string | null
+      is_active: boolean | null
+    }> | null) ?? [])
+      .filter((profile) => canBeAssignedToTripSheet(profile.role))
+      .map((profile) => profile.id)
+  )
+
+  if (
+    uniqueResourceUserIds.some(
+      (resourceUserId) => !assignableResourceIds.has(resourceUserId)
+    )
+  ) {
+    return {
+      error: new Error('Selected resource is not active or assignable.'),
     }
   }
 

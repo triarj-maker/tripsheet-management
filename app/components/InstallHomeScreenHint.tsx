@@ -2,6 +2,8 @@
 
 import { useState, useSyncExternalStore } from 'react'
 
+import { isOperationalRole } from '@/lib/roles'
+
 type InstallHomeScreenHintProps = {
   role?: string | null
 }
@@ -41,7 +43,7 @@ export default function InstallHomeScreenHint({
   const canShowHint = useSyncExternalStore(
     () => () => {},
     () => {
-      if (role !== 'resource') {
+      if (!isOperationalRole(role)) {
         return false
       }
 
@@ -54,7 +56,7 @@ export default function InstallHomeScreenHint({
     () => false
   )
 
-  if (!canShowHint || isDismissed || role !== 'resource') {
+  if (!canShowHint || isDismissed || !isOperationalRole(role)) {
     return null
   }
 

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import { ASSIGNABLE_ROLES } from '@/lib/roles'
 import {
   buildDuplicatedTripSheetTitle,
   getDestinationName,
@@ -80,7 +81,7 @@ export default async function NewTripSheetPage({
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role')
-    .in('role', ['resource', 'admin'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 

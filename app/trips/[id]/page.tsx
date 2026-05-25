@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
+import { canAccessAssignedWork, isOperationalRole } from '@/lib/roles'
 import {
   formatTripCustomerSummary,
   formatTripTypeLabel,
@@ -154,7 +155,7 @@ export default async function AssignedTripViewPage({
 
   const role = profile?.role ?? null
 
-  if (role !== 'admin' && role !== 'resource') {
+  if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
   }
 
@@ -220,7 +221,7 @@ export default async function AssignedTripViewPage({
       ? 'my-trip-sheets'
       : query.from === 'my-trips'
         ? 'my-trips'
-        : role === 'resource'
+        : isOperationalRole(role)
           ? 'my-trip-sheets'
           : 'my-trips'
   const backHref =
@@ -233,7 +234,7 @@ export default async function AssignedTripViewPage({
   const fromParam =
     query.from === 'my-trip-sheets' || query.from === 'my-trips'
       ? query.from
-      : role === 'resource'
+      : isOperationalRole(role)
         ? 'my-trip-sheets'
         : 'my-trips'
 

@@ -5,6 +5,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
 import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
+import { ASSIGNABLE_ROLES, getRoleLabel, isAdminRole } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
 import {
@@ -298,7 +299,7 @@ export default async function TripDetailPage({
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
     .select('id, full_name, email, role')
-    .in('role', ['resource', 'admin'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
@@ -483,7 +484,7 @@ export default async function TripDetailPage({
             Download PDF
           </a>
 
-          {profile?.role === 'admin' ? (
+          {isAdminRole(profile?.role) ? (
             <SendTripNotificationButton
               tripId={trip.id}
               tripTitle={trip.title ?? 'Untitled trip'}
@@ -584,7 +585,7 @@ export default async function TripDetailPage({
           returnPath={returnPath}
           availableResources={activeResources.map((resource) => ({
             id: resource.id,
-            label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${resource.role === 'admin' ? 'Admin' : 'Resource'})`,
+            label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${getRoleLabel(resource.role)})`,
           }))}
           tripSheetCount={tripSheets.length}
         >

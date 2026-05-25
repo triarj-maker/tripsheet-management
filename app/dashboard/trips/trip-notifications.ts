@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendTripNotificationEmail } from '@/lib/email'
+import { isAdminRole } from '@/lib/roles'
 import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
 import { getVisibleTripState } from '@/lib/trip-workflow'
 
@@ -131,7 +132,11 @@ export async function sendTripNotification(tripId: string): Promise<TripNotifica
   const currentProfile =
     (profile as { id: string; role: string | null; is_active: boolean | null } | null) ?? null
 
-  if (!currentProfile || currentProfile.is_active === false || currentProfile.role !== 'admin') {
+  if (
+    !currentProfile ||
+    currentProfile.is_active === false ||
+    !isAdminRole(currentProfile.role)
+  ) {
     return {
       ok: false,
       tripId: normalizedTripId,

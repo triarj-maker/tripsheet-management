@@ -4,6 +4,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
 import CopyCalendarLinkButton from '@/app/components/CopyCalendarLinkButton'
 import { requireAdminOrResource } from '@/app/dashboard/lib'
+import { getRoleLabel } from '@/lib/roles'
 
 function formatText(value: string | null) {
   return value ?? '-'
@@ -20,7 +21,7 @@ export default async function DashboardPage() {
   const headersList = await headers()
   const name = formatText(currentProfile?.full_name ?? null)
   const email = formatText(currentProfile?.email ?? user.email ?? null)
-  const role = formatText(currentProfile?.role ?? null)
+  const role = getRoleLabel(currentProfile?.role)
   const isActive = currentProfile?.is_active !== false
   const forwardedProto = headersList.get('x-forwarded-proto')
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')

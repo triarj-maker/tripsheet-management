@@ -12,8 +12,6 @@ import {
   isDateRangeOrdered,
   isTripSheetWithinTripRange,
   tripDateRangeMessage,
-  tripSheetDateRangeMessage,
-  tripSheetWithinTripRangeMessage,
 } from '@/lib/trip-date-validation'
 import { toTripTypeFormValue } from '@/lib/trip-sheets'
 import { normalizeTripWorkflowState, type TripWorkflowState } from '@/lib/trip-workflow'
@@ -30,29 +28,10 @@ type LookupOption = {
   name: string
 }
 
-type TripTemplate = {
-  id: string
-  title: string | null
-  heading: string | null
-  default_start_time: string | null
-  default_end_time: string | null
-  body: string | null
-}
-
-type ResourceProfile = {
-  id: string
-  full_name: string | null
-  email: string | null
-  phone: string | null
-  role: string | null
-}
-
 type CreateTripFlowFormProps = {
   destinations: DestinationOption[]
   schools: LookupOption[]
   companies: LookupOption[]
-  tripTemplates: TripTemplate[]
-  availableResources: ResourceProfile[]
   submitAction: (formData: FormData) => void
   cancelHref: string
   errorMessage?: string
@@ -86,21 +65,6 @@ type TripDraft = {
   start_date: string
   end_date: string
   workflow_state: TripWorkflowState
-}
-
-type TripSheetDraft = {
-  trip_sheet_title: string
-  start_date: string
-  start_time: string
-  end_date: string
-  end_time: string
-}
-
-function formatAssignableLabel(resource: ResourceProfile) {
-  const baseLabel = resource.full_name ?? resource.email ?? resource.id
-  const roleLabel = resource.role === 'admin' ? 'Admin' : 'Resource'
-
-  return `${baseLabel} (${roleLabel})`
 }
 
 function parseIsoDate(value: string) {
@@ -196,32 +160,10 @@ function buildScheduleLabel({
 const cloneTripSheetsOutsideRangeMessage =
   'Cloned trip sheet dates fall outside the new trip date range. Adjust the trip dates and try again.'
 
-function formatTemplateTime(value: string | null) {
-  return value?.slice(0, 5) ?? ''
-}
-
-function shouldApplyTemplateValue({
-  currentValue,
-  previousTemplateValue,
-  isEdited,
-}: {
-  currentValue: string
-  previousTemplateValue: string
-  isEdited: boolean
-}) {
-  return (
-    !isEdited ||
-    !currentValue ||
-    (!!previousTemplateValue && currentValue === previousTemplateValue)
-  )
-}
-
 export default function CreateTripFlowForm({
   destinations,
   schools,
   companies,
-  tripTemplates,
-  availableResources,
   submitAction,
   cancelHref,
   errorMessage,
@@ -255,30 +197,9 @@ export default function CreateTripFlowForm({
     ? 'Partner / Company'
     : 'Company'
   const phoneLabel = isEducationalTrip ? 'Coordinator Phone Number' : 'Phone Number'
-  const [tripSheetDraft, setTripSheetDraft] = useState<TripSheetDraft>({
-    trip_sheet_title: '',
-    start_date: initialTripValues?.start_date ?? '',
-    start_time: '09:00',
-    end_date: '',
-    end_time: '17:30',
-  })
-  const [templateId, setTemplateId] = useState('')
-  const [bodyText, setBodyText] = useState('')
-  const [editedTemplateFields, setEditedTemplateFields] = useState({
-    trip_sheet_title: false,
-    start_time: false,
-    end_time: false,
-    body: false,
-  })
   const [tripError, setTripError] = useState(
     errorMessage === guestOrCompanyRequiredMessage ? errorMessage : ''
   )
-  const [tripSheetError, setTripSheetError] = useState('')
-  const [hasEditedTripSheetStartDate, setHasEditedTripSheetStartDate] = useState(false)
-  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([])
-  const [nextResourceId, setNextResourceId] = useState('')
-
-  const effectiveTripSheetEndDate = tripSheetDraft.end_date || tripSheetDraft.start_date
 
   function normalizeCountInput(value: string) {
     if (value.trim() === '') {
@@ -330,141 +251,10 @@ export default function CreateTripFlowForm({
 
       if (fieldName === 'start_date' || fieldName === 'end_date') {
         setTripError('')
-        setTripSheetError('')
       }
 
       return nextDraft
     })
-
-    if (fieldName === 'start_date' && !hasEditedTripSheetStartDate) {
-      setTripSheetDraft((currentDraft) => ({
-        ...currentDraft,
-        start_date: value,
-      }))
-    }
-  }
-
-  function updateTripSheetField(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    const { name, value } = event.target
-
-    if (name === 'start_date' || name === 'end_date') {
-      setTripSheetError('')
-    }
-
-    if (name === 'start_date') {
-      setHasEditedTripSheetStartDate(true)
-    }
-
-    if (name === 'trip_sheet_title' || name === 'start_time' || name === 'end_time') {
-      setEditedTemplateFields((currentFields) => ({
-        ...currentFields,
-        [name]: true,
-      }))
-    }
-
-    setTripSheetDraft((currentDraft) => ({
-      ...currentDraft,
-      [name]: value,
-    }))
-  }
-
-  function handleTemplateChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const nextTemplateId = event.target.value
-    const currentTemplate = tripTemplates.find((template) => template.id === templateId)
-    const nextTemplate = tripTemplates.find((template) => template.id === nextTemplateId)
-    const currentTemplateHeading = currentTemplate?.heading?.trim() ?? ''
-    const currentTemplateStartTime = formatTemplateTime(currentTemplate?.default_start_time ?? null)
-    const currentTemplateEndTime = formatTemplateTime(currentTemplate?.default_end_time ?? null)
-    const currentTemplateBody = currentTemplate?.body ?? ''
-
-    setTemplateId(nextTemplateId)
-
-    if (!nextTemplateId) {
-      setTripSheetDraft((currentDraft) => ({
-        ...currentDraft,
-        trip_sheet_title:
-          currentDraft.trip_sheet_title === currentTemplateHeading
-            ? ''
-            : currentDraft.trip_sheet_title,
-        start_time:
-          currentDraft.start_time === currentTemplateStartTime
-            ? '09:00'
-            : currentDraft.start_time,
-        end_time:
-          currentDraft.end_time === currentTemplateEndTime
-            ? '17:30'
-            : currentDraft.end_time,
-      }))
-
-      if (bodyText === currentTemplateBody) {
-        setBodyText('')
-      }
-
-      return
-    }
-
-    const nextTemplateHeading = nextTemplate?.heading?.trim() ?? ''
-    const nextTemplateStartTime = formatTemplateTime(nextTemplate?.default_start_time ?? null)
-    const nextTemplateEndTime = formatTemplateTime(nextTemplate?.default_end_time ?? null)
-    const nextTemplateBody = nextTemplate?.body ?? ''
-
-    setTripSheetDraft((currentDraft) => ({
-      ...currentDraft,
-      trip_sheet_title:
-        nextTemplateHeading &&
-        shouldApplyTemplateValue({
-          currentValue: currentDraft.trip_sheet_title,
-          previousTemplateValue: currentTemplateHeading,
-          isEdited: editedTemplateFields.trip_sheet_title,
-        })
-          ? nextTemplateHeading
-          : currentDraft.trip_sheet_title,
-      start_time:
-        nextTemplateStartTime &&
-        shouldApplyTemplateValue({
-          currentValue: currentDraft.start_time,
-          previousTemplateValue: currentTemplateStartTime,
-          isEdited: editedTemplateFields.start_time,
-        })
-          ? nextTemplateStartTime
-          : currentDraft.start_time,
-      end_time:
-        nextTemplateEndTime &&
-        shouldApplyTemplateValue({
-          currentValue: currentDraft.end_time,
-          previousTemplateValue: currentTemplateEndTime,
-          isEdited: editedTemplateFields.end_time,
-        })
-          ? nextTemplateEndTime
-          : currentDraft.end_time,
-    }))
-
-    if (
-      shouldApplyTemplateValue({
-        currentValue: bodyText,
-        previousTemplateValue: currentTemplateBody,
-        isEdited: editedTemplateFields.body,
-      })
-    ) {
-      setBodyText(nextTemplateBody)
-    }
-  }
-
-  function handleAddResource() {
-    if (!nextResourceId || selectedResourceIds.includes(nextResourceId)) {
-      return
-    }
-
-    setSelectedResourceIds((currentIds) => [...currentIds, nextResourceId])
-    setNextResourceId('')
-  }
-
-  function handleRemoveResource(resourceId: string) {
-    setSelectedResourceIds((currentIds) =>
-      currentIds.filter((currentId) => currentId !== resourceId)
-    )
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -505,34 +295,8 @@ export default function CreateTripFlowForm({
 
       return
     }
-
-    if (!isDateRangeOrdered(tripSheetDraft.start_date, effectiveTripSheetEndDate)) {
-      event.preventDefault()
-      setTripSheetError(tripSheetDateRangeMessage)
-      return
-    }
-
-    if (
-      !isTripSheetWithinTripRange({
-        tripStartDate: tripDraft.start_date,
-        tripEndDate: tripDraft.end_date,
-        tripSheetStartDate: tripSheetDraft.start_date,
-        tripSheetEndDate: effectiveTripSheetEndDate,
-      })
-    ) {
-      event.preventDefault()
-      setTripSheetError(tripSheetWithinTripRangeMessage)
-    }
   }
 
-  const selectedResources = selectedResourceIds
-    .map((resourceId) =>
-      availableResources.find((resource) => resource.id === resourceId) ?? null
-    )
-    .filter((resource): resource is ResourceProfile => resource !== null)
-  const unselectedResources = availableResources.filter(
-    (resource) => !selectedResourceIds.includes(resource.id)
-  )
   const cloneTripSheets =
     cloneSource?.tripSheets.map((tripSheet) => {
       const startOffset = getDateOffsetInDays(
@@ -820,205 +584,7 @@ export default function CreateTripFlowForm({
             </div>
           )}
         </section>
-      ) : (
-        <>
-          <section className="app-section-card space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">First Trip Sheet</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Create the first execution unit immediately so assignments and delivery can begin.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label htmlFor="template_id" className="ui-label">Template</label>
-                <select
-                  id="template_id"
-                  name="template_id"
-                  value={templateId}
-                  onChange={handleTemplateChange}
-                  className="ui-select ui-select-compact"
-                >
-                  <option value="">Start from blank body</option>
-                  {tripTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.title ?? template.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label htmlFor="trip_sheet_title" className="ui-label">Trip Sheet Title</label>
-                <input
-                  id="trip_sheet_title"
-                  name="trip_sheet_title"
-                  type="text"
-                  value={tripSheetDraft.trip_sheet_title}
-                  onChange={updateTripSheetField}
-                  required
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="start_date" className="ui-label">Start Date</label>
-                <input
-                  id="start_date"
-                  name="start_date"
-                  type="date"
-                  min={tripDraft.start_date || undefined}
-                  max={tripDraft.end_date || undefined}
-                  value={tripSheetDraft.start_date}
-                  onChange={updateTripSheetField}
-                  required
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="start_time" className="ui-label">Start Time</label>
-                <input
-                  id="start_time"
-                  name="start_time"
-                  type="time"
-                  value={tripSheetDraft.start_time}
-                  onChange={updateTripSheetField}
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="end_date" className="ui-label">End Date</label>
-                <input
-                  id="end_date"
-                  name="end_date"
-                  type="date"
-                  min={tripDraft.start_date || undefined}
-                  max={tripDraft.end_date || undefined}
-                  value={effectiveTripSheetEndDate}
-                  onChange={updateTripSheetField}
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="end_time" className="ui-label">End Time</label>
-                <input
-                  id="end_time"
-                  name="end_time"
-                  type="time"
-                  value={tripSheetDraft.end_time}
-                  onChange={updateTripSheetField}
-                  className="ui-input ui-input-compact"
-                />
-              </div>
-
-            </div>
-
-            {tripSheetError ? (
-              <p className="text-sm text-red-700">{tripSheetError}</p>
-            ) : null}
-          </section>
-
-          <section className="app-section-card space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Body</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Start from a blank body or load template content, then edit it freely before
-                save.
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="body_text" className="ui-label">Body</label>
-              <textarea
-                id="body_text"
-                name="body_text"
-                rows={14}
-                value={bodyText}
-                onChange={(event) => {
-                  setEditedTemplateFields((currentFields) => ({
-                    ...currentFields,
-                    body: true,
-                  }))
-                  setBodyText(event.target.value)
-                }}
-                required
-                className="ui-textarea"
-              />
-            </div>
-          </section>
-
-          <section className="app-section-card space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Assigned Resources</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Optional. Assign people now, or leave this blank and assign them later.
-              </p>
-            </div>
-
-            <div className="space-y-2.5">
-              {selectedResources.length === 0 ? (
-                <p className="text-sm text-gray-700">No resources selected yet.</p>
-              ) : (
-                selectedResources.map((resource) => (
-                  <div
-                    key={resource.id}
-                    className="flex items-start justify-between gap-4 rounded-lg border border-zinc-200 px-3 py-2.5"
-                  >
-                    <div className="space-y-1 text-sm text-gray-900">
-                      <p>{resource.full_name ?? '-'}</p>
-                      <p>{resource.email ?? '-'}</p>
-                      <p>{resource.phone ?? '-'}</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveResource(resource.id)}
-                      className="ui-button ui-button-secondary ui-button-compact"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {selectedResourceIds.map((resourceId) => (
-              <input key={resourceId} type="hidden" name="resource_user_ids" value={resourceId} />
-            ))}
-
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-              <div>
-                <label htmlFor="resource_user_id" className="ui-label">Assign Resource</label>
-                <select
-                  id="resource_user_id"
-                  value={nextResourceId}
-                  onChange={(event) => setNextResourceId(event.target.value)}
-                  className="ui-select ui-select-compact"
-                >
-                  <option value="">Select a resource</option>
-                  {unselectedResources.map((resource) => (
-                    <option key={resource.id} value={resource.id}>
-                      {formatAssignableLabel(resource)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAddResource}
-                className="ui-button ui-button-secondary ui-button-compact md:min-w-[9rem]"
-              >
-                Assign Resource
-              </button>
-            </div>
-          </section>
-        </>
-      )}
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2.5">
         <ActionSubmitButton

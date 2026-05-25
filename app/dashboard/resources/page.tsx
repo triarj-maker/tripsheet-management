@@ -4,6 +4,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
+import { ASSIGNABLE_ROLES, getRoleLabel, isAdminRole } from '@/lib/roles'
 
 import { toggleResourceActive } from './actions'
 
@@ -53,13 +54,13 @@ function statusBadgeClass(isActive: boolean | null) {
 }
 
 function roleLabel(role: string | null) {
-  return role === 'admin' ? 'Admin' : 'Resource'
+  return getRoleLabel(role)
 }
 
 function roleBadgeClass(role: string | null) {
   return [
     'ui-badge',
-    role === 'admin' ? 'ui-badge-blue' : 'ui-badge-neutral',
+    isAdminRole(role) ? 'ui-badge-blue' : 'ui-badge-neutral',
   ].join(' ')
 }
 
@@ -71,7 +72,7 @@ export default async function ResourcesPage({
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role, is_active, created_at')
-    .in('role', ['admin', 'resource'])
+    .in('role', [...ASSIGNABLE_ROLES])
     .order('created_at', { ascending: false })
 
   const resources = (data as ResourceProfile[] | null) ?? []

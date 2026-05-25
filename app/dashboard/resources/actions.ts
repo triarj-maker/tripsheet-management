@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { requireAdmin } from '@/app/dashboard/lib'
 import { appendToastParam } from '@/app/lib/action-feedback'
+import { APP_ROLES, type AppRole } from '@/lib/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 function buildResourcesRedirect(error: string) {
@@ -24,7 +25,7 @@ function buildEditResourceRedirect(id: string, error: string) {
 function normalizeRole(value: FormDataEntryValue | null) {
   const role = String(value ?? '').trim()
 
-  return role === 'admin' || role === 'resource' ? role : null
+  return APP_ROLES.includes(role as AppRole) ? role : null
 }
 
 export async function toggleResourceActive(formData: FormData) {

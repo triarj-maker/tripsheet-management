@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import { getCurrentUserProfile } from '@/app/dashboard/lib'
+import { canAccessAssignedWork, isOperationalRole } from '@/lib/roles'
 import { renderTripSheetDetailPage } from './TripSheetDetailPageContent'
 
 type TripSheetViewPageProps = {
@@ -24,11 +25,11 @@ export default async function TripSheetViewPage({
 
   const role = profile?.role ?? null
 
-  if (role !== 'admin' && role !== 'resource') {
+  if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
   }
 
-  if (role === 'resource') {
+  if (isOperationalRole(role)) {
     const params = new URLSearchParams()
 
     if (query.from) {
