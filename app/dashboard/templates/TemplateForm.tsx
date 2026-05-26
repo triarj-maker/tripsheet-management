@@ -99,6 +99,9 @@ export default function TemplateForm({
           maxLength={TEMPLATE_BODY_MAX_LENGTH}
           className="ui-textarea"
         />
+        <p className="mt-2 text-xs text-gray-500">
+          Supports Markdown: **bold**, - bullets, 1. numbered lists, ## headings.
+        </p>
       </div>
 
       <ActionSubmitButton

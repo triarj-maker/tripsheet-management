@@ -4,6 +4,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
+import TripSheetCardsSection from '@/app/dashboard/trip-sheets/TripSheetCardsSection'
 import { ASSIGNABLE_ROLES, getRoleLabel } from '@/lib/roles'
 import {
   getDestinationName,
@@ -66,6 +67,16 @@ type ResourceProfile = {
   email: string | null
   phone: string | null
   role: string | null
+}
+
+type TripSheetCard = {
+  id: string
+  trip_sheet_id: string
+  source_template_card_id: string | null
+  title: string | null
+  category: string | null
+  card_url: string | null
+  sort_order: number | null
 }
 
 function buildTripsRedirect(error: string) {
@@ -147,6 +158,15 @@ export default async function EditTripSheetPage({
     (resource) => !assignedResourceIds.includes(resource.id)
   )
 
+  const { data: cardData, error: cardsError } = await supabase
+    .from('trip_sheet_cards')
+    .select('id, trip_sheet_id, source_template_card_id, title, category, card_url, sort_order')
+    .eq('trip_sheet_id', tripSheet.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  const tripSheetCards = (cardData as TripSheetCard[] | null) ?? []
+
   const assignmentSectionError =
     assignmentError?.message ||
     activeResourcesError?.message ||
@@ -170,6 +190,10 @@ export default async function EditTripSheetPage({
 
       {assignmentSectionError ? (
         <p className="app-banner-error">{assignmentSectionError}</p>
+      ) : null}
+
+      {cardsError ? (
+        <p className="app-banner-error">{cardsError.message}</p>
       ) : null}
 
       <div className="space-y-5">
@@ -202,6 +226,11 @@ export default async function EditTripSheetPage({
             tripId={trip.id}
           />
         </div>
+
+        <TripSheetCardsSection
+          tripSheetId={tripSheet.id}
+          cards={tripSheetCards}
+        />
 
         <section className="app-section-card space-y-4">
           <div>

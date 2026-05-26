@@ -337,36 +337,37 @@ export default async function AssignedTripViewPage({
                     href={`/trip-sheets/${tripSheet.id}?from=${fromParam}`}
                     className={cardClass}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                    <div className="space-y-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <p
                           className={[
-                            'text-lg font-bold leading-7',
+                            'break-words text-lg font-bold leading-7 sm:min-w-0',
                             isAssignedToCurrentUser ? 'text-gray-900' : 'text-gray-800',
                           ].join(' ')}
                         >
                           {formatValue(tripSheet.title)}
                         </p>
-                        <p
+
+                        <span
                           className={[
-                            'text-sm',
-                            isAssignedToCurrentUser ? 'text-gray-700' : 'text-gray-600',
+                            'w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium',
+                            isAssignedToCurrentUser
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-zinc-100 text-gray-600',
                           ].join(' ')}
                         >
-                          {formatTripSheetSchedule(tripSheet)}
-                        </p>
+                          {isAssignedToCurrentUser ? 'Assigned to you' : 'Other trip sheet'}
+                        </span>
                       </div>
 
-                      <span
+                      <p
                         className={[
-                          'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium',
-                          isAssignedToCurrentUser
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-zinc-100 text-gray-600',
+                          'text-sm',
+                          isAssignedToCurrentUser ? 'text-gray-700' : 'text-gray-600',
                         ].join(' ')}
                       >
-                        {isAssignedToCurrentUser ? 'Assigned to you' : 'Other trip sheet'}
-                      </span>
+                        {formatTripSheetSchedule(tripSheet)}
+                      </p>
                     </div>
 
                     <span

@@ -292,6 +292,67 @@ body {
   color: #b91c1c;
 }
 
+.app-markdown {
+  color: #111827;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.app-markdown > * + * {
+  margin-top: 0.875rem;
+}
+
+.app-markdown h1,
+.app-markdown h2,
+.app-markdown h3,
+.app-markdown h4,
+.app-markdown h5,
+.app-markdown h6 {
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.app-markdown h1 {
+  font-size: 1.35rem;
+}
+
+.app-markdown h2 {
+  font-size: 1.2rem;
+}
+
+.app-markdown h3 {
+  font-size: 1.05rem;
+}
+
+.app-markdown h4,
+.app-markdown h5,
+.app-markdown h6 {
+  font-size: 1rem;
+}
+
+.app-markdown ul,
+.app-markdown ol {
+  padding-left: 1.35rem;
+}
+
+.app-markdown ul {
+  list-style: disc;
+}
+
+.app-markdown ol {
+  list-style: decimal;
+}
+
+.app-markdown li + li {
+  margin-top: 0.35rem;
+}
+
+.app-markdown strong {
+  font-weight: 700;
+}
+
 @media (min-width: 640px) {
   .app-page {
     padding: 3rem 1rem;

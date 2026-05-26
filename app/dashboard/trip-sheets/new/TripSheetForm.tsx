@@ -429,6 +429,9 @@ export default function TripSheetForm({
             required
             className="ui-textarea"
           />
+          <p className="mt-2 text-xs text-gray-500">
+            Supports Markdown: **bold**, - bullets, 1. numbered lists, ## headings.
+          </p>
         </div>
 
         <div>

@@ -3,6 +3,7 @@ type PdfTextLine = {
   size?: number
   bold?: boolean
   lineHeight?: number
+  indent?: number
 }
 
 type PdfPage = {
@@ -99,7 +100,7 @@ export function createSimplePdf(pages: PdfPage[]) {
 
     for (const line of page.lines) {
       const fontSize = line.size ?? 11
-      const x = 48
+      const x = 48 + (line.indent ?? 0)
       const y = currentY
       const fontKey = line.bold ? 'F2' : 'F1'
 
@@ -169,8 +170,12 @@ export function buildSimplePdfPages(lines: PdfTextLine[]) {
 
   for (const line of lines) {
     const fontSize = line.size ?? 11
-    const maxChars =
-      fontSize >= 16 ? 48 : fontSize >= 13 ? 62 : fontSize >= 12 ? 72 : 88
+    const indent = line.indent ?? 0
+    const maxChars = Math.max(
+      24,
+      (fontSize >= 16 ? 48 : fontSize >= 13 ? 62 : fontSize >= 12 ? 72 : 88) -
+        Math.ceil(indent / 6)
+    )
 
     if (!line.text) {
       pushLine({ ...line, text: '' })

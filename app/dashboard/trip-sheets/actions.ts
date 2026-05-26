@@ -20,6 +20,7 @@ import {
 import {
   insertTripSheetAssignments,
 } from './trip-sheet-assignments'
+import { copyTemplateCardsToTripSheets } from './template-card-copy'
 import { requireAdmin } from './lib'
 
 function buildTripSheetsRedirect(error: string) {
@@ -50,6 +51,10 @@ function buildEditTripSheetRedirect(id: string, error: string) {
   return `/dashboard/trip-sheets/${id}/edit?${params.toString()}`
 }
 
+function buildEditTripSheetPath(id: string) {
+  return `/dashboard/trip-sheets/${id}/edit`
+}
+
 function appendErrorParam(path: string, error: string) {
   const [pathname, queryString = ''] = path.split('?')
   const params = new URLSearchParams(queryString)
@@ -68,6 +73,88 @@ function getReturnPath(formData: FormData, fallback: string) {
   }
 
   return fallback
+}
+
+function normalizeCardCategory(value: FormDataEntryValue | null) {
+  const category = String(value ?? '').trim()
+
+  return category === 'facilitator' || category === 'expert' ? category : null
+}
+
+function parseSortOrder(value: FormDataEntryValue | null) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return 0
+  }
+
+  const parsedValue = Number.parseInt(normalizedValue, 10)
+
+  return Number.isNaN(parsedValue) ? null : parsedValue
+}
+
+function validateTripSheetCardInput(formData: FormData) {
+  const title = String(formData.get('title') ?? '').trim()
+  const category = normalizeCardCategory(formData.get('category'))
+  const cardUrl = String(formData.get('card_url') ?? '').trim()
+  const sortOrder = parseSortOrder(formData.get('sort_order'))
+
+  if (!title) {
+    return { error: 'Card title is required.' }
+  }
+
+  if (!category) {
+    return { error: 'Card category must be Facilitator or Expert.' }
+  }
+
+  if (!cardUrl) {
+    return { error: 'Card URL is required.' }
+  }
+
+  if (!cardUrl.startsWith('/module-cards/')) {
+    return { error: 'Card URL must start with /module-cards/.' }
+  }
+
+  if (sortOrder === null) {
+    return { error: 'Sort order must be a whole number.' }
+  }
+
+  return {
+    title,
+    category,
+    cardUrl,
+    sortOrder,
+  }
+}
+
+async function getTripSheetForWrite(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
+  tripSheetId: string
+) {
+  if (!tripSheetId) {
+    return {
+      tripSheet: null,
+      error: 'Trip sheet not found.',
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('trip_sheets')
+    .select('id')
+    .eq('id', tripSheetId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return {
+      tripSheet: null,
+      error: error?.message ?? 'Trip sheet not found.',
+    }
+  }
+
+  return {
+    tripSheet: data,
+    error: null,
+  }
 }
 
 export type ReplaceTripSheetAssignmentsResult = {
@@ -144,7 +231,7 @@ export async function createTripSheet(formData: FormData) {
       created_by: user.id,
       last_updated_by: user.id,
     })
-    .select('id, trip_id')
+    .select('id, trip_id, template_id')
     .single()
 
   if (error) {
@@ -153,6 +240,28 @@ export async function createTripSheet(formData: FormData) {
 
   if (!tripSheet) {
     redirect(buildNewTripSheetRedirect('Trip sheet could not be created.', tripId))
+  }
+
+  if (templateId) {
+    const { error: cardCopyError } = await copyTemplateCardsToTripSheets({
+      supabase,
+      tripSheets: [
+        {
+          id: tripSheet.id,
+          templateId: (tripSheet as { template_id: string | null }).template_id,
+        },
+      ],
+    })
+
+    if (cardCopyError) {
+      await supabase.from('trip_sheets').delete().eq('id', tripSheet.id)
+      redirect(
+        buildNewTripSheetRedirect(
+          `Trip sheet was not created because module cards could not be copied: ${cardCopyError.message}`,
+          tripId
+        )
+      )
+    }
   }
 
   if (resourceUserIds.length > 0) {
@@ -413,6 +522,115 @@ export async function removeResourceFromTripSheet(formData: FormData) {
   }
 
   redirect(appendToastParam(returnPath))
+}
+
+export async function createTripSheetCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const tripSheetId = String(formData.get('trip_sheet_id') ?? '').trim()
+
+  const tripSheetResult = await getTripSheetForWrite(supabase, tripSheetId)
+
+  if (tripSheetResult.error || !tripSheetResult.tripSheet) {
+    redirect(buildTripSheetsRedirect(tripSheetResult.error ?? 'Trip sheet not found.'))
+  }
+
+  const result = validateTripSheetCardInput(formData)
+
+  if ('error' in result) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, result.error ?? 'Invalid card input.'))
+  }
+
+  const { error } = await supabase.from('trip_sheet_cards').insert({
+    trip_sheet_id: tripSheetId,
+    title: result.title,
+    category: result.category,
+    card_url: result.cardUrl,
+    sort_order: result.sortOrder,
+  })
+
+  if (error) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTripSheetPath(tripSheetId), 'Module card added.'))
+}
+
+export async function updateTripSheetCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  const tripSheetId = String(formData.get('trip_sheet_id') ?? '').trim()
+
+  if (!id || !tripSheetId) {
+    redirect(buildTripSheetsRedirect('Module card not found.'))
+  }
+
+  const tripSheetResult = await getTripSheetForWrite(supabase, tripSheetId)
+
+  if (tripSheetResult.error || !tripSheetResult.tripSheet) {
+    redirect(buildTripSheetsRedirect(tripSheetResult.error ?? 'Trip sheet not found.'))
+  }
+
+  const { data: cardData, error: cardError } = await supabase
+    .from('trip_sheet_cards')
+    .select('id, trip_sheet_id')
+    .eq('id', id)
+    .eq('trip_sheet_id', tripSheetId)
+    .maybeSingle()
+
+  if (cardError || !cardData) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, cardError?.message ?? 'Module card not found.'))
+  }
+
+  const result = validateTripSheetCardInput(formData)
+
+  if ('error' in result) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, result.error ?? 'Invalid card input.'))
+  }
+
+  const { error } = await supabase
+    .from('trip_sheet_cards')
+    .update({
+      title: result.title,
+      category: result.category,
+      card_url: result.cardUrl,
+      sort_order: result.sortOrder,
+    })
+    .eq('id', id)
+    .eq('trip_sheet_id', tripSheetId)
+
+  if (error) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTripSheetPath(tripSheetId), 'Module card updated.'))
+}
+
+export async function deleteTripSheetCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  const tripSheetId = String(formData.get('trip_sheet_id') ?? '').trim()
+
+  if (!id || !tripSheetId) {
+    redirect(buildTripSheetsRedirect('Module card not found.'))
+  }
+
+  const tripSheetResult = await getTripSheetForWrite(supabase, tripSheetId)
+
+  if (tripSheetResult.error || !tripSheetResult.tripSheet) {
+    redirect(buildTripSheetsRedirect(tripSheetResult.error ?? 'Trip sheet not found.'))
+  }
+
+  const { error } = await supabase
+    .from('trip_sheet_cards')
+    .delete()
+    .eq('id', id)
+    .eq('trip_sheet_id', tripSheetId)
+
+  if (error) {
+    redirect(buildEditTripSheetRedirect(tripSheetId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTripSheetPath(tripSheetId), 'Module card deleted.'))
 }
 
 export async function replaceTripSheetAssignments(

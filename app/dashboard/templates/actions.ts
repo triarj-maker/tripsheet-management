@@ -25,6 +25,79 @@ function buildEditTemplateRedirect(id: string, error: string) {
   return `/dashboard/templates/${id}/edit?${params.toString()}`
 }
 
+function buildEditTemplatePath(id: string) {
+  return `/dashboard/templates/${id}/edit`
+}
+
+function normalizeCardCategory(value: FormDataEntryValue | null) {
+  const category = String(value ?? '').trim()
+
+  return category === 'facilitator' || category === 'expert' ? category : null
+}
+
+function parseSortOrder(value: FormDataEntryValue | null) {
+  const normalizedValue = String(value ?? '').trim()
+
+  if (!normalizedValue) {
+    return 0
+  }
+
+  const parsedValue = Number.parseInt(normalizedValue, 10)
+
+  return Number.isNaN(parsedValue) ? null : parsedValue
+}
+
+function validateTemplateCardInput(formData: FormData) {
+  const title = String(formData.get('title') ?? '').trim()
+  const category = normalizeCardCategory(formData.get('category'))
+  const cardUrl = String(formData.get('card_url') ?? '').trim()
+  const sortOrder = parseSortOrder(formData.get('sort_order'))
+
+  if (!title) {
+    return { error: 'Card title is required.' }
+  }
+
+  if (!category) {
+    return { error: 'Card category must be Facilitator or Expert.' }
+  }
+
+  if (!cardUrl) {
+    return { error: 'Card URL is required.' }
+  }
+
+  if (!cardUrl.startsWith('/module-cards/')) {
+    return { error: 'Card URL must start with /module-cards/.' }
+  }
+
+  if (sortOrder === null) {
+    return { error: 'Sort order must be a whole number.' }
+  }
+
+  return {
+    title,
+    category,
+    cardUrl,
+    sortOrder,
+  }
+}
+
+async function templateExists(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
+  templateId: string
+) {
+  if (!templateId) {
+    return false
+  }
+
+  const { data, error } = await supabase
+    .from('trip_templates')
+    .select('id')
+    .eq('id', templateId)
+    .maybeSingle()
+
+  return !error && Boolean(data)
+}
+
 function validateTemplateInput(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim()
   const heading = String(formData.get('heading') ?? '').trim()
@@ -150,4 +223,103 @@ export async function deleteTemplate(formData: FormData) {
   }
 
   redirect(appendToastParam('/dashboard/templates'))
+}
+
+export async function createTemplateCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const templateId = String(formData.get('template_id') ?? '').trim()
+
+  if (!templateId) {
+    redirect(buildTemplatesRedirect('Template not found.'))
+  }
+
+  if (!(await templateExists(supabase, templateId))) {
+    redirect(buildTemplatesRedirect('Template not found.'))
+  }
+
+  const result = validateTemplateCardInput(formData)
+
+  if ('error' in result) {
+    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.'))
+  }
+
+  const { error } = await supabase.from('template_cards').insert({
+    template_id: templateId,
+    title: result.title,
+    category: result.category,
+    card_url: result.cardUrl,
+    sort_order: result.sortOrder,
+  })
+
+  if (error) {
+    redirect(buildEditTemplateRedirect(templateId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card added.'))
+}
+
+export async function updateTemplateCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  const templateId = String(formData.get('template_id') ?? '').trim()
+
+  if (!id || !templateId) {
+    redirect(buildTemplatesRedirect('Module card not found.'))
+  }
+
+  const { data: cardData, error: cardError } = await supabase
+    .from('template_cards')
+    .select('id, template_id')
+    .eq('id', id)
+    .eq('template_id', templateId)
+    .maybeSingle()
+
+  if (cardError || !cardData) {
+    redirect(buildEditTemplateRedirect(templateId, cardError?.message ?? 'Module card not found.'))
+  }
+
+  const result = validateTemplateCardInput(formData)
+
+  if ('error' in result) {
+    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.'))
+  }
+
+  const { error } = await supabase
+    .from('template_cards')
+    .update({
+      title: result.title,
+      category: result.category,
+      card_url: result.cardUrl,
+      sort_order: result.sortOrder,
+    })
+    .eq('id', id)
+    .eq('template_id', templateId)
+
+  if (error) {
+    redirect(buildEditTemplateRedirect(templateId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card updated.'))
+}
+
+export async function deleteTemplateCard(formData: FormData) {
+  const { supabase } = await requireAdmin()
+  const id = String(formData.get('id') ?? '').trim()
+  const templateId = String(formData.get('template_id') ?? '').trim()
+
+  if (!id || !templateId) {
+    redirect(buildTemplatesRedirect('Module card not found.'))
+  }
+
+  const { error } = await supabase
+    .from('template_cards')
+    .delete()
+    .eq('id', id)
+    .eq('template_id', templateId)
+
+  if (error) {
+    redirect(buildEditTemplateRedirect(templateId, error.message))
+  }
+
+  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card deleted.'))
 }

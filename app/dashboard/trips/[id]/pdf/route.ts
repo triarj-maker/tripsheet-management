@@ -56,6 +56,7 @@ type PdfLine = {
   size?: number
   bold?: boolean
   lineHeight?: number
+  indent?: number
 }
 
 function formatDate(value: string | null) {
@@ -201,6 +202,157 @@ function pushParagraphText(lines: PdfLine[], value: string, options?: { bullet?:
   }
 }
 
+function hasHeadingSyntax(line: string) {
+  return /^#{1,6}\s+/.test(line)
+}
+
+function hasUnorderedListSyntax(line: string) {
+  return /^[-*+]\s+/.test(line)
+}
+
+function hasOrderedListSyntax(line: string) {
+  return /^\d+\.\s+/.test(line)
+}
+
+function stripInlineMarkdown(value: string) {
+  let text = ''
+  let cursor = 0
+  let hasBold = false
+
+  while (cursor < value.length) {
+    const start = value.indexOf('**', cursor)
+
+    if (start === -1) {
+      text += value.slice(cursor)
+      break
+    }
+
+    const end = value.indexOf('**', start + 2)
+
+    if (end === -1) {
+      text += value.slice(cursor)
+      break
+    }
+
+    text += value.slice(cursor, start)
+    text += value.slice(start + 2, end)
+    hasBold = true
+    cursor = end + 2
+  }
+
+  return {
+    text: text.trim(),
+    hasBold,
+  }
+}
+
+function pushMarkdownTextLine(
+  lines: PdfLine[],
+  value: string,
+  options: {
+    bold?: boolean
+    indent?: number
+    lineHeight?: number
+    size?: number
+  } = {}
+) {
+  const inline = stripInlineMarkdown(value)
+
+  if (!inline.text) {
+    return
+  }
+
+  lines.push({
+    text: inline.text,
+    bold: options.bold || inline.hasBold,
+    indent: options.indent,
+    lineHeight: options.lineHeight ?? 16,
+    size: options.size,
+  })
+}
+
+function pushMarkdownHeading(lines: PdfLine[], line: string) {
+  const match = /^(#{1,6})\s+(.+)$/.exec(line)
+
+  if (!match) {
+    return
+  }
+
+  const level = match[1]!.length
+  const text = match[2]!.trim()
+  const size = level === 1 ? 13 : level === 2 ? 12 : 11
+
+  pushBlankLine(lines, 6)
+  pushMarkdownTextLine(lines, text, {
+    bold: true,
+    lineHeight: level <= 2 ? 18 : 16,
+    size,
+  })
+}
+
+function pushMarkdownText(lines: PdfLine[], value: string) {
+  const normalizedValue = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const sourceLines = normalizedValue.split('\n')
+  let index = 0
+
+  while (index < sourceLines.length) {
+    const line = sourceLines[index] ?? ''
+    const trimmedLine = line.trim()
+
+    if (!trimmedLine) {
+      pushBlankLine(lines, 8)
+      index += 1
+      continue
+    }
+
+    if (hasHeadingSyntax(trimmedLine)) {
+      pushMarkdownHeading(lines, trimmedLine)
+      index += 1
+      continue
+    }
+
+    if (hasUnorderedListSyntax(trimmedLine)) {
+      while (index < sourceLines.length && hasUnorderedListSyntax(sourceLines[index]!.trim())) {
+        const listText = sourceLines[index]!.trim().replace(/^[-*+]\s+/, '')
+        pushMarkdownTextLine(lines, `- ${listText}`, {
+          indent: 14,
+          lineHeight: 16,
+        })
+        index += 1
+      }
+
+      pushBlankLine(lines, 6)
+      continue
+    }
+
+    if (hasOrderedListSyntax(trimmedLine)) {
+      while (index < sourceLines.length && hasOrderedListSyntax(sourceLines[index]!.trim())) {
+        const listLine = sourceLines[index]!.trim()
+        const listMatch = /^(\d+)\.\s+(.+)$/.exec(listLine)
+
+        if (listMatch) {
+          pushMarkdownTextLine(lines, `${listMatch[1]}. ${listMatch[2]}`, {
+            indent: 14,
+            lineHeight: 16,
+          })
+        }
+
+        index += 1
+      }
+
+      pushBlankLine(lines, 6)
+      continue
+    }
+
+    pushMarkdownTextLine(lines, trimmedLine)
+    index += 1
+  }
+
+  while (lines.length > 0 && lines[lines.length - 1]?.text === '') {
+    lines.pop()
+  }
+}
+
 function getTripSubtitle(tripType: string | null | undefined) {
   if ((tripType ?? '').trim().toLowerCase() === 'private') {
     return 'Private Tour Itinerary'
@@ -339,7 +491,7 @@ function buildPdfLines({
     if (tripSheet.body_text?.trim()) {
       pushBlankLine(lines, 10)
       lines.push({ text: 'Trip Plan', bold: true, lineHeight: 16 })
-      pushParagraphText(lines, tripSheet.body_text.trim())
+      pushMarkdownText(lines, tripSheet.body_text.trim())
     }
   }
 

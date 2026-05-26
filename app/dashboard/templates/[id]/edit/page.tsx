@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
+import TemplateCardsSection from '../../TemplateCardsSection'
 import TemplateForm from '../../TemplateForm'
 import { updateTemplate } from '../../actions'
 import { requireAdmin } from '../../lib'
@@ -21,6 +22,15 @@ type TripTemplate = {
   default_start_time: string | null
   default_end_time: string | null
   body: string | null
+}
+
+type TemplateCard = {
+  id: string
+  template_id: string
+  title: string | null
+  category: string | null
+  card_url: string | null
+  sort_order: number | null
 }
 
 function formatTimeInputValue(value: string | null) {
@@ -50,6 +60,15 @@ export default async function EditTemplatePage({
     redirect(buildTemplatesRedirect(error?.message ?? 'Template not found.'))
   }
 
+  const { data: cardData, error: cardsError } = await supabase
+    .from('template_cards')
+    .select('id, template_id, title, category, card_url, sort_order')
+    .eq('template_id', tripTemplate.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  const templateCards = (cardData as TemplateCard[] | null) ?? []
+
   return (
     <>
       <AdminNav current="templates" />
@@ -69,6 +88,12 @@ export default async function EditTemplatePage({
           </p>
         ) : null}
 
+        {cardsError ? (
+          <p className="app-banner-error">
+            {cardsError.message}
+          </p>
+        ) : null}
+
         <TemplateForm
           action={updateTemplate}
           submitLabel="Save Changes"
@@ -78,6 +103,11 @@ export default async function EditTemplatePage({
           initialDefaultStartTime={formatTimeInputValue(tripTemplate.default_start_time)}
           initialDefaultEndTime={formatTimeInputValue(tripTemplate.default_end_time)}
           initialBody={tripTemplate.body ?? ''}
+        />
+
+        <TemplateCardsSection
+          templateId={tripTemplate.id}
+          cards={templateCards}
         />
     </>
   )

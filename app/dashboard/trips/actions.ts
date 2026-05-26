@@ -23,6 +23,7 @@ import {
   guestOrCompanyRequiredMessage,
   hasGuestOrCompany,
 } from '../trip-sheets/validation'
+import { copyTemplateCardsToTripSheets } from '../trip-sheets/template-card-copy'
 import { requireAdmin } from '../lib'
 
 type DestinationRecord = {
@@ -560,13 +561,37 @@ export async function createTrip(formData: FormData) {
     }
 
     if (clonedTripSheets.length > 0) {
-      const { error: clonedTripSheetsError } = await supabase
+      const { data: clonedTripSheetData, error: clonedTripSheetsError } = await supabase
         .from('trip_sheets')
         .insert(clonedTripSheets)
+        .select('id, template_id')
 
       if (clonedTripSheetsError) {
         await supabase.from('trips').delete().eq('id', data.id)
         redirect(buildNewTripRedirect(clonedTripSheetsError.message, cloneRedirectOptions))
+      }
+
+      const { error: cardCopyError } = await copyTemplateCardsToTripSheets({
+        supabase,
+        tripSheets: (
+          (clonedTripSheetData as Array<{
+            id: string
+            template_id: string | null
+          }> | null) ?? []
+        ).map((tripSheet) => ({
+          id: tripSheet.id,
+          templateId: tripSheet.template_id,
+        })),
+      })
+
+      if (cardCopyError) {
+        await supabase.from('trips').delete().eq('id', data.id)
+        redirect(
+          buildNewTripRedirect(
+            `Trip was not cloned because module cards could not be copied: ${cardCopyError.message}`,
+            cloneRedirectOptions
+          )
+        )
       }
     }
 

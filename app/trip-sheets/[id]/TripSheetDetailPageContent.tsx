@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import MarkdownBody from '@/app/components/MarkdownBody'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
 import {
@@ -49,6 +50,14 @@ type TripParentRecord = {
 }
 
 type TripParentRelation = TripParentRecord | TripParentRecord[] | null | undefined
+
+type TripSheetCard = {
+  id: string
+  title: string
+  category: string
+  card_url: string
+  sort_order: number | null
+}
 
 function formatValue(value: string | null) {
   return value ?? '-'
@@ -106,6 +115,65 @@ function formatDateTime(value: string | null, time: string | null) {
   return formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate
 }
 
+function getVisibleCardCategory(role: string | null) {
+  if (role === 'facilitator' || role === 'expert') {
+    return role
+  }
+
+  return null
+}
+
+function formatCardCategoryLabel(category: string | null) {
+  if (category === 'expert') {
+    return 'Expert'
+  }
+
+  if (category === 'facilitator') {
+    return 'Facilitator'
+  }
+
+  return 'Module'
+}
+
+function ModuleCardsSection({ cards }: { cards: TripSheetCard[] }) {
+  if (cards.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="app-section-card space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Module Cards</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          Open the relevant playbook cards for this trip sheet.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {cards.map((card) => (
+          <a
+            key={card.id}
+            href={card.card_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg border border-zinc-200 px-4 py-3 transition hover:border-zinc-300 hover:bg-zinc-50"
+          >
+            <span className="block text-sm font-semibold leading-5 text-gray-900">
+              {card.title}
+            </span>
+            <span className="mt-1 block text-xs font-medium text-gray-500">
+              {formatCardCategoryLabel(card.category)}
+            </span>
+            <span className="mt-3 inline-flex min-h-9 items-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-gray-800">
+              Open Card
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export async function renderTripSheetDetailPage({
   id,
   from,
@@ -156,6 +224,29 @@ export async function renderTripSheetDetailPage({
     }
   }
 
+  const visibleCardCategory = getVisibleCardCategory(role)
+  const shouldLoadCards = isAdminRole(role) || Boolean(visibleCardCategory)
+  let tripSheetCards: TripSheetCard[] = []
+  let cardsErrorMessage: string | null = null
+
+  if (shouldLoadCards) {
+    let cardQuery = supabase
+      .from('trip_sheet_cards')
+      .select('id, title, category, card_url, sort_order')
+      .eq('trip_sheet_id', id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (visibleCardCategory && !isAdminRole(role)) {
+      cardQuery = cardQuery.eq('category', visibleCardCategory)
+    }
+
+    const { data: cardData, error: cardsError } = await cardQuery
+
+    tripSheetCards = (cardData as TripSheetCard[] | null) ?? []
+    cardsErrorMessage = cardsError?.message ?? null
+  }
+
   const resolvedFrom = from ?? (isOperationalRole(role) ? 'my-trip-sheets' : undefined)
   const currentNav =
     resolvedFrom === 'my-trip-sheets'
@@ -196,6 +287,10 @@ export async function renderTripSheetDetailPage({
               ← {backLabel}
             </Link>
           </div>
+
+          {cardsErrorMessage ? (
+            <p className="app-banner-error">{cardsErrorMessage}</p>
+          ) : null}
 
           <div className="app-page-header !mb-0">
             <div>
@@ -268,11 +363,13 @@ export async function renderTripSheetDetailPage({
             </dl>
           </section>
 
+          <ModuleCardsSection cards={tripSheetCards} />
+
           <section className="app-section-card space-y-4 p-3 sm:p-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Body</h2>
               <p className="mt-1 text-sm text-gray-600">
-                Execution content only. Formatting is preserved exactly as entered.
+                Execution content rendered from the saved Markdown text.
               </p>
             </div>
 
@@ -287,9 +384,7 @@ export async function renderTripSheetDetailPage({
               </div>
             </div>
 
-            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
-              {tripSheet.body_text ?? ''}
-            </div>
+            <MarkdownBody content={tripSheet.body_text} />
 
             {tripSheet.transportation_info?.trim() ? (
               <div className="space-y-2 border-t border-zinc-200 pt-4">
