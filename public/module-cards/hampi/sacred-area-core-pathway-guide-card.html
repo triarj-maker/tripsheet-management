@@ -1,0 +1,266 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Sacred Area - Core Pathway - Guide Card</title><style>
+    :root {
+      --bg: #f7f7f4;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #5f6b76;
+      --border: #e3e0d8;
+      --soft: #f1efe8;
+      --accent: #2f3a31;
+      --max-width: 760px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .ej-card {
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px 14px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--accent);
+      line-height: 1.22;
+      margin: 1.15em 0 0.45em;
+      font-weight: 700;
+    }
+
+    h1:first-child,
+    h2:first-child,
+    h3:first-child {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: 1.55rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    h2 {
+      font-size: 1.28rem;
+      background: var(--soft);
+      padding: 0.55rem 0.7rem;
+      border-radius: 10px;
+      border-left: 4px solid var(--accent);
+    }
+
+    h3 {
+      font-size: 1.12rem;
+    }
+
+    h4, h5, h6 {
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0.45em 0;
+    }
+
+    strong, b {
+      font-weight: 700;
+    }
+
+    em, i {
+      color: var(--muted);
+    }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      margin: 0.45em 0 0.7em;
+    }
+
+    li {
+      margin-top: 0.25em;
+      margin-bottom: 0.25em;
+      padding-left: 0.05rem;
+    }
+
+    li > p {
+      margin: 0.2em 0;
+    }
+
+    li.ej-li-level-1 {
+      margin-left: 0;
+    }
+
+    li.ej-li-level-2 {
+      margin-left: 1.15rem;
+      list-style-type: circle;
+    }
+
+    li.ej-li-level-3 {
+      margin-left: 2.15rem;
+      list-style-type: square;
+    }
+
+    li.ej-li-level-4 {
+      margin-left: 3rem;
+      list-style-type: disc;
+    }
+
+    li.ej-li-level-5 {
+      margin-left: 3.75rem;
+      list-style-type: circle;
+    }
+
+    li.ej-li-level-6 {
+      margin-left: 4.5rem;
+      list-style-type: square;
+    }
+
+    blockquote {
+      margin: 0.9em 0;
+      padding: 0.75em 1em;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      border-radius: 10px;
+      color: var(--text);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.9em 0;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55em 0.6em;
+      vertical-align: top;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    th {
+      background: var(--soft);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+      margin: 0.7em 0;
+    }
+
+    a {
+      color: #0645ad;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 1.1em 0;
+    }
+
+    code {
+      font-family: monospace;
+      font-size: 0.92em;
+      background: var(--soft);
+      padding: 0.15em 0.35em;
+      border-radius: 6px;
+    }
+
+    pre {
+      overflow-x: auto;
+      background: var(--soft);
+      padding: 1em;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 700px) {
+      body {
+        padding: 18px;
+        font-size: 17px;
+      }
+
+      .ej-card {
+        padding: 22px 24px 32px;
+      }
+
+      h1 {
+        font-size: 1.85rem;
+      }
+
+      h2 {
+        font-size: 1.45rem;
+      }
+
+      h3 {
+        font-size: 1.2rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      li.ej-li-level-2 {
+        margin-left: 0.9rem;
+      }
+
+      li.ej-li-level-3 {
+        margin-left: 1.65rem;
+      }
+
+      li.ej-li-level-4 {
+        margin-left: 2.25rem;
+      }
+
+      li.ej-li-level-5 {
+        margin-left: 2.8rem;
+      }
+
+      li.ej-li-level-6 {
+        margin-left: 3.25rem;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .ej-card {
+        max-width: none;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+  </style></head><body><main class="ej-card"><h1><strong>Sacred Area - Core Pathway - Guide Card</strong></h1><h2><strong>Use During Live Module</strong></h2><p>Live guide reference for sequence, narrative flow, key questions, transitions, and what must land. Read the master playbook before the trip for full depth and script training.</p><h2><strong>Snapshot</strong></h2><p><strong>Duration:</strong> 120 mins<br><strong>Best time:</strong> 03:00 PM to 03:30 PM start<br><strong>Route:</strong> Sacred Area map near Sasivekalu Ganesha → Sasivekalu Ganesha → Hemakuta Hill → Mula Virupaksha viewpoint → Hemakuta sunset viewpoint<br><strong>Use when:</strong> The group includes mixed nationalities, students with limited context of Indian religious-cultural narratives, or when the walk should end with sunset and downtime rather than a temple visit.</p><h2><strong>Core Arc</strong></h2><p>The Sacred Area is not just a cluster of temples. It is a layered landscape where geography, sacred memory, political power, origin stories, temple institutions, and living cultural traditions come together.</p><h2><strong>Guide Rules</strong></h2><p>Keep it tight. Do not cover every detail from the master playbook.</p><p>Ask questions sparingly. Take 1-2 answers and move forward.</p><p>Do not turn the origin story into a truth-vs-fiction debate. Focus on what the story communicates and why rulers would want it remembered.</p><p>Keep students anchored to what they can see: stone, hill, river, temples, view, and movement through the landscape.</p><p>At sunset, slow down. The tone should become quieter and more reflective.</p><hr><h2><strong>1. Sacred Area Introduction</strong></h2><p><strong>Time:</strong> 10 mins<br><strong>Location:</strong> Entrance gate near Sasivekalu Ganesha, beside the large Sacred Area map</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Begin by establishing scale: Vijayanagara was not a small settlement, but an enormous imperial capital spread across roughly 250 square kilometres including suburbs.</li><li class="ej-li-level-1">Explain that the protected core today is around 40 square kilometres and contains several monument clusters, each with different functions.</li><li class="ej-li-level-1">Introduce the Sacred Area as one of these clusters, named for its religious and spiritual significance.</li><li class="ej-li-level-1">Ask: Why do you think this place has that name - Sacred Area?</li><li class="ej-li-level-1">Ask briefly: How many of you have read or heard about the Vijayanagara Empire? What have you heard about it?</li><li class="ej-li-level-1">Land Vijayanagara as one of the largest and wealthiest city-states of its time, alongside Beijing.</li><li class="ej-li-level-1">Connect the period to early European maritime arrival, Vasco da Gama, trade, globalization, and South Indian cultural change.</li><li class="ej-li-level-1">Use the map to point out the Tungabhadra River, temple clusters, hills, and the major temple complexes: Achyutaraya, Krishna, Virupaksha, and Vittala.</li><li class="ej-li-level-1">Make clear that the Sacred Area is not one monument, but a large religious, cultural, and historical landscape.</li></ul><p><strong>Transition:</strong> From here, we move to Sasivekalu Ganesha and begin reading the landscape through stone, sculpture, and material.</p><p><strong>Must land:</strong> Students should understand that the Sacred Area is a large sacred and historical landscape within Vijayanagara, not just a single temple or monument.</p><hr><h2><strong>2. Sasivekalu Ganesha</strong></h2><p><strong>Time:</strong> 10 mins<br><strong>Location:</strong> In front of Sasivekalu Ganesha monolith</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Introduce Sasivekalu Ganesha as a monolith: a sculpture carved from one single stone.</li><li class="ej-li-level-1">Ask: What tells us that this sculpture was made from a single piece of stone?</li><li class="ej-li-level-1">Ask students to look around and notice the material everywhere: hills, fort walls, ground, shrine, roof, and pillars.</li><li class="ej-li-level-1">Ask: What is this material?</li><li class="ej-li-level-1">Land granite as Hampi&rsquo;s dominant landscape and building material, abundant but difficult to carve.</li><li class="ej-li-level-1">Explain the name Sasivekalu, meaning mustard seed, and connect it to the beaded ornamentation that resembles mustard seeds.</li><li class="ej-li-level-1">Use this to explain local naming traditions, where monument names often come from local observation and usage.</li><li class="ej-li-level-1">Introduce Shilpa Shastra and the Tala system: one Tala is the size of the deity&rsquo;s head, and body proportions are measured in relation to it.</li><li class="ej-li-level-1">Explain that Ganesha is shown in teen Tala, making the form rounded, soft, approachable, and non-intimidating.</li><li class="ej-li-level-1">Connect this to rasa: sculpture creates emotional experience, not only visual representation.</li><li class="ej-li-level-1">Ask students to walk around and observe the back, where the form is understood as Gauri Ganesha: Ganesha seated on his mother&rsquo;s lap.</li></ul><p><strong>Transition:</strong> Now that we have observed stone and sculpture up close, we climb to Hemakuta to read the larger landscape.</p><p><strong>Must land:</strong> Sasivekalu Ganesha shows how material, craft, proportion, symbolism, and emotion come together in Hampi&rsquo;s sculpture.</p><hr><h2><strong>3. Why Vijayanagara Chose This Location</strong></h2><p><strong>Time:</strong> 15 mins<br><strong>Location:</strong> Hemakuta Hill, seated near the double-storied mantapa, with landscape view</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Begin with the central question: Why was Vijayanagara founded here?</li><li class="ej-li-level-1">Ask students to answer first through observation, like historians and archaeologists, not through a story.</li><li class="ej-li-level-1">Ask: What do you see in the landscape that might make this a good place for a capital city?</li><li class="ej-li-level-1">Build the explanation from visible evidence.</li><li class="ej-li-level-1">Boulder hills create natural defense and make invasion difficult.</li><li class="ej-li-level-1">Granite provides abundant building material for temples, walls, platforms, mandapas, fortifications, and sculptures.</li><li class="ej-li-level-1">The landscape was already sacred, with older shrines, pilgrimage traditions, and local religious associations.</li><li class="ej-li-level-1">Founding families had connections to nearby regions such as Anegundi and Kampli.</li><li class="ej-li-level-1">The northern frontier mattered because major enemies were to the north, so the capital could respond quickly from a strong defensive position.</li><li class="ej-li-level-1">The Tungabhadra River provided water, agriculture, sanitation, and movement of people and goods.</li><li class="ej-li-level-1">Summarize the factors: natural defense, building material, sacred importance, political connections, military strategy, and access to water.</li><li class="ej-li-level-1">Land this as evidence-based reasoning: historians read landscape, resources, geography, politics, and evidence together.</li></ul><p><strong>Transition:</strong> We have looked at the evidence-based explanation. Now let us look at another explanation: the story later traditions told about Vijayanagara&rsquo;s origin.</p><p><strong>Must land:</strong> Students should understand that Vijayanagara&rsquo;s location can be explained through landscape evidence, not only through kings and stories.</p><hr><h2><strong>4. Origin Narrative of Vijayanagara . Vidyaranya Narrative</strong></h2><p><strong>Time:</strong> 15 mins<br><strong>Location:</strong> Same seated space on Hemakuta Hill</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Introduce this as a story that appears in literature written around 100 to 150 years after the empire was founded.</li><li class="ej-li-level-1">Frame the key question: Why would the rulers of Vijayanagara want this to be the story people remembered about their empire&rsquo;s origin?</li><li class="ej-li-level-1">Narrate the Harihara-Bukka hunting expedition and the strange moment when a hare frightens a hunting hound.</li><li class="ej-li-level-1">Introduce Vidyaranya as the monk who appears and explains the significance of the place.</li><li class="ej-li-level-1">Explain the symbolic meaning: this is a heroic land where the weak and vulnerable are protected and find courage.</li><li class="ej-li-level-1">Connect the story to divine mission: the rulers are guided to establish a kingdom that protects dharma and the dharmic way of life.</li><li class="ej-li-level-1">Explain Vidyaranya&rsquo;s role as more than an adviser. He gives spiritual sanction and turns the founding into a sacred mission.</li><li class="ej-li-level-1">Ask: Why do you think this became the most popular origin story of Vijayanagara?</li><li class="ej-li-level-1">Ask: How does Vidyaranya&rsquo;s presence make the founding of Vijayanagara feel divinely approved?</li><li class="ej-li-level-1">Compare the two explanations: geography and evidence explain practical reasons; the story explains sacred meaning and political legitimacy.</li><li class="ej-li-level-1">Land that kings and dynasties often use origin stories to show that their rule is divinely blessed or ordained.</li><li class="ej-li-level-1">Ask: Which explanation helps us understand the capital better: the geographical explanation, the origin story, or both together?</li></ul><p><strong>Transition:</strong> Now that we have seen how sacred stories and political power connect, we look at temples as institutions, not only places of worship.</p><p><strong>Must land:</strong> The origin story is not just a legend. It is political communication that gives Vijayanagara sacred authority and legitimacy.</p><hr><h2><strong>5. Temples as Community, Economic, and Political Centers</strong></h2><p><strong>Time:</strong> 15 mins<br><strong>Location:</strong> Near Mula Virupaksha, with a bird&rsquo;s-eye view of Virupaksha Temple and the surrounding landscape</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Use the bird&rsquo;s-eye view of Virupaksha Temple and the surrounding landscape to reframe what a temple was.</li><li class="ej-li-level-1">State clearly: temples were not only places of worship.</li><li class="ej-li-level-1">Explain temples as places of community, economy, administration, charity, law, and power.</li><li class="ej-li-level-1">Connect major temples to large markets, traders, pilgrims, artisans, visitors, and taxable trade.</li><li class="ej-li-level-1">Use the double-storied mantapa as a possible toll-gate comparison, like a FASTag point today.</li><li class="ej-li-level-1">Explain temple kitchens as community kitchens that fed and supported people.</li><li class="ej-li-level-1">Explain that temple-linked communities could also mediate local disputes.</li><li class="ej-li-level-1">Ask: Why would markets form in front of major temples?</li><li class="ej-li-level-1">Ask: What roles did temples play beyond worship?</li><li class="ej-li-level-1">Ask: How are traders, farmers, priests, pilgrims, and local communities all connected through the temple?</li><li class="ej-li-level-1">Land the temple as a centre of power and wealth that shaped economy, social life, jobs, festivals, charity, and urban organization.</li><li class="ej-li-level-1">Bring the view back to Virupaksha: this is not only a shrine, but the heart of a larger social, economic, and sacred system.</li></ul><p><strong>Transition:</strong> We now close the walk by slowing down and sitting with the landscape at sunset.</p><p><strong>Must land:</strong> Temples in medieval South India were social, economic, political, and sacred institutions, not only religious buildings.</p><hr><h2><strong>6. Sunset Close</strong></h2><p><strong>Time:</strong> 30 mins<br><strong>Location:</strong> Hemakuta sunset viewpoint</p><p><strong>Guide narrative:</strong></p><ul><li class="ej-li-level-1">Do not add another heavy information section here.</li><li class="ej-li-level-1">Let students sit quietly with the landscape after moving through scale, sculpture, geography, origin stories, and temple institutions.</li><li class="ej-li-level-1">Bring the arc together: Hampi is sacred, political, historical, artistic, geographical, and living.</li><li class="ej-li-level-1">Ask students to look at the river, boulder hills, temples, open rock, and the cityscape they have just walked through.</li><li class="ej-li-level-1">Use one or two reflective prompts if needed.</li><li class="ej-li-level-1">Ask: What is one thing you noticed in the landscape today that you had not noticed before?</li><li class="ej-li-level-1">Ask: What is one story or idea that changed how you see Hampi?</li><li class="ej-li-level-1">Ask: What is one question you are leaving with?</li><li class="ej-li-level-1">Keep the tone calm and unhurried.</li></ul><p><strong>Must land:</strong> Students should leave with the sense that Hampi is not just a ruin site. It is a layered landscape shaped by geography, sacred memory, political power, community life, and living tradition.</p><hr><h2><strong>Core Pathway Has Landed If</strong></h2><p>Students can say that the Sacred Area is more than a cluster of temples:</p><ul><li class="ej-li-level-1">It combines sacred geography, landscape, sculpture, origin stories, political authority, and living cultural memory.</li><li class="ej-li-level-1">Sasivekalu Ganesha shows how stone, craft, proportion, symbolism, and emotion work together.</li><li class="ej-li-level-1">Hemakuta helps explain why Vijayanagara chose this landscape as a capital.</li><li class="ej-li-level-1">The Vidyaranya narrative shows how origin stories create legitimacy and sacred authority.</li><li class="ej-li-level-1">Virupaksha and the surrounding temple landscape show that temples were social, economic, political, and sacred institutions.</li><li class="ej-li-level-1">The sunset close helps students experience Hampi as layered, reflective, and alive.</li></ul></main></body></html>
