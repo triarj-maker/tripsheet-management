@@ -46,7 +46,7 @@ export default function TemplateCardsSection({
   cards,
 }: TemplateCardsSectionProps) {
   return (
-    <section className="app-section-card space-y-5">
+    <section id="module-cards" className="app-section-card space-y-5">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Module Cards</h2>
         <p className="mt-1 text-sm text-gray-600">

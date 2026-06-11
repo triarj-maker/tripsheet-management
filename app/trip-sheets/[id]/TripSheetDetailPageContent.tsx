@@ -115,6 +115,21 @@ function formatDateTime(value: string | null, time: string | null) {
   return formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate
 }
 
+function formatTripSheetWindow(tripSheet: TripSheet) {
+  const start = formatDateTime(tripSheet.start_date, tripSheet.start_time)
+  const end = formatDateTime(tripSheet.end_date, tripSheet.end_time)
+
+  if (start === '-' && end === '-') {
+    return '-'
+  }
+
+  if (end === '-' || start === end) {
+    return start
+  }
+
+  return `${start} -> ${end}`
+}
+
 function getVisibleCardCategory(role: string | null) {
   if (role === 'facilitator' || role === 'expert') {
     return role
@@ -149,14 +164,14 @@ function ModuleCardsSection({ cards }: { cards: TripSheetCard[] }) {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {cards.map((card) => (
           <a
             key={card.id}
             href={card.card_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg border border-zinc-200 px-4 py-3 transition hover:border-zinc-300 hover:bg-zinc-50"
+            className="block w-full rounded-lg border border-zinc-200 px-3.5 py-3 transition hover:border-zinc-300 hover:bg-zinc-50 sm:max-w-[22rem] sm:flex-[0_1_22rem]"
           >
             <span className="block text-sm font-semibold leading-5 text-gray-900">
               {card.title}
@@ -164,7 +179,7 @@ function ModuleCardsSection({ cards }: { cards: TripSheetCard[] }) {
             <span className="mt-1 block text-xs font-medium text-gray-500">
               {formatCardCategoryLabel(card.category)}
             </span>
-            <span className="mt-3 inline-flex min-h-9 items-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-gray-800">
+            <span className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-gray-800">
               Open Card
             </span>
           </a>
@@ -269,6 +284,8 @@ export async function renderTripSheetDetailPage({
         ? 'Back to Trip'
         : 'Back to My Trip Sheets'
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
+  const customerSummary = formatTripCustomerSummary(trip, '')
+  const tripSheetWindow = formatTripSheetWindow(tripSheet)
 
   return (
     <main className="app-page">
@@ -292,20 +309,52 @@ export async function renderTripSheetDetailPage({
             <p className="app-banner-error">{cardsErrorMessage}</p>
           ) : null}
 
-          <div className="app-page-header !mb-0">
+          <section className="app-section-card space-y-3 bg-zinc-50">
             <div>
-              <h1 className="app-page-title">{trip.title ?? 'Untitled trip'}</h1>
-              <p className="app-page-subtitle">
-                Review the parent trip context, then use the trip sheet body for execution.
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Trip Sheet
+              </p>
+              <h1 className="mt-1 break-words text-2xl font-semibold leading-tight text-gray-900">
+                {tripSheet.title ?? 'Untitled trip sheet'}
+              </h1>
+            </div>
+
+            <div className="space-y-1 text-sm leading-6 text-gray-700">
+              <p className="font-medium text-gray-900">{tripSheetWindow}</p>
+              <p className="break-words">
+                {[destinationName, customerSummary].filter(Boolean).join(' • ')}
               </p>
             </div>
-          </div>
+          </section>
+
+          <ModuleCardsSection cards={tripSheetCards} />
+
+          <section className="app-section-card space-y-4 p-3 sm:p-4">
+            <MarkdownBody content={tripSheet.body_text} />
+
+            {tripSheet.transportation_info?.trim() ? (
+              <div className="space-y-2 border-t border-zinc-200 pt-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Transportation Details
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Operational transport notes for this trip sheet.
+                  </p>
+                </div>
+
+                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
+                  {tripSheet.transportation_info}
+                </div>
+              </div>
+            ) : null}
+          </section>
 
           <section className="app-section-card space-y-3">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Trip Summary</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Parent Trip Summary</h2>
               <p className="mt-1 text-sm text-gray-600">
-                Parent trip details for field-ready context.
+                Context for the overall trip this sheet belongs to.
               </p>
             </div>
 
@@ -361,47 +410,6 @@ export async function renderTripSheetDetailPage({
                 </dd>
               </div>
             </dl>
-          </section>
-
-          <ModuleCardsSection cards={tripSheetCards} />
-
-          <section className="app-section-card space-y-4 p-3 sm:p-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Trip Sheet Body</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Execution content rendered from the saved Markdown text.
-              </p>
-            </div>
-
-            <div className="space-y-2 border-b border-zinc-200 pb-3">
-              <h3 className="text-xl font-semibold leading-tight text-gray-900">
-                {tripSheet.title ?? 'Untitled trip sheet'}
-              </h3>
-
-              <div className="space-y-1 text-sm text-gray-700">
-                <p>Start: {formatDateTime(tripSheet.start_date, tripSheet.start_time)}</p>
-                <p>End: {formatDateTime(tripSheet.end_date, tripSheet.end_time)}</p>
-              </div>
-            </div>
-
-            <MarkdownBody content={tripSheet.body_text} />
-
-            {tripSheet.transportation_info?.trim() ? (
-              <div className="space-y-2 border-t border-zinc-200 pt-4">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Transportation Details
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Operational transport notes for this trip sheet.
-                  </p>
-                </div>
-
-                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
-                  {tripSheet.transportation_info}
-                </div>
-              </div>
-            ) : null}
           </section>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 
 import {
@@ -14,6 +16,7 @@ type TemplateFormProps = {
   initialDefaultEndTime?: string
   initialBody?: string
   templateId?: string
+  closeHref?: string
 }
 
 export default function TemplateForm({
@@ -25,9 +28,10 @@ export default function TemplateForm({
   initialDefaultEndTime = '',
   initialBody = '',
   templateId,
+  closeHref,
 }: TemplateFormProps) {
   return (
-    <form action={action} className="app-section-card space-y-4">
+    <form id="template-details" action={action} className="app-section-card space-y-4">
       {templateId ? <input type="hidden" name="id" value={templateId} /> : null}
 
       <div>
@@ -104,11 +108,19 @@ export default function TemplateForm({
         </p>
       </div>
 
-      <ActionSubmitButton
-        idleLabel={submitLabel}
-        pendingLabel="Saving…"
-        className="ui-button-primary"
-      />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <ActionSubmitButton
+          idleLabel={submitLabel}
+          pendingLabel="Saving…"
+          className="ui-button-primary"
+        />
+
+        {closeHref ? (
+          <Link href={closeHref} className="ui-button ui-button-secondary">
+            Back to Templates
+          </Link>
+        ) : null}
+      </div>
     </form>
   )
 }

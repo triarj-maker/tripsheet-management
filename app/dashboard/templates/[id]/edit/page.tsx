@@ -103,6 +103,7 @@ export default async function EditTemplatePage({
           initialDefaultStartTime={formatTimeInputValue(tripTemplate.default_start_time)}
           initialDefaultEndTime={formatTimeInputValue(tripTemplate.default_end_time)}
           initialBody={tripTemplate.body ?? ''}
+          closeHref="/dashboard/templates"
         />
 
         <TemplateCardsSection

@@ -20,13 +20,17 @@ function buildNewTemplateRedirect(error: string) {
   return `/dashboard/templates/new?${params.toString()}`
 }
 
-function buildEditTemplateRedirect(id: string, error: string) {
+function buildEditTemplateRedirect(id: string, error: string, hash?: string) {
   const params = new URLSearchParams({ error })
-  return `/dashboard/templates/${id}/edit?${params.toString()}`
+  return `/dashboard/templates/${id}/edit?${params.toString()}${hash ?? ''}`
 }
 
 function buildEditTemplatePath(id: string) {
   return `/dashboard/templates/${id}/edit`
+}
+
+function buildEditTemplateModuleCardsPath(id: string) {
+  return `${buildEditTemplatePath(id)}#module-cards`
 }
 
 function normalizeCardCategory(value: FormDataEntryValue | null) {
@@ -205,7 +209,7 @@ export async function updateTemplate(formData: FormData) {
     redirect(buildEditTemplateRedirect(id, error.message))
   }
 
-  redirect(appendToastParam('/dashboard/templates'))
+  redirect(appendToastParam(`${buildEditTemplatePath(id)}#template-details`, 'Template saved.'))
 }
 
 export async function deleteTemplate(formData: FormData) {
@@ -240,7 +244,7 @@ export async function createTemplateCard(formData: FormData) {
   const result = validateTemplateCardInput(formData)
 
   if ('error' in result) {
-    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.'))
+    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.', '#module-cards'))
   }
 
   const { error } = await supabase.from('template_cards').insert({
@@ -252,10 +256,10 @@ export async function createTemplateCard(formData: FormData) {
   })
 
   if (error) {
-    redirect(buildEditTemplateRedirect(templateId, error.message))
+    redirect(buildEditTemplateRedirect(templateId, error.message, '#module-cards'))
   }
 
-  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card added.'))
+  redirect(appendToastParam(buildEditTemplateModuleCardsPath(templateId), 'Module card added.'))
 }
 
 export async function updateTemplateCard(formData: FormData) {
@@ -275,13 +279,13 @@ export async function updateTemplateCard(formData: FormData) {
     .maybeSingle()
 
   if (cardError || !cardData) {
-    redirect(buildEditTemplateRedirect(templateId, cardError?.message ?? 'Module card not found.'))
+    redirect(buildEditTemplateRedirect(templateId, cardError?.message ?? 'Module card not found.', '#module-cards'))
   }
 
   const result = validateTemplateCardInput(formData)
 
   if ('error' in result) {
-    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.'))
+    redirect(buildEditTemplateRedirect(templateId, result.error ?? 'Invalid card input.', '#module-cards'))
   }
 
   const { error } = await supabase
@@ -296,10 +300,10 @@ export async function updateTemplateCard(formData: FormData) {
     .eq('template_id', templateId)
 
   if (error) {
-    redirect(buildEditTemplateRedirect(templateId, error.message))
+    redirect(buildEditTemplateRedirect(templateId, error.message, '#module-cards'))
   }
 
-  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card updated.'))
+  redirect(appendToastParam(buildEditTemplateModuleCardsPath(templateId), 'Module card updated.'))
 }
 
 export async function deleteTemplateCard(formData: FormData) {
@@ -318,8 +322,8 @@ export async function deleteTemplateCard(formData: FormData) {
     .eq('template_id', templateId)
 
   if (error) {
-    redirect(buildEditTemplateRedirect(templateId, error.message))
+    redirect(buildEditTemplateRedirect(templateId, error.message, '#module-cards'))
   }
 
-  redirect(appendToastParam(buildEditTemplatePath(templateId), 'Module card deleted.'))
+  redirect(appendToastParam(buildEditTemplateModuleCardsPath(templateId), 'Module card deleted.'))
 }
