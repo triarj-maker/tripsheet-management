@@ -4,6 +4,7 @@ import { isOperationalRole } from '@/lib/roles'
 
 type Section =
   | 'profile'
+  | 'overview'
   | 'trips'
   | 'calendar'
   | 'companies'
@@ -26,6 +27,7 @@ type NavItem = {
 }
 
 const adminNavItems: NavItem[] = [
+  { href: '/dashboard/overview', key: 'overview', label: 'Overview' },
   { href: '/dashboard/trips', key: 'trips', label: 'Trips' },
   { href: '/dashboard/calendar', key: 'calendar', label: 'Calendar' },
   { href: '/dashboard/companies', key: 'companies', label: 'Companies' },
@@ -59,6 +61,11 @@ export default function AdminNav({
 
   return (
     <nav className={`mb-6 flex flex-wrap items-center gap-3 ${className}`}>
+      <div className="mr-2 min-w-[8.5rem] leading-tight">
+        <p className="text-sm font-semibold text-gray-950">Trip Management</p>
+        <p className="text-xs font-medium text-gray-500">Echo Journeys</p>
+      </div>
+
       <div className="flex min-w-0 flex-1 flex-wrap gap-2">
         {navItems.map((item) => (
           <Link

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
@@ -184,6 +185,10 @@ export default async function EditTripSheetPage({
             Update the execution details and assignments for this child trip sheet.
           </p>
         </div>
+
+        <Link href={`/dashboard/trips/${trip.id}`} className="ui-button ui-button-secondary">
+          Back to Trip
+        </Link>
       </div>
 
       {query.error ? <p className="app-banner-error">{query.error}</p> : null}

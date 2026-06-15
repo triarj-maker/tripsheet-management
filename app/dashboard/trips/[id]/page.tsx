@@ -25,6 +25,7 @@ import {
 import SendTripNotificationButton from '../SendTripNotificationButton'
 import { requireAdmin } from '../../lib'
 import BulkTripSheetAssignmentForm from './BulkTripSheetAssignmentForm'
+import DownloadTripPdfButton from './DownloadTripPdfButton'
 
 type TripDetailPageProps = {
   params: Promise<{
@@ -476,13 +477,7 @@ export default async function TripDetailPage({
             ) : null}
           </Link>
 
-          <a
-            href={`/dashboard/trips/${trip.id}/pdf`}
-            download
-            className="ui-button ui-button-secondary"
-          >
-            Download PDF
-          </a>
+          <DownloadTripPdfButton tripId={trip.id} />
 
           {isAdminRole(profile?.role) ? (
             <SendTripNotificationButton

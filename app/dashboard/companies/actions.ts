@@ -14,6 +14,16 @@ function normalizeName(formData: FormData) {
   return String(formData.get('name') ?? '').trim()
 }
 
+function getReturnPath(formData: FormData) {
+  const returnPath = String(formData.get('return_path') ?? '').trim()
+
+  if (returnPath.startsWith('/dashboard/companies')) {
+    return returnPath
+  }
+
+  return '/dashboard/companies'
+}
+
 export async function createCompany(formData: FormData) {
   const { supabase } = await requireAdmin()
   const name = normalizeName(formData)
@@ -39,6 +49,7 @@ export async function updateCompany(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim()
   const name = normalizeName(formData)
   const isActive = formData.get('is_active') === 'on'
+  const returnPath = getReturnPath(formData)
 
   if (!id) {
     redirect(buildCompaniesRedirect('Company not found.'))
@@ -60,13 +71,14 @@ export async function updateCompany(formData: FormData) {
     redirect(buildCompaniesRedirect(error.message))
   }
 
-  redirect(appendToastParam('/dashboard/companies'))
+  redirect(appendToastParam(returnPath))
 }
 
 export async function toggleCompanyActive(formData: FormData) {
   const { supabase } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
   const nextIsActive = formData.get('next_is_active') === 'true'
+  const returnPath = getReturnPath(formData)
 
   if (!id) {
     redirect(buildCompaniesRedirect('Company not found.'))
@@ -83,5 +95,5 @@ export async function toggleCompanyActive(formData: FormData) {
     redirect(buildCompaniesRedirect(error.message))
   }
 
-  redirect(appendToastParam('/dashboard/companies'))
+  redirect(appendToastParam(returnPath))
 }

@@ -14,6 +14,16 @@ function normalizeName(formData: FormData) {
   return String(formData.get('name') ?? '').trim()
 }
 
+function getReturnPath(formData: FormData) {
+  const returnPath = String(formData.get('return_path') ?? '').trim()
+
+  if (returnPath.startsWith('/dashboard/schools')) {
+    return returnPath
+  }
+
+  return '/dashboard/schools'
+}
+
 export async function createSchool(formData: FormData) {
   const { supabase } = await requireAdmin()
   const name = normalizeName(formData)
@@ -39,6 +49,7 @@ export async function updateSchool(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim()
   const name = normalizeName(formData)
   const isActive = formData.get('is_active') === 'on'
+  const returnPath = getReturnPath(formData)
 
   if (!id) {
     redirect(buildSchoolsRedirect('School not found.'))
@@ -60,13 +71,14 @@ export async function updateSchool(formData: FormData) {
     redirect(buildSchoolsRedirect(error.message))
   }
 
-  redirect(appendToastParam('/dashboard/schools'))
+  redirect(appendToastParam(returnPath))
 }
 
 export async function toggleSchoolActive(formData: FormData) {
   const { supabase } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
   const nextIsActive = formData.get('next_is_active') === 'true'
+  const returnPath = getReturnPath(formData)
 
   if (!id) {
     redirect(buildSchoolsRedirect('School not found.'))
@@ -83,5 +95,5 @@ export async function toggleSchoolActive(formData: FormData) {
     redirect(buildSchoolsRedirect(error.message))
   }
 
-  redirect(appendToastParam('/dashboard/schools'))
+  redirect(appendToastParam(returnPath))
 }

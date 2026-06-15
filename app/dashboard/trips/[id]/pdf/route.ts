@@ -53,10 +53,17 @@ type ResourceProfile = {
 
 type PdfLine = {
   text: string
+  label?: string
+  value?: string
+  labelColumnWidth?: number
   size?: number
   bold?: boolean
   lineHeight?: number
   indent?: number
+  box?: boolean
+  boxGroup?: string
+  muted?: boolean
+  rule?: boolean
 }
 
 function formatDate(value: string | null) {
@@ -121,6 +128,22 @@ function formatDateTimeRange(
   const formattedStartTime = formatTime(startTime)
   const formattedEndTime = formatTime(endTime)
 
+  if (formattedStartDate && formattedEndDate && formattedStartDate === formattedEndDate) {
+    if (formattedStartTime && formattedEndTime && formattedStartTime !== formattedEndTime) {
+      return `${formattedStartDate} | ${formattedStartTime} - ${formattedEndTime}`
+    }
+
+    if (formattedStartTime) {
+      return `${formattedStartDate} | ${formattedStartTime}`
+    }
+
+    if (formattedEndTime) {
+      return `${formattedEndDate} | ${formattedEndTime}`
+    }
+
+    return formattedStartDate
+  }
+
   const start = formattedStartDate
     ? formattedStartTime
       ? `${formattedStartDate}, ${formattedStartTime}`
@@ -153,6 +176,18 @@ function sanitizeFileName(value: string) {
 
 function pushBlankLine(lines: PdfLine[], height = 14) {
   lines.push({ text: '', lineHeight: height })
+}
+
+function pushOverviewField(lines: PdfLine[], label: string, value: string) {
+  lines.push({
+    text: '',
+    label,
+    value,
+    labelColumnWidth: 112,
+    lineHeight: 17,
+    indent: 16,
+    boxGroup: 'trip-overview',
+  })
 }
 
 function pushParagraphText(lines: PdfLine[], value: string, options?: { bullet?: boolean }) {
@@ -353,91 +388,63 @@ function pushMarkdownText(lines: PdfLine[], value: string) {
   }
 }
 
-function getTripSubtitle(tripType: string | null | undefined) {
-  if ((tripType ?? '').trim().toLowerCase() === 'private') {
-    return 'Private Tour Itinerary'
-  }
-
-  return 'Trip Itinerary'
-}
-
 function buildPdfLines({
   trip,
   tripSheets,
   assignedResourcesByTripSheetId,
+  includeResourceDetails,
 }: {
   trip: TripRow
   tripSheets: TripSheetRow[]
   assignedResourcesByTripSheetId: Map<string, ResourceProfile[]>
+  includeResourceDetails: boolean
 }) {
   const destinationName = getDestinationName(trip.destination_ref, null)
   const tripDateRange = formatDateRange(trip.start_date, trip.end_date)
+  const tripTypeLabel = formatTripTypeLabel(trip.trip_type)
+  const normalizedTripType = (trip.trip_type ?? '').trim().toLowerCase()
+  const schoolCustomerName = getTripSchoolCustomerName(trip)
+  const companyPartnerName = getTripCompanyPartnerName(trip)
   const lines: PdfLine[] = []
 
   lines.push({
-    text: trip.title?.trim() || 'Untitled trip',
-    size: 17,
+    text: 'TRIP OVERVIEW',
+    size: 12,
     bold: true,
-    lineHeight: 26,
+    lineHeight: 20,
+    indent: 16,
+    boxGroup: 'trip-overview',
   })
   lines.push({
-    text: getTripSubtitle(trip.trip_type),
-    size: 11,
-    lineHeight: 18,
+    text: '',
+    lineHeight: 5,
+    indent: 16,
+    boxGroup: 'trip-overview',
   })
-
+  pushOverviewField(lines, 'Trip Name', trip.title?.trim() || 'Untitled trip')
   if (destinationName) {
-    lines.push({
-      text: destinationName,
-      size: 12,
-      bold: true,
-      lineHeight: 18,
-    })
+    pushOverviewField(lines, 'Destination', destinationName)
   }
-
   if (tripDateRange) {
-    lines.push({
-      text: tripDateRange,
-      size: 11,
-      lineHeight: 18,
-    })
+    pushOverviewField(lines, 'Dates', tripDateRange)
   }
-
-  pushBlankLine(lines, 18)
-  lines.push({ text: 'Trip Overview', size: 13, bold: true, lineHeight: 20 })
-
-  if (destinationName) {
-    lines.push({ text: `Destination: ${destinationName}`, lineHeight: 16 })
-  }
-
-  const tripTypeLabel = formatTripTypeLabel(trip.trip_type)
-
   if (tripTypeLabel !== '-') {
-    lines.push({ text: `Trip Type: ${tripTypeLabel}`, lineHeight: 16 })
+    pushOverviewField(lines, 'Trip Type', tripTypeLabel)
   }
-
-  if (tripDateRange) {
-    lines.push({ text: `Dates: ${tripDateRange}`, lineHeight: 16 })
-  }
-
-  const schoolCustomerName = getTripSchoolCustomerName(trip)
-  const companyPartnerName = getTripCompanyPartnerName(trip)
-
   if (schoolCustomerName) {
-    lines.push({ text: `Guest Name: ${schoolCustomerName}`, lineHeight: 16 })
+    pushOverviewField(
+      lines,
+      normalizedTripType === 'educational' ? 'School' : 'Guest',
+      schoolCustomerName
+    )
   }
-
-  if (trip.phone_number?.trim()) {
-    lines.push({ text: `Phone Number: ${trip.phone_number.trim()}`, lineHeight: 16 })
-  }
-
   if (companyPartnerName) {
-    lines.push({ text: `Company: ${companyPartnerName}`, lineHeight: 16 })
+    pushOverviewField(lines, 'Company / Partner', companyPartnerName)
   }
 
   if (tripSheets.length > 0) {
-    pushBlankLine(lines, 18)
-    lines.push({ text: 'Itinerary / Trip Plan', size: 13, bold: true, lineHeight: 20 })
+    pushBlankLine(lines, 20)
+    lines.push({ text: 'Detailed Itinerary', size: 14, bold: true, lineHeight: 22 })
   }
 
   for (const [index, tripSheet] of tripSheets.entries()) {
@@ -450,21 +457,38 @@ function buildPdfLines({
     const assignedResources = assignedResourcesByTripSheetId.get(tripSheet.id) ?? []
     const primaryAssignedResource = assignedResources[0] ?? null
 
-    pushBlankLine(lines, 18)
-    lines.push({
-      text: '----------------------------------------',
-      lineHeight: 12,
-    })
-    pushBlankLine(lines, 8)
+    pushBlankLine(lines, 16)
+    if (index > 0) {
+      lines.push({ text: '', lineHeight: 8, rule: true })
+      pushBlankLine(lines, 6)
+    }
+
     lines.push({
       text: `${index + 1}. ${tripSheet.title?.trim() || 'Untitled trip sheet'}`,
-      size: 12,
+      size: 13,
       bold: true,
-      lineHeight: 18,
+      lineHeight: 20,
     })
 
     if (schedule) {
-      lines.push({ text: `Schedule: ${schedule}`, lineHeight: 16 })
+      lines.push({ text: schedule, size: 10, lineHeight: 15, muted: true })
+    }
+
+    if (includeResourceDetails && primaryAssignedResource) {
+      const resolvedName = primaryAssignedResource.full_name?.trim() || 'Assigned guide'
+      const phone = primaryAssignedResource.phone?.trim()
+      const assignmentText = phone ? `${resolvedName} | ${phone}` : resolvedName
+      lines.push({
+        text: `Guide / Coordinator: ${assignmentText}`,
+        size: 10,
+        lineHeight: 15,
+        muted: true,
+      })
+    }
+
+    if (tripSheet.body_text?.trim()) {
+      pushBlankLine(lines, 8)
+      pushMarkdownText(lines, tripSheet.body_text.trim())
     }
 
     if (tripSheet.transportation_info?.trim()) {
@@ -472,36 +496,17 @@ function buildPdfLines({
       lines.push({ text: 'Transportation Details', bold: true, lineHeight: 16 })
       pushParagraphText(lines, tripSheet.transportation_info.trim())
     }
-
-    if (primaryAssignedResource) {
-      pushBlankLine(lines, 10)
-      lines.push({ text: 'Assigned Guide / Coordinator', bold: true, lineHeight: 16 })
-
-      const resolvedName = primaryAssignedResource.full_name?.trim() || 'Assigned guide'
-      lines.push({ text: `Name: ${resolvedName}`, lineHeight: 16 })
-
-      if (primaryAssignedResource.phone?.trim()) {
-        lines.push({
-          text: `Phone: ${primaryAssignedResource.phone.trim()}`,
-          lineHeight: 16,
-        })
-      }
-    }
-
-    if (tripSheet.body_text?.trim()) {
-      pushBlankLine(lines, 10)
-      lines.push({ text: 'Trip Plan', bold: true, lineHeight: 16 })
-      pushMarkdownText(lines, tripSheet.body_text.trim())
-    }
   }
 
   return lines
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const url = new URL(request.url)
+  const includeResourceDetails = url.searchParams.get('includeResources') === 'true'
   const { id } = await context.params
   const tripId = id.trim()
 
@@ -625,8 +630,11 @@ export async function GET(
     trip,
     tripSheets,
     assignedResourcesByTripSheetId,
+    includeResourceDetails,
   })
-  const pdfBuffer = createSimplePdf(buildSimplePdfPages(pdfLines))
+  const pdfBuffer = createSimplePdf(buildSimplePdfPages(pdfLines), {
+    footerText: 'Copyright 2026-27 Travspire Experiences Private Limited',
+  })
   const fileName = `${sanitizeFileName(trip.title ?? 'trip')}.pdf`
 
   return new NextResponse(pdfBuffer as BodyInit, {
