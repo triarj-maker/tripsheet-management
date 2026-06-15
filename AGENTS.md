@@ -1,6 +1,6 @@
 AGENTS.md - Trip Sheet Management System
 
-Updated: 04/08/2026
+Updated: 06/15/2026
 
 --------------------------------------------------
 
@@ -26,7 +26,13 @@ This file is intentionally concise. It is not the full product context file.
 Primary model:
 - Trips = parent planning entities
 - Trip Sheets = child execution units
-- Resources are assigned to Trip Sheets
+- Facilitators and Experts are assigned to Trip Sheets
+- Admins may also be assignable when operationally involved
+
+Naming note:
+- Business terminology is Admin / Facilitator / Expert
+- Some legacy code/schema names may still use `resources` or `resource_user_id`
+- Do not rename legacy routes, columns, or APIs unless explicitly requested
 
 Key relationship rules:
 - Trip Sheets depend on Trips
@@ -58,13 +64,43 @@ When editing calendar behavior:
 - Do not reintroduce immediate mutation-per-click in the weekly drawer
 
 Guidance:
-- compare assignment sets by `resource_user_id`, not assignment row id
+- compare assignment sets by `resource_user_id` where that remains the schema column, not assignment row id
+- use assigned users / Facilitators / Experts in product-facing wording
+- do not rename assignment schema unless explicitly requested
 - prefer staged editing for repetitive inline assignment workflows
 - keep visible pending/saving feedback for user-triggered mutations
 
 --------------------------------------------------
 
-5. Notifications
+5. Schools and Companies
+
+- `companies` and `schools` are lookup tables
+- Trips use `company_id` and `school_id`
+- Use ID-based filtering/querying for company and school relationships
+- Avoid reintroducing legacy free-text filtering unless explicitly requested
+
+--------------------------------------------------
+
+6. Module Cards and Markdown Bodies
+
+- `template_cards` belong to templates
+- `trip_sheet_cards` belong to trip sheets
+- Template cards are copied into Trip Sheet cards at Trip Sheet creation
+- Trip Sheet cards are independent snapshots after creation
+- Do not auto-sync cards from templates to existing Trip Sheets
+- Store only relative module-card URLs under `/module-cards/...`
+- Do not store or render HTML bodies from the database
+
+Body text:
+- Template and Trip Sheet body text is stored as Markdown text
+- Do not change schema to store generated HTML
+- Render Markdown safely
+- Do not mutate stored Markdown automatically
+- Keep PDF and web rendering consistent where applicable
+
+--------------------------------------------------
+
+7. Notifications
 
 - Legacy automated notification system has been removed
 - Current notification model is manual trip-level only
@@ -76,18 +112,21 @@ Do not rebuild old queue/cron/assignment-email patterns unless explicitly reques
 
 --------------------------------------------------
 
-6. Resource Views and Roles
+8. Roles and Assigned Work Views
 
-- Admins may also function as resources
-- Admins must be able to access personal assignment views when assigned
+- Roles are `admin`, `facilitator`, and `expert`
+- Admin = full access
+- Facilitator / Expert = assigned work access
+- Admins may also access personal assigned-work views when assigned
 - Personal views must remain scoped to the logged-in user's own assignments only
-- Resource-facing views should be mobile-first
+- Facilitator/expert-facing views should be execution-first and mobile-first
+- Assigned work pages should prioritize Trip Sheet context, module cards, and execution body before parent Trip context
 
-Do not expose admin-only controls in resource work views.
+Do not expose admin-only controls in Facilitator / Expert work views.
 
 --------------------------------------------------
 
-7. Mutation and Data Principles
+9. Mutation and Data Principles
 
 - Database is the source of truth
 - Fetch current DB state before computing mutations where relevant
@@ -111,7 +150,7 @@ Database validation awareness:
 
 --------------------------------------------------
 
-8. Engineering Conventions
+10. Engineering Conventions
 
 - Keep changes minimal and targeted
 - Avoid unrelated refactors
@@ -132,7 +171,7 @@ High-signal folders:
 
 --------------------------------------------------
 
-9. Documentation Maintenance
+11. Documentation Maintenance
 
 If architecture, UX patterns, or core workflow assumptions materially change:
 - update the relevant context docs before closing the task
@@ -141,6 +180,6 @@ If architecture, UX patterns, or core workflow assumptions materially change:
 
 --------------------------------------------------
 
-10. One-line Summary
+12. One-line Summary
 
-Trips are the parent planning layer, Trip Sheets are the execution layer, and mutations should stay DB-driven, explicit, and aligned with current UX patterns.
+Trips are the parent planning layer, Trip Sheets are the execution layer, Facilitators and Experts execute assigned work, and mutations should stay DB-driven, explicit, and aligned with current UX patterns.

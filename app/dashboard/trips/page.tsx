@@ -389,59 +389,63 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Suspense fallback={null}>
-            <div className="flex flex-wrap items-center gap-3">
-              <FilterSelect
-                id="company_id"
-                label="Company"
-                value={selectedCompanyId}
-                options={[
-                  { label: 'All Companies', value: '' },
-                  ...companies.map((company) => ({
-                    label: company.name ?? company.id,
-                    value: company.id,
-                  })),
-                ]}
-              />
-              <FilterSelect
-                id="school_id"
-                label="School"
-                value={selectedSchoolId}
-                options={[
-                  { label: 'All Schools', value: '' },
-                  ...schools.map((school) => ({
-                    label: school.name ?? school.id,
-                    value: school.id,
-                  })),
-                ]}
-              />
-              <ArchivedToggle
-                checked={showCompleted}
-                compact
-                label="Show Completed"
-                queryParam="showCompleted"
-              />
-              <ArchivedToggle
-                checked={showArchived}
-                compact
-                label="Show Archived"
-              />
-            </div>
-          </Suspense>
+        <div className="flex w-full flex-wrap items-end justify-between gap-3 lg:w-auto">
+          <div className="flex flex-wrap items-center gap-3">
+            <Suspense fallback={null}>
+              <div className="flex flex-wrap items-center gap-3">
+                <FilterSelect
+                  id="company_id"
+                  label="Company"
+                  value={selectedCompanyId}
+                  options={[
+                    { label: 'All Companies', value: '' },
+                    ...companies.map((company) => ({
+                      label: company.name ?? company.id,
+                      value: company.id,
+                    })),
+                  ]}
+                />
+                <FilterSelect
+                  id="school_id"
+                  label="School"
+                  value={selectedSchoolId}
+                  options={[
+                    { label: 'All Schools', value: '' },
+                    ...schools.map((school) => ({
+                      label: school.name ?? school.id,
+                      value: school.id,
+                    })),
+                  ]}
+                />
+                <ArchivedToggle
+                  checked={showCompleted}
+                  compact
+                  label="Show Completed"
+                  queryParam="showCompleted"
+                />
+                <ArchivedToggle
+                  checked={showArchived}
+                  compact
+                  label="Show Archived"
+                />
+              </div>
+            </Suspense>
+          </div>
 
-          <ActionLinkButton
-            href="/dashboard/trips/new"
-            idleLabel="New"
-            pendingLabel="Creating…"
-            className="ui-button-primary"
-          />
-          <ActionLinkButton
-            href="/dashboard/trips/clone"
-            idleLabel="Clone"
-            pendingLabel="Opening…"
-            className="ui-button-secondary"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionLinkButton
+              href="/dashboard/trips/new"
+              idleLabel="New Trip"
+              pendingLabel="Creating…"
+              className="ui-button-primary"
+            />
+            <ActionLinkButton
+              href="/dashboard/trips/clone"
+              idleLabel="Clone Trip"
+              pendingLabel="Opening…"
+              className="ui-button-secondary"
+            />
+          </div>
         </div>
       </div>
 

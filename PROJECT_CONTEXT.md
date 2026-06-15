@@ -1,279 +1,508 @@
-# Trip Sheet Management System - ChatGPT Context
+##Trip Sheet Management System - ChatGPT Context
 
-Updated: 08/04/2026
+Updated: 26/05/2026
 
---------------------------------------------------
+⸻
 
 1. Purpose
 
 This file provides high-level context for:
-- product reasoning
-- UX decisions
-- system behavior
-- debugging logic issues
+
+* product reasoning
+* UX decisions
+* system behavior
+* debugging logic issues
 
 This is NOT an implementation file.
+
 This defines how the system should behave.
 
---------------------------------------------------
+⸻
 
 2. System Overview
 
-Trip Sheet Management system for operational scheduling of travel programs.
+Trip Sheet Management is an operational scheduling and execution system for travel programs.
 
 Core Hierarchy:
-- Trip (parent entity)
-- Trip Sheets (child execution units)
-- Resources assigned to Trip Sheets
 
---------------------------------------------------
+Trip
+↓
+Trip Sheets
+↓
+Facilitators / Experts assigned to Trip Sheets
+
+⸻
 
 3. Core Concepts
 
 Trip
-- Represents the overall program
-- Defines overall duration (start_date → end_date)
-- Defines destination
-- Defines trip type (Educational / Private)
+
+Represents the overall program.
+
+Defines:
+
+* overall duration (start_date → end_date)
+* destination
+* trip type (Educational / Private)
+* customer context
+* participant counts
 
 Trip Sheet
-- Represents an execution unit within a Trip
-- Can be:
-  - a full trip (Private)
-  - a batch / segment (Educational)
-- Has its own:
-  - start_date + start_time
-  - end_date + end_time
-- Contains operational instructions (body_text)
 
-Resource
-- A person assigned to execute a Trip Sheet
+Represents an execution unit within a Trip.
 
---------------------------------------------------
+Can be:
 
-4. Data Model (Conceptual)
+* a full trip (Private)
+* a batch / segment (Educational)
+
+Has its own:
+
+* title
+* start_date + start_time
+* end_date + end_time
+* operational instructions (body_text)
+* module cards
+
+Facilitator
+
+Operational delivery role.
+
+Responsible for executing assigned Trip Sheets.
+
+Sees facilitator-specific operational cards.
+
+Expert
+
+Operational delivery role.
+
+Responsible for domain expertise and assigned Trip Sheets.
+
+Sees expert-specific operational cards.
+
+⸻
+
+4. User Roles
+
+Admin
+
+* Full system access
+* Creates and manages Trips
+* Creates and manages Templates
+* Assigns Facilitators and Experts
+* Can also participate operationally if assigned
+
+Facilitator
+
+* Access to assigned Trips
+* Access to assigned Trip Sheets
+* Mobile-first execution experience
+* Sees facilitator module cards
+
+Expert
+
+* Access to assigned Trips
+* Access to assigned Trip Sheets
+* Mobile-first execution experience
+* Sees expert module cards
+
+⸻
+
+5. Data Model (Conceptual)
 
 trips
-- id
-- title
-- start_date
-- end_date
-- trip_type
-- destination_id
-- trip_color
-- guest_name
-- company
-- phone_number
-- adult_count
-- kid_count
+
+* id
+* title
+* start_date
+* end_date
+* trip_type
+* destination_id
+* trip_color
+* school_id
+* company_id
+* phone_number
+* adult_count
+* kid_count
 
 trip_sheets
-- id
-- trip_id
-- title
-- start_date
-- start_time
-- end_date
-- end_time
-- body_text
+
+* id
+* trip_id
+* title
+* start_date
+* start_time
+* end_date
+* end_time
+* body_text
 
 trip_sheet_assignments
-- trip_sheet_id
-- resource_user_id
+
+* trip_sheet_id
+* assigned_user_id
+
+companies
+
+* id
+* name
+* is_active
+
+schools
+
+* id
+* name
+* is_active
+
+template_cards
+
+* id
+* template_id
+* title
+* category
+* card_url
+* sort_order
+
+trip_sheet_cards
+
+* id
+* trip_sheet_id
+* source_template_card_id
+* title
+* category
+* card_url
+* sort_order
 
 trip_notifications
-- id
-- trip_id
-- sent_by_user_id
-- sent_at
-- status
-- recipient_count
-- success_count
-- failure_count
+
+* id
+* trip_id
+* sent_by_user_id
+* sent_at
+* status
+* recipient_count
+* success_count
+* failure_count
 
 trip_notification_recipients
-- trip_notification_id
-- resource_user_id
-- delivery_status
-- error_message
 
---------------------------------------------------
+* trip_notification_id
+* assigned_user_id
+* delivery_status
+* error_message
 
-5. Source of Truth
+⸻
 
-- Database is the PRIMARY source of truth
-- Form inputs should NOT be trusted for existing values by default
-- All mutations SHOULD:
-  - fetch current DB state first
-  - compute changes relative to DB values
+6. Source of Truth
 
---------------------------------------------------
+* Database is the PRIMARY source of truth.
+* Form inputs should NOT be trusted for existing values by default.
+* All mutations SHOULD:
+    * fetch current DB state first
+    * compute changes relative to DB values.
 
-6. Core Behavioral Rules
+Database validation may exist independently of application logic.
 
-Database Validation Awareness
-- Some business rules may be enforced at the database level (via triggers or functions)
-- Mutation failures may originate from database validation, not only application logic
-- Error messages may reflect database constraints rather than UI-level assumptions
+Mutation failures may originate from:
 
-1. Parent-Child Relationship
-- Trip Sheets always belong to a Trip
-- Trip Sheets cannot exist independently
+* application validation
+* database constraints
+* triggers/functions
 
-2. Timeline Logic
-- Trip Sheets should logically operate within Trip timeline
-- Application layer maintains this consistency
+⸻
 
-3. Date Shift Logic
+7. Core Behavioral Rules
+
+Parent-Child Relationship
+
+* Trips define programs.
+* Trip Sheets always belong to Trips.
+* Trip Sheets cannot exist independently.
+
+Timeline Logic
+
+Trip Sheets should logically operate within Trip timelines.
+
+Application layer maintains this consistency.
+
+Date Shift Logic
+
 When Trip dates change:
-- Child Trip Sheets shift relative to original Trip start_date
-- Preserve:
-  - time
-  - duration
-  - body_text
-- Shift by:
-  - delta = new_start_date - original_start_date
+
+* Child Trip Sheets shift relative to original Trip start_date.
+* Preserve:
+    * time
+    * duration
+    * body_text
+* Shift by:
+
+delta = new_start_date − original_start_date
 
 Additional rules:
-- Existing Trip Sheets are updated, not recreated
-- Child rows must not be duplicated or reinserted during shifts
-- Shifted Trip Sheets must remain within Trip bounds
 
-4. Mutation Principle
-- Parent drives children
-- Child updates triggered only when parent date changes
-- Avoid unnecessary child rewrites
-- Child mutations operate on existing rows, not recreated rows
+* Existing Trip Sheets are updated.
+* Child rows are never recreated.
+* Child rows are never duplicated.
 
-5. Body Text Behavior
-- body_text is generated at creation
-- After creation:
-  - behaves as normal editable field
-  - never auto-regenerated
+Mutation Principle
 
---------------------------------------------------
+* Parent drives children.
+* Child updates triggered only when parent dates change.
+* Avoid unnecessary rewrites.
+* Mutate existing rows.
 
-7. Calendar Model
+⸻
+
+8. Body Text Behavior
+
+body_text stores Markdown text.
+
+Supported formatting:
+
+* headings
+* bold
+* bullet lists
+* numbered lists
+* paragraphs
+
+Rules:
+
+* Stored as plain text.
+* No HTML stored.
+* Rendered safely at read time.
+* Editable after creation.
+* Never auto-regenerated.
+
+⸻
+
+9. Module Cards
+
+Purpose:
+
+Operational playbooks attached to Templates and Trip Sheets.
+
+Architecture:
+
+Google Docs
+↓
+Google Apps Script
+↓
+Mobile HTML
+↓
+/public/module-cards/
+↓
+GitHub
+↓
+Vercel static hosting
+↓
+Template stores relative URLs
+↓
+Trip Sheet receives copied snapshot
+
+Template Cards:
+
+* reusable defaults
+* attached to Templates
+
+Trip Sheet Cards:
+
+* copied at creation
+* independently editable
+* operational snapshots
+* never auto-sync back to Templates
+
+Role Visibility:
+
+* Facilitator → facilitator cards
+* Expert → expert cards
+* Admin → all cards
+
+⸻
+
+10. Calendar Model
 
 Month View
-- Shows Trips (parent level)
-- High-level planning / overview surface
-- Conflict indicators shown at day-cell level
-- Clicking whitespace in a month cell opens week view for that week
+
+Shows Trips.
+
+Purpose:
+
+* planning
+* overview
+* conflict visibility
+
+Behavior:
+
+* conflict indicators shown at Trip level
+* clicking whitespace opens Week View
 
 Week View
-- Shows Trip Sheets (child execution units)
-- Operational planning surface
-- Used for detailed staffing and execution management
 
---------------------------------------------------
+Shows Trip Sheets.
 
-8. Weekly Drawer Assignment Model
+Purpose:
+
+* operational scheduling
+* staffing
+* execution planning
+
+⸻
+
+11. Weekly Drawer Assignment Model
 
 Weekly calendar drawer is a staged editor.
 
 Behavior:
-- Add/remove resource assignments locally
-- No immediate server mutation per click
-- User commits changes via Save Changes
-- Save uses replaceTripSheetAssignments backend action
 
-Reasoning:
-- Drawer is treated as a mini editing session
-- Optimized for multi-resource assignment workflows
+* add/remove assignments locally
+* no immediate server mutation
+* Save Changes commits edits
+* replace assignment set on save
 
---------------------------------------------------
+Purpose:
 
-9. Resource / Personal Views
+Optimized for multi-assignment workflows.
+
+⸻
+
+12. Personal Operational Views
 
 My Trips
-- Trip-level personal operational overview
-- Shows Trips assigned to logged-in user through child Trip Sheet assignments
+
+Trip-level operational overview.
+
+Shows Trips assigned through Trip Sheet assignments.
 
 My Trip Sheets
-- Flat chronological list of assigned Trip Sheets
-- Grouped into:
-  - Ongoing
-  - Upcoming
-  - Past
-- Mobile-first operational execution view
 
-Admin / Resource Dual Role
-- Admin users may also function as resources
-- Admins can access personal resource views
-- Personal views always show only assignments for logged-in user
+Flat chronological execution list.
 
---------------------------------------------------
+Grouped into:
 
-10. Notifications
+* Ongoing
+* Upcoming
+* Past
 
-Notification Model
-- Manual trip-level notification system
-- Triggered explicitly by admin
-- No automated digest / cron-based notification system
+Designed as a mobile-first execution experience.
 
-Behavior
-- One email per unique assigned resource for a Trip
-- Email contains only Trip Sheets relevant to that resource
-- App remains source of truth for live data
+⸻
 
-History / Logging
-- All sends logged in:
-  - trip_notifications
-  - trip_notification_recipients
+13. Resource-facing UX Philosophy
 
---------------------------------------------------
+Execution-first hierarchy:
 
-11. UX Design Principles
+1. Trip Sheet context
+2. Module Cards
+3. Execution instructions
+4. Parent Trip context
 
-- System is an operational tool (speed > perfection)
-- Minimize clicks and navigation
-- Prefer inline and drawer-based interactions
-- Use staged editing when repeated inline mutations would create friction
-- Immediate visible feedback required for mutations
-- Resource-facing views are mobile-first
-- Full-card click targets preferred for operational mobile views
+The page should answer:
 
---------------------------------------------------
+“What do I need to do right now?”
 
-12. Navigation Philosophy
+before
 
-Navigation should reflect user intent / workflow grouping.
+“What trip is this?”
 
-Operational/Admin Views
-- Trips
-- Calendar
-- Templates
-- Resources
+Principles:
 
-Personal Operational Views
-- My Trips
-- My Trip Sheets
+* speed over completeness
+* fast scanning
+* minimal friction
+* mobile-first execution
+
+⸻
+
+14. Notifications
+
+Manual Trip-level notification system.
+
+Behavior:
+
+* triggered explicitly by admin
+* one email per unique assigned user
+* includes only relevant Trip Sheets
+
+History stored in:
+
+* trip_notifications
+* trip_notification_recipients
+
+App remains source of truth.
+
+⸻
+
+15. UX Design Principles
+
+* System is an operational tool.
+* Speed > perfection.
+* Minimize clicks.
+* Reduce navigation friction.
+* Prefer staged editing for batch actions.
+* Immediate feedback for mutations.
+* Mobile-first execution experiences.
+* Full-card interactions where appropriate.
+* Optimize for real-world field usage.
+
+⸻
+
+16. Navigation Philosophy
+
+Navigation reflects user intent.
+
+Operational/Admin
+
+* Trips
+* Calendar
+* Templates
+* Schools
+* Companies
+* Resources (future Team rename)
+
+Personal
+
+* My Trips
+* My Trip Sheets
 
 Account
-- Profile
 
---------------------------------------------------
+* Profile
 
-13. System Boundaries (Current)
+⸻
 
-- Conflict visibility exists at calendar level
-- No automated conflict resolution engine
-- No advanced analytics/reporting
-- No CRM integration
-- No automated scheduling engine
+17. System Boundaries (Current)
 
---------------------------------------------------
+Exists:
 
-14. Current Focus
+* conflict visibility
+* notifications
+* scheduling
+* staffing workflows
+* operational execution tooling
 
-- Stabilize and refine operational UX
-- Improve responsiveness / perceived performance
-- Continue reducing architectural debt
-- Build toward richer scheduling / utilization tooling over time
+Does NOT yet exist:
 
---------------------------------------------------
+* automated conflict resolution
+* advanced analytics
+* scheduling engine
+* automated scheduling decisions
+* module analytics
+* offline execution mode
 
-15. One-line Summary
+CRM and sales integration are anticipated future directions.
 
-A parent-child scheduling and operations system where Trips define structure, Trip Sheets define execution, and the UX is optimized for real-world operational flexibility and speed.
+⸻
+
+18. Current Focus
+
+* Stabilize operational UX
+* Improve mobile execution experience
+* Reduce architectural debt
+* Improve scheduling workflows
+* Build toward richer utilization and planning tools
+* Strengthen execution support tooling
+
+⸻
+
+19. One-line Summary
+
+A parent-child travel operations platform where Trips define programs, Trip Sheets define execution, Facilitators and Experts deliver experiences, and the UX is optimized for fast mobile execution in the field.
