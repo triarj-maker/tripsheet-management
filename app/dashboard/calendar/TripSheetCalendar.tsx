@@ -40,6 +40,9 @@ export type WeekCalendarEvent = EventInput & {
     isTentative: boolean
     tripSheetTitle: string
     parentTripTitle: string
+    clientName: string
+    parentTripStartDate: string | null
+    parentTripEndDate: string | null
     startDate: string | null
     startTime: string | null
     endDate: string | null
@@ -1304,7 +1307,20 @@ export default function TripSheetCalendar({
         : null}
 
       <WeeklyTripSheetDrawer
-        key={resolvedSelectedWeekEventId || 'weekly-trip-sheet-drawer'}
+        key={
+          resolvedSelectedWeekEvent
+            ? [
+                resolvedSelectedWeekEventId,
+                resolvedSelectedWeekEvent.extendedProps.startDate,
+                resolvedSelectedWeekEvent.extendedProps.startTime,
+                resolvedSelectedWeekEvent.extendedProps.endDate,
+                resolvedSelectedWeekEvent.extendedProps.endTime,
+                resolvedSelectedWeekEvent.extendedProps.assignedResources
+                  .map((resource) => resource.resourceUserId)
+                  .join(','),
+              ].join(':')
+            : 'weekly-trip-sheet-drawer'
+        }
         isOpen={viewMode === 'week' && isDrawerOpen && resolvedSelectedWeekEvent !== null}
         onClose={() => {
           setIsDrawerOpen(false)
@@ -1316,6 +1332,9 @@ export default function TripSheetCalendar({
                 id: String(resolvedSelectedWeekEvent.id),
                 tripSheetTitle: resolvedSelectedWeekEvent.extendedProps.tripSheetTitle,
                 parentTripTitle: resolvedSelectedWeekEvent.extendedProps.parentTripTitle,
+                clientName: resolvedSelectedWeekEvent.extendedProps.clientName,
+                parentTripStartDate: resolvedSelectedWeekEvent.extendedProps.parentTripStartDate,
+                parentTripEndDate: resolvedSelectedWeekEvent.extendedProps.parentTripEndDate,
                 startDate: resolvedSelectedWeekEvent.extendedProps.startDate,
                 startTime: resolvedSelectedWeekEvent.extendedProps.startTime,
                 endDate: resolvedSelectedWeekEvent.extendedProps.endDate,

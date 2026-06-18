@@ -25,6 +25,7 @@ import {
 import SendTripNotificationButton from '../SendTripNotificationButton'
 import { requireAdmin } from '../../lib'
 import BulkTripSheetAssignmentForm from './BulkTripSheetAssignmentForm'
+import DownloadClientItineraryButton from './DownloadClientItineraryButton'
 import DownloadTripPdfButton from './DownloadTripPdfButton'
 
 type TripDetailPageProps = {
@@ -478,6 +479,8 @@ export default async function TripDetailPage({
           </Link>
 
           <DownloadTripPdfButton tripId={trip.id} />
+
+          <DownloadClientItineraryButton tripId={trip.id} />
 
           {isAdminRole(profile?.role) ? (
             <SendTripNotificationButton

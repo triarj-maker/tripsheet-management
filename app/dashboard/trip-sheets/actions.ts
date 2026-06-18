@@ -165,6 +165,107 @@ export type ReplaceTripSheetAssignmentsResult = {
   message: string
 }
 
+export type UpdateTripSheetScheduleResult = {
+  ok: boolean
+  tripSheetId: string
+  message: string
+}
+
+function parseScheduleDateParts(value: string) {
+  const normalizedValue = value.trim()
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedValue)
+
+  if (isoMatch) {
+    return {
+      year: Number(isoMatch[1]),
+      month: Number(isoMatch[2]),
+      day: Number(isoMatch[3]),
+    }
+  }
+
+  const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(normalizedValue)
+
+  if (slashMatch) {
+    return {
+      year: Number(slashMatch[3]),
+      month: Number(slashMatch[2]),
+      day: Number(slashMatch[1]),
+    }
+  }
+
+  return null
+}
+
+function parseScheduleTimeParts(value: string) {
+  const normalizedValue = value.trim()
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i.exec(normalizedValue)
+
+  if (!match) {
+    return null
+  }
+
+  let hours = Number(match[1])
+  const minutes = Number(match[2])
+  const meridiem = match[3]?.toUpperCase()
+
+  if (meridiem) {
+    if (hours < 1 || hours > 12) {
+      return null
+    }
+
+    if (meridiem === 'AM') {
+      hours = hours === 12 ? 0 : hours
+    } else {
+      hours = hours === 12 ? 12 : hours + 12
+    }
+  }
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null
+  }
+
+  return { hours, minutes }
+}
+
+function formatScheduleDate(value: ReturnType<typeof parseScheduleDateParts>) {
+  if (!value) {
+    return null
+  }
+
+  return `${String(value.year).padStart(4, '0')}-${String(value.month).padStart(2, '0')}-${String(
+    value.day
+  ).padStart(2, '0')}`
+}
+
+function formatScheduleTime(value: ReturnType<typeof parseScheduleTimeParts>) {
+  if (!value) {
+    return null
+  }
+
+  return `${String(value.hours).padStart(2, '0')}:${String(value.minutes).padStart(2, '0')}`
+}
+
+function parseDateTimeValue(date: string, time: string) {
+  const dateParts = parseScheduleDateParts(date)
+  const timeParts = parseScheduleTimeParts(time)
+
+  if (!dateParts || !timeParts) {
+    return null
+  }
+
+  const parsedDate = new Date(
+    dateParts.year,
+    dateParts.month - 1,
+    dateParts.day,
+    timeParts.hours,
+    timeParts.minutes,
+    0,
+    0
+  )
+
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+}
+
 export async function createTripSheet(formData: FormData) {
   const { supabase, user } = await requireAdmin()
 
@@ -379,6 +480,173 @@ export async function updateTripSheet(formData: FormData) {
   }
 
   redirect(appendToastParam(buildTripDetailPath(tripId)))
+}
+
+export async function updateTripSheetSchedule({
+  tripSheetId,
+  startDate,
+  startTime,
+  endDate,
+  endTime,
+}: {
+  tripSheetId: string
+  startDate: string
+  startTime: string
+  endDate: string
+  endTime: string
+}): Promise<UpdateTripSheetScheduleResult> {
+  const normalizedTripSheetId = tripSheetId.trim()
+  const normalizedStartDate = startDate.trim()
+  const normalizedStartTime = startTime.trim()
+  const normalizedEndDate = endDate.trim()
+  const normalizedEndTime = endTime.trim()
+
+  if (!normalizedTripSheetId) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: 'Trip sheet not found.',
+    }
+  }
+
+  if (!normalizedStartDate || !normalizedStartTime || !normalizedEndDate || !normalizedEndTime) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: 'Start date/time and end date/time are required.',
+    }
+  }
+
+  const startDateParts = parseScheduleDateParts(normalizedStartDate)
+  const startTimeParts = parseScheduleTimeParts(normalizedStartTime)
+  const endDateParts = parseScheduleDateParts(normalizedEndDate)
+  const endTimeParts = parseScheduleTimeParts(normalizedEndTime)
+  const savedStartDate = formatScheduleDate(startDateParts)
+  const savedStartTime = formatScheduleTime(startTimeParts)
+  const savedEndDate = formatScheduleDate(endDateParts)
+  const savedEndTime = formatScheduleTime(endTimeParts)
+  const startDateTime = parseDateTimeValue(normalizedStartDate, normalizedStartTime)
+  const endDateTime = parseDateTimeValue(normalizedEndDate, normalizedEndTime)
+
+  if (
+    !savedStartDate ||
+    !savedStartTime ||
+    !savedEndDate ||
+    !savedEndTime ||
+    !startDateTime ||
+    !endDateTime ||
+    endDateTime <= startDateTime
+  ) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: 'End date/time must be after start date/time.',
+    }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: 'You are not authorized to update trip sheet schedule.',
+    }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const profileRow = (profile as { role: string | null; is_active: boolean | null } | null) ?? null
+
+  if (profileRow?.is_active === false || !isAdminRole(profileRow?.role)) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: 'You are not authorized to update trip sheet schedule.',
+    }
+  }
+
+  const { data: tripSheetData, error: tripSheetError } = await supabase
+    .from('trip_sheets')
+    .select('id, trip_id')
+    .eq('id', normalizedTripSheetId)
+    .maybeSingle()
+
+  const tripSheet =
+    (tripSheetData as { id: string; trip_id: string | null } | null) ?? null
+
+  if (tripSheetError || !tripSheet?.trip_id) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: tripSheetError?.message ?? 'Trip sheet not found.',
+    }
+  }
+
+  const { data: tripData, error: tripError } = await supabase
+    .from('trips')
+    .select('id, start_date, end_date')
+    .eq('id', tripSheet.trip_id)
+    .maybeSingle()
+
+  const trip = (tripData as { id: string; start_date: string | null; end_date: string | null } | null) ?? null
+
+  if (tripError || !trip) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: tripError?.message ?? 'Parent trip not found.',
+    }
+  }
+
+  if (
+    !isTripSheetWithinTripRange({
+      tripStartDate: trip.start_date ?? '',
+      tripEndDate: trip.end_date ?? '',
+      tripSheetStartDate: savedStartDate,
+      tripSheetEndDate: savedEndDate,
+    })
+  ) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: tripSheetWithinTripRangeMessage,
+    }
+  }
+
+  const { error } = await supabase
+    .from('trip_sheets')
+    .update({
+      start_date: savedStartDate,
+      start_time: savedStartTime,
+      end_date: savedEndDate,
+      end_time: savedEndTime,
+      last_updated_by: user.id,
+    })
+    .eq('id', normalizedTripSheetId)
+
+  if (error) {
+    return {
+      ok: false,
+      tripSheetId: normalizedTripSheetId,
+      message: error.message,
+    }
+  }
+
+  revalidatePath('/dashboard/calendar')
+
+  return {
+    ok: true,
+    tripSheetId: normalizedTripSheetId,
+    message: 'Trip sheet schedule saved.',
+  }
 }
 
 export async function deleteTripSheet(formData: FormData) {
