@@ -11,6 +11,10 @@ type PdfTextLine = {
   boxGroup?: string
   muted?: boolean
   rule?: boolean
+  bullet?: boolean
+  color?: 'body' | 'heading' | 'accent' | 'muted' | 'light'
+  ruleColor?: 'accent' | 'light'
+  labelMuted?: boolean
 }
 
 type PdfPage = {
@@ -34,6 +38,40 @@ function sanitizeLine(value: string) {
     .replace(/\r/g, '\n')
     .replace(/\t/g, '  ')
     .replace(/[^\x20-\x7E\n]/g, '')
+}
+
+function colorCommand(color: PdfTextLine['color']) {
+  switch (color) {
+    case 'heading':
+      return '0.06 0.14 0.11 rg'
+    case 'accent':
+      return '0.16 0.39 0.34 rg'
+    case 'muted':
+      return '0.42 0.47 0.44 rg'
+    case 'light':
+      return '0.72 0.75 0.73 rg'
+    case 'body':
+    default:
+      return '0.12 0.16 0.21 rg'
+  }
+}
+
+function grayCommand(line: PdfTextLine) {
+  if (line.color) {
+    return colorCommand(line.color)
+  }
+
+  return line.muted ? '0.4 g' : '0 g'
+}
+
+function strokeColorCommand(color: PdfTextLine['ruleColor']) {
+  switch (color) {
+    case 'accent':
+      return '0.16 0.39 0.34 RG'
+    case 'light':
+    default:
+      return '0.86 0.89 0.87 RG'
+  }
 }
 
 function wrapText(value: string, maxChars: number) {
@@ -162,11 +200,18 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
 
       if (line.rule) {
         contentCommands.push('q')
-        contentCommands.push('0.86 G')
+        contentCommands.push(strokeColorCommand(line.ruleColor))
         contentCommands.push('0.5 w')
         contentCommands.push(`48 ${y + 4} m 564 ${y + 4} l S`)
         contentCommands.push('Q')
         continue
+      }
+
+      if (line.bullet) {
+        contentCommands.push('q')
+        contentCommands.push(colorCommand(line.color ?? 'accent'))
+        contentCommands.push(`${x - 8} ${y + 3} 2.4 2.4 re f`)
+        contentCommands.push('Q')
       }
 
       if (line.box) {
@@ -185,7 +230,7 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
 
         if (label) {
           contentCommands.push('BT')
-          contentCommands.push(line.muted ? '0.4 g' : '0 g')
+          contentCommands.push(line.labelMuted ? colorCommand('muted') : grayCommand(line))
           contentCommands.push(`/F1 ${fontSize} Tf`)
           contentCommands.push(`1 0 0 1 ${x} ${y} Tm`)
           contentCommands.push(`(${escapePdfText(label)}) Tj`)
@@ -193,7 +238,7 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
         }
 
         contentCommands.push('BT')
-        contentCommands.push(line.muted ? '0.4 g' : '0 g')
+        contentCommands.push(grayCommand(line))
         contentCommands.push(`/F2 ${fontSize} Tf`)
         contentCommands.push(`1 0 0 1 ${x + labelWidth} ${y} Tm`)
         contentCommands.push(`(${escapePdfText(line.value)}) Tj`)
@@ -202,7 +247,7 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
       }
 
       contentCommands.push('BT')
-      contentCommands.push(line.muted ? '0.4 g' : '0 g')
+      contentCommands.push(grayCommand(line))
       contentCommands.push(`/${fontKey} ${fontSize} Tf`)
       contentCommands.push(`1 0 0 1 ${x} ${y} Tm`)
       contentCommands.push(`(${escapePdfText(line.text)}) Tj`)
@@ -260,18 +305,62 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
 export function buildSimplePdfPages(lines: PdfTextLine[]) {
   const pages: PdfPage[] = []
   let currentPage: PdfPage = { lines: [] }
-  let currentLineCount = 0
-  const maxLinesPerPage = 44
+  let currentPageHeight = 0
+  const maxPageHeight = 676
 
-  const pushLine = (line: PdfTextLine) => {
-    if (currentLineCount >= maxLinesPerPage) {
+  const getLineHeight = (line: PdfTextLine) => {
+    const fontSize = line.size ?? 11
+    return line.lineHeight ?? (fontSize >= 18 ? 24 : fontSize >= 14 ? 20 : 16)
+  }
+
+  const isSkippablePageStart = (line: PdfTextLine) => !line.text && !line.label && !line.value
+
+  const pushPage = () => {
+    while (
+      currentPage.lines.length > 0 &&
+      isSkippablePageStart(currentPage.lines[currentPage.lines.length - 1]!)
+    ) {
+      const removedLine = currentPage.lines.pop()!
+      currentPageHeight -= getLineHeight(removedLine)
+    }
+
+    if (currentPage.lines.length > 0) {
       pages.push(currentPage)
-      currentPage = { lines: [] }
-      currentLineCount = 0
+    }
+
+    currentPage = { lines: [] }
+    currentPageHeight = 0
+  }
+
+  const pushLine = (line: PdfTextLine, followingLine?: PdfTextLine) => {
+    const lineHeight = getLineHeight(line)
+    const followingLineHeight = followingLine ? getLineHeight(followingLine) : 0
+    const keepWithNext =
+      Boolean(followingLine) &&
+      !line.rule &&
+      line.bold === true &&
+      (line.size ?? 11) >= 12
+    const requiredHeight = keepWithNext ? lineHeight + followingLineHeight : lineHeight
+
+    if (
+      currentPage.lines.length > 0 &&
+      currentPageHeight + requiredHeight > maxPageHeight
+    ) {
+      pushPage()
+    }
+
+    if (currentPage.lines.length === 0 && isSkippablePageStart(line)) {
+      return
     }
 
     currentPage.lines.push(line)
-    currentLineCount += 1
+    currentPageHeight += lineHeight
+  }
+
+  const pushRenderedLines = (renderedLines: PdfTextLine[]) => {
+    for (const [index, renderedLine] of renderedLines.entries()) {
+      pushLine(renderedLine, renderedLines[index + 1])
+    }
   }
 
   for (const line of lines) {
@@ -293,15 +382,15 @@ export function buildSimplePdfPages(lines: PdfTextLine[]) {
         continue
       }
 
-      for (const [index, wrappedLine] of wrappedValueLines.entries()) {
-        pushLine({
+      pushRenderedLines(
+        wrappedValueLines.map((wrappedLine, index) => ({
           ...line,
           text: '',
           label: index === 0 ? line.label : undefined,
           value: wrappedLine,
           indent: index === 0 ? line.indent : (line.indent ?? 0) + (line.labelColumnWidth ?? 70),
-        })
-      }
+        }))
+      )
 
       continue
     }
@@ -318,16 +407,20 @@ export function buildSimplePdfPages(lines: PdfTextLine[]) {
       continue
     }
 
-    for (const wrappedLine of wrappedLines) {
-      pushLine({
+    pushRenderedLines(
+      wrappedLines.map((wrappedLine) => ({
         ...line,
         text: wrappedLine,
-      })
-    }
+      }))
+    )
   }
 
   if (currentPage.lines.length > 0 || pages.length === 0) {
-    pages.push(currentPage)
+    pushPage()
+  }
+
+  if (pages.length === 0) {
+    pages.push({ lines: [] })
   }
 
   return pages

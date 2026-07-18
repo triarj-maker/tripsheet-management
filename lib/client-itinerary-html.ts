@@ -31,6 +31,12 @@ export type ClientItineraryTripSheet = {
   body_text: string | null
 }
 
+export type ClientItineraryResource = {
+  id: string
+  full_name: string | null
+  phone: string | null
+}
+
 export type ClientItineraryPdfLine = {
   text: string
   label?: string
@@ -43,6 +49,10 @@ export type ClientItineraryPdfLine = {
   boxGroup?: string
   muted?: boolean
   rule?: boolean
+  bullet?: boolean
+  color?: 'body' | 'heading' | 'accent' | 'muted' | 'light'
+  ruleColor?: 'accent' | 'light'
+  labelMuted?: boolean
 }
 
 type ItineraryOverviewField = {
@@ -112,6 +122,21 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
     return formattedStart ?? formattedEnd
   }
 
+  const [startYear, startMonth, startDay] = startDate?.split('-').map(Number) ?? []
+  const [endYear, endMonth, endDay] = endDate?.split('-').map(Number) ?? []
+
+  if (startYear && startMonth && startDay && endYear && endMonth && endDay) {
+    const endMonthYear = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(endYear, endMonth - 1, endDay)))
+
+    if (startYear === endYear && startMonth === endMonth) {
+      return `${startDay}-${endDay} ${endMonthYear}`
+    }
+  }
+
   return `${formattedStart} - ${formattedEnd}`
 }
 
@@ -139,171 +164,279 @@ function formatDateTimeRange(tripSheet: ClientItineraryTripSheet) {
   return end ? `${start ?? ''} - ${end}` : (start ?? '')
 }
 
+function formatActivityTimeRange(tripSheet: ClientItineraryTripSheet) {
+  const startTime = formatTime(tripSheet.start_time)
+  const endTime = formatTime(tripSheet.end_time)
+  const spansMultipleDates =
+    tripSheet.start_date &&
+    tripSheet.end_date &&
+    tripSheet.start_date !== tripSheet.end_date
+
+  if (spansMultipleDates) {
+    return formatDateTimeRange(tripSheet)
+  }
+
+  if (startTime && endTime) {
+    return `${startTime} - ${endTime}`
+  }
+
+  return startTime ?? endTime ?? ''
+}
+
 function renderInlineMarkdownHtml(value: string) {
   let html = ''
   let cursor = 0
 
   while (cursor < value.length) {
-    const start = value.indexOf('**', cursor)
+    const linkMatch = /\[([^\]]+)\]\(([^)]+)\)/g
+    linkMatch.lastIndex = cursor
+    const nextLink = linkMatch.exec(value)
+    const boldStart = value.indexOf('**', cursor)
+    const italicStart = value.indexOf('*', cursor)
+    const candidates = [
+      nextLink ? { type: 'link', start: nextLink.index, match: nextLink } : null,
+      boldStart >= 0 ? { type: 'bold', start: boldStart, match: null } : null,
+      italicStart >= 0 ? { type: 'italic', start: italicStart, match: null } : null,
+    ].filter((candidate): candidate is { type: string; start: number; match: RegExpExecArray | null } => Boolean(candidate))
+    const next = candidates.sort((a, b) => a.start - b.start)[0]
 
-    if (start === -1) {
+    if (!next) {
       html += escapeHtml(value.slice(cursor))
       break
     }
 
-    const end = value.indexOf('**', start + 2)
+    html += escapeHtml(value.slice(cursor, next.start))
 
-    if (end === -1) {
-      html += escapeHtml(value.slice(cursor))
-      break
+    if (next.type === 'link' && next.match) {
+      const linkText = next.match[1] ?? ''
+      const href = (next.match[2] ?? '').trim()
+      const isSafeHref = /^(https?:\/\/|mailto:)/i.test(href)
+      html += isSafeHref
+        ? `<a href="${escapeHtml(href)}">${renderInlineMarkdownHtml(linkText)}</a>`
+        : renderInlineMarkdownHtml(linkText)
+      cursor = next.start + next.match[0].length
+      continue
     }
 
-    html += escapeHtml(value.slice(cursor, start))
-    html += `<strong>${escapeHtml(value.slice(start + 2, end))}</strong>`
-    cursor = end + 2
+    if (next.type === 'bold') {
+      const end = value.indexOf('**', next.start + 2)
+
+      if (end === -1) {
+        html += escapeHtml(value.slice(next.start, next.start + 2))
+        cursor = next.start + 2
+        continue
+      }
+
+      html += `<strong>${renderInlineMarkdownHtml(value.slice(next.start + 2, end))}</strong>`
+      cursor = end + 2
+      continue
+    }
+
+    if (next.type === 'italic') {
+      const isListMarker = next.start === 0 && /^\*\s+/.test(value)
+      const isBoldMarker = value.slice(next.start, next.start + 2) === '**'
+
+      if (isListMarker || isBoldMarker) {
+        html += escapeHtml(value.slice(next.start, next.start + 1))
+        cursor = next.start + 1
+        continue
+      }
+
+      const end = value.indexOf('*', next.start + 1)
+
+      if (end === -1) {
+        html += escapeHtml(value.slice(next.start, next.start + 1))
+        cursor = next.start + 1
+        continue
+      }
+
+      html += `<em>${renderInlineMarkdownHtml(value.slice(next.start + 1, end))}</em>`
+      cursor = end + 1
+    }
   }
 
   return html
 }
 
 function stripInlineMarkdown(value: string) {
-  return value.replace(/\*\*(.*?)\*\*/g, '$1').trim()
+  return value
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim()
 }
 
-function renderMarkdownHtml(value: string | null) {
-  const markdown = value?.trim()
+function lineIsFullyEmphasized(value: string, marker: '**' | '*') {
+  return value.startsWith(marker) && value.endsWith(marker) && value.length > marker.length * 2
+}
 
-  if (!markdown) {
-    return ''
-  }
+function cleanDisplayMarkdownLine(value: string) {
+  return value
+    .trim()
+    .replace(/^>\s*/, '')
+    .replace(/\s+#{1,6}\s*$/g, '')
+    .replace(/^#{1,6}\s*$/, '')
+    .trim()
+}
 
-  const lines = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+function normalizeMarkdownLines(value: string | null) {
+  return (value ?? '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(cleanDisplayMarkdownLine)
+}
+
+function renderClientBodyHtml(value: string | null) {
+  const lines = normalizeMarkdownLines(value)
+
   const blocks: string[] = []
   let index = 0
 
   while (index < lines.length) {
-    const trimmedLine = (lines[index] ?? '').trim()
+    const currentLine = lines[index] ?? ''
 
-    if (!trimmedLine) {
+    if (!currentLine) {
       index += 1
       continue
     }
 
-    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine)
+    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(currentLine)
 
     if (headingMatch) {
-      const level = Math.min(headingMatch[1]!.length + 2, 4)
-      blocks.push(`<h${level}>${renderInlineMarkdownHtml(headingMatch[2]!.trim())}</h${level}>`)
+      const level = Math.min(Math.max(headingMatch[1]?.length ?? 2, 1), 4)
+      const headingText = cleanDisplayMarkdownLine(headingMatch[2] ?? '')
+      if (headingText) {
+        blocks.push(`<h5 class="md-heading md-heading-${level}">${renderInlineMarkdownHtml(headingText)}</h5>`)
+      }
       index += 1
       continue
     }
 
-    if (/^[-*+]\s+/.test(trimmedLine)) {
+    if (/^[-*+]\s+/.test(currentLine)) {
       const items: string[] = []
 
-      while (index < lines.length && /^[-*+]\s+/.test((lines[index] ?? '').trim())) {
-        items.push(
-          `<li>${renderInlineMarkdownHtml((lines[index] ?? '').trim().replace(/^[-*+]\s+/, ''))}</li>`
-        )
+      while (index < lines.length && /^[-*+]\s+/.test(lines[index] ?? '')) {
+        const itemText = cleanDisplayMarkdownLine((lines[index] ?? '').replace(/^[-*+]\s+/, ''))
+        if (itemText) {
+          items.push(`<li>${renderInlineMarkdownHtml(itemText)}</li>`)
+        }
         index += 1
       }
 
-      blocks.push(`<ul>${items.join('')}</ul>`)
+      if (items.length > 0) {
+        blocks.push(`<ul>${items.join('')}</ul>`)
+      }
       continue
     }
 
-    if (/^\d+\.\s+/.test(trimmedLine)) {
+    if (/^\d+\.\s+/.test(currentLine)) {
       const items: string[] = []
 
-      while (index < lines.length && /^\d+\.\s+/.test((lines[index] ?? '').trim())) {
-        items.push(
-          `<li>${renderInlineMarkdownHtml((lines[index] ?? '').trim().replace(/^\d+\.\s+/, ''))}</li>`
-        )
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index] ?? '')) {
+        const itemText = cleanDisplayMarkdownLine((lines[index] ?? '').replace(/^\d+\.\s+/, ''))
+        if (itemText) {
+          items.push(`<li>${renderInlineMarkdownHtml(itemText)}</li>`)
+        }
         index += 1
       }
 
-      blocks.push(`<ol>${items.join('')}</ol>`)
+      if (items.length > 0) {
+        blocks.push(`<ol>${items.join('')}</ol>`)
+      }
       continue
     }
 
     const paragraphLines: string[] = []
 
     while (index < lines.length) {
-      const currentLine = (lines[index] ?? '').trim()
+      const paragraphLine = lines[index] ?? ''
 
-      if (!currentLine || /^#{1,6}\s+/.test(currentLine) || /^[-*+]\s+/.test(currentLine) || /^\d+\.\s+/.test(currentLine)) {
+      if (
+        !paragraphLine ||
+        /^#{1,6}\s+/.test(paragraphLine) ||
+        /^[-*+]\s+/.test(paragraphLine) ||
+        /^\d+\.\s+/.test(paragraphLine)
+      ) {
         break
       }
 
-      paragraphLines.push(renderInlineMarkdownHtml(currentLine))
+      paragraphLines.push(renderInlineMarkdownHtml(paragraphLine))
       index += 1
     }
 
-    blocks.push(`<p>${paragraphLines.join('<br />')}</p>`)
+    if (paragraphLines.length > 0) {
+      blocks.push(`<p>${paragraphLines.join('<br />')}</p>`)
+    }
   }
 
   return blocks.join('\n')
 }
 
-function pushMarkdownPdfLines(lines: ClientItineraryPdfLine[], value: string | null) {
-  const markdown = value?.trim()
-
-  if (!markdown) {
-    return
-  }
-
-  const sourceLines = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+function pushClientBodyPdfLines(lines: ClientItineraryPdfLine[], value: string | null) {
+  const bodyLines = normalizeMarkdownLines(value)
   let index = 0
 
-  while (index < sourceLines.length) {
-    const trimmedLine = (sourceLines[index] ?? '').trim()
+  while (index < bodyLines.length) {
+    const currentLine = bodyLines[index] ?? ''
 
-    if (!trimmedLine) {
-      lines.push({ text: '', lineHeight: 7 })
+    if (!currentLine) {
+      lines.push({ text: '', lineHeight: 5 })
       index += 1
       continue
     }
 
-    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(trimmedLine)
+    const headingMatch = /^(#{1,6})\s+(.+)$/.exec(currentLine)
 
     if (headingMatch) {
-      lines.push({
-        text: stripInlineMarkdown(headingMatch[2] ?? ''),
-        bold: true,
-        size: headingMatch[1]!.length <= 2 ? 12 : 11,
-        lineHeight: 17,
-      })
+      const level = Math.min(Math.max(headingMatch[1]?.length ?? 2, 1), 4)
+      const headingText = cleanDisplayMarkdownLine(headingMatch[2] ?? '')
+      if (headingText) {
+        lines.push({
+          text: stripInlineMarkdown(headingText),
+          size: level === 1 ? 12 : level === 2 ? 11 : level === 3 ? 10.5 : 10,
+          bold: true,
+          lineHeight: level === 1 ? 19 : level === 2 ? 17 : 15,
+          color: 'heading',
+        })
+      }
       index += 1
       continue
     }
 
-    if (/^[-*+]\s+/.test(trimmedLine)) {
-      while (index < sourceLines.length && /^[-*+]\s+/.test((sourceLines[index] ?? '').trim())) {
+    if (/^[-*+]\s+/.test(currentLine)) {
+      const itemText = cleanDisplayMarkdownLine(currentLine.replace(/^[-*+]\s+/, ''))
+      if (itemText) {
         lines.push({
-          text: `- ${stripInlineMarkdown((sourceLines[index] ?? '').trim().replace(/^[-*+]\s+/, ''))}`,
+          text: stripInlineMarkdown(itemText),
           indent: 12,
-          lineHeight: 15,
+          lineHeight: 14,
+          bullet: true,
+          color: 'body',
         })
-        index += 1
       }
+      index += 1
       continue
     }
 
-    if (/^\d+\.\s+/.test(trimmedLine)) {
-      while (index < sourceLines.length && /^\d+\.\s+/.test((sourceLines[index] ?? '').trim())) {
-        lines.push({
-          text: stripInlineMarkdown((sourceLines[index] ?? '').trim()),
-          indent: 12,
-          lineHeight: 15,
-        })
-        index += 1
-      }
+    if (/^\d+\.\s+/.test(currentLine)) {
+      lines.push({
+      text: stripInlineMarkdown(currentLine),
+      indent: 12,
+      lineHeight: 14,
+      color: 'body',
+    })
+      index += 1
       continue
     }
 
     lines.push({
-      text: stripInlineMarkdown(trimmedLine),
-      lineHeight: 15,
+      text: stripInlineMarkdown(currentLine),
+      lineHeight: 14,
+      bold: lineIsFullyEmphasized(currentLine, '**'),
+      color: 'body',
     })
     index += 1
   }
@@ -345,16 +478,32 @@ function groupTripSheetsByDate(tripSheets: ClientItineraryTripSheet[]) {
   return Array.from(sections.values())
 }
 
+function formatAssignedResourceDetails(resources: ClientItineraryResource[]) {
+  return resources
+    .map((resource) => {
+      const name = resource.full_name?.trim() || 'Assigned guide'
+      const phone = resource.phone?.trim()
+
+      return phone ? `${name} | ${phone}` : name
+    })
+    .join('; ')
+}
+
 export function renderClientItineraryHtml({
   trip,
   tripSheets,
+  assignedResourcesByTripSheetId = new Map(),
+  includeResourceDetails = false,
 }: {
   trip: ClientItineraryTrip
   tripSheets: ClientItineraryTripSheet[]
+  assignedResourcesByTripSheetId?: Map<string, ClientItineraryResource[]>
+  includeResourceDetails?: boolean
 }) {
   const title = trip.title?.trim() || 'Untitled trip'
   const destination = getDestinationName(trip.destination_ref, null)
   const dateRange = formatDateRange(trip.start_date, trip.end_date)
+  const journeyLine = destination ? `${destination} Learning Journey` : dateRange
   const overviewFields = buildOverviewFields(trip)
   const sections = groupTripSheetsByDate(tripSheets)
 
@@ -364,36 +513,48 @@ export function renderClientItineraryHtml({
   <meta charset="utf-8" />
   <title>${escapeHtml(title)} Client Itinerary</title>
   <style>
-    body { margin: 0; color: #1f2937; font-family: Inter, Arial, sans-serif; background: #ffffff; }
-    .page { padding: 48px; }
-    .hero { padding-bottom: 26px; border-bottom: 1px solid #e5e7eb; }
-    .eyebrow { margin: 0 0 10px; color: #6b7280; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 0; color: #111827; font-size: 34px; line-height: 1.12; }
-    .subtitle { margin: 12px 0 0; color: #4b5563; font-size: 15px; }
-    .overview { margin: 28px 0 34px; padding: 22px 24px; border: 1px solid #d9e1ea; border-radius: 14px; background: #f8fafc; }
-    .overview h2 { margin: 0 0 16px; color: #111827; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
-    .meta-row { display: grid; grid-template-columns: 150px 1fr; gap: 18px; margin: 8px 0; font-size: 13px; line-height: 1.45; }
-    .meta-label { color: #6b7280; }
+    @page { margin: 34px 42px 42px; }
+    body { margin: 0; color: #1f2937; font-family: Georgia, 'Times New Roman', serif; background: #ffffff; }
+    .page { padding: 0; }
+    .hero { padding: 36px 0 32px; border-bottom: 1px solid #cfd8d3; }
+    .prepared, .meta-label, .time { font-family: Inter, Arial, sans-serif; }
+    h1 { margin: 0; color: #10231c; font-size: 38px; line-height: 1.08; }
+    .subtitle { margin: 16px 0 0; color: #2f4a40; font-size: 17px; font-weight: 700; }
+    .dates { margin: 7px 0 0; color: #4b5563; font-size: 14px; }
+    .prepared { margin: 22px 0 0; color: #9ca3af; font-size: 10px; }
+    .overview { margin: 30px 0 38px; padding: 18px 0; border-top: 1px solid #e3e8e5; border-bottom: 1px solid #e3e8e5; break-inside: avoid; }
+    .overview h2 { margin: 0 0 15px; color: #10231c; font-size: 18px; }
+    .meta-row { display: grid; grid-template-columns: 140px 1fr; gap: 22px; margin: 7px 0; font-size: 13px; line-height: 1.45; }
+    .meta-label { color: #7b8580; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
     .meta-value { color: #111827; font-weight: 700; }
-    h2.section-title { margin: 0 0 18px; color: #111827; font-size: 22px; }
-    .day { margin: 0 0 28px; break-inside: avoid; }
-    .day-title { margin: 0 0 14px; color: #111827; font-size: 16px; font-weight: 800; }
-    .module { margin: 0 0 20px; padding-bottom: 18px; border-bottom: 1px solid #eef2f7; break-inside: avoid; }
-    .module h4 { margin: 0 0 6px; color: #111827; font-size: 15px; }
-    .time { margin: 0 0 12px; color: #6b7280; font-size: 12px; font-weight: 700; }
-    .body { color: #374151; font-size: 12.5px; line-height: 1.6; }
-    .body h3, .body h4 { margin: 14px 0 6px; color: #111827; }
-    .body p { margin: 0 0 10px; }
-    .body ul, .body ol { margin: 0 0 10px 20px; padding: 0; }
+    h2.section-title { margin: 0 0 24px; color: #10231c; font-size: 22px; }
+    .day { margin: 0 0 34px; break-inside: avoid; page-break-inside: avoid; }
+    .day-title { margin: 0 0 18px; color: #10231c; font-size: 18px; font-weight: 800; break-after: avoid; page-break-after: avoid; }
+    .module { margin: 0; padding: 15px 0 16px; border-top: 1px solid #edf1ef; background: #ffffff; break-inside: avoid; page-break-inside: avoid; }
+    .module:first-of-type { border-top-color: #cfd8d3; }
+    .module h4 { margin: 4px 0 9px; color: #111827; font-size: 15px; font-weight: 800; }
+    .time { margin: 0 0 7px; color: #5f766d; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .body { color: #374151; font-size: 12.5px; line-height: 1.68; }
+    .body .md-heading { margin: 14px 0 6px; color: #10231c; font-family: Inter, Arial, sans-serif; font-weight: 800; letter-spacing: .03em; }
+    .body .md-heading:first-child { margin-top: 0; }
+    .body .md-heading-1 { font-size: 13px; }
+    .body .md-heading-2 { font-size: 12px; }
+    .body .md-heading-3, .body .md-heading-4 { font-size: 11px; text-transform: uppercase; }
+    .body p { margin: 0 0 8px; }
+    .body p:last-child { margin-bottom: 0; }
+    .body ul, .body ol { margin: 0 0 9px 18px; padding: 0; }
     .body li { margin: 4px 0; }
+    .body a { color: #256f63; text-decoration: none; }
+    .footer { margin-top: 38px; color: #c8cdd2; font-family: Inter, Arial, sans-serif; font-size: 7.5px; text-align: center; }
   </style>
 </head>
 <body>
   <main class="page">
     <section class="hero">
-      <p class="eyebrow">Client Itinerary</p>
       <h1>${escapeHtml(title)}</h1>
-      <p class="subtitle">${escapeHtml([destination, dateRange].filter(Boolean).join(' • '))}</p>
+      ${journeyLine ? `<p class="subtitle">${escapeHtml(journeyLine)}</p>` : ''}
+      ${dateRange && destination ? `<p class="dates">${escapeHtml(dateRange)}</p>` : ''}
+      <p class="prepared">Prepared by Echo Journeys</p>
     </section>
     <section class="overview">
       <h2>Trip Overview</h2>
@@ -411,16 +572,27 @@ export function renderClientItineraryHtml({
         .map(
           (section) => `<div class="day"><h3 class="day-title">${escapeHtml(section.dateLabel)}</h3>${section.tripSheets
             .map(
-              (tripSheet, index) => `<article class="module"><h4>${index + 1}. ${escapeHtml(
-                tripSheet.title?.trim() || 'Untitled module'
-              )}</h4><p class="time">${escapeHtml(formatDateTimeRange(tripSheet))}</p><div class="body">${renderMarkdownHtml(
-                tripSheet.body_text
-              )}</div></article>`
+              (tripSheet) => {
+                const assignedResources = assignedResourcesByTripSheetId.get(tripSheet.id) ?? []
+                const resourceDetails =
+                  includeResourceDetails && assignedResources.length > 0
+                    ? formatAssignedResourceDetails(assignedResources)
+                    : ''
+
+                return `<article class="module"><h4>${escapeHtml(
+                  tripSheet.title?.trim() || 'Untitled module'
+                )}</h4><p class="time">${escapeHtml(formatActivityTimeRange(tripSheet))}</p>${
+                  resourceDetails
+                    ? `<p class="time">${escapeHtml(`Guide / Coordinator: ${resourceDetails}`)}</p>`
+                    : ''
+                }<div class="body">${renderClientBodyHtml(tripSheet.body_text)}</div></article>`
+              }
             )
             .join('\n')}</div>`
         )
         .join('\n')}
     </section>
+    <footer class="footer">Copyright 2026-27 Travspire Experiences Private Limited</footer>
   </main>
 </body>
 </html>`
@@ -429,57 +601,92 @@ export function renderClientItineraryHtml({
 export function renderClientItineraryPdfLines({
   trip,
   tripSheets,
+  assignedResourcesByTripSheetId = new Map(),
+  includeResourceDetails = false,
 }: {
   trip: ClientItineraryTrip
   tripSheets: ClientItineraryTripSheet[]
+  assignedResourcesByTripSheetId?: Map<string, ClientItineraryResource[]>
+  includeResourceDetails?: boolean
 }) {
   const title = trip.title?.trim() || 'Untitled trip'
   const destination = getDestinationName(trip.destination_ref, null)
   const dateRange = formatDateRange(trip.start_date, trip.end_date)
+  const journeyLine = destination ? `${destination} Learning Journey` : dateRange
   const overviewFields = buildOverviewFields(trip)
   const sections = groupTripSheetsByDate(tripSheets)
   const lines: ClientItineraryPdfLine[] = []
 
-  lines.push({ text: 'CLIENT ITINERARY', size: 10, bold: true, muted: true, lineHeight: 15 })
-  lines.push({ text: title, size: 20, bold: true, lineHeight: 28 })
+  lines.push({ text: title, size: 25, bold: true, lineHeight: 38, color: 'heading' })
 
-  if (destination || dateRange) {
-    lines.push({ text: [destination, dateRange].filter(Boolean).join(' • '), size: 11, muted: true, lineHeight: 18 })
+  if (journeyLine) {
+    lines.push({ text: journeyLine, size: 13, bold: true, lineHeight: 22, color: 'accent' })
   }
 
-  lines.push({ text: '', lineHeight: 14 })
-  lines.push({ text: 'TRIP OVERVIEW', size: 12, bold: true, indent: 16, lineHeight: 20, boxGroup: 'client-overview' })
-  lines.push({ text: '', indent: 16, lineHeight: 5, boxGroup: 'client-overview' })
+  if (destination && dateRange) {
+    lines.push({ text: dateRange, size: 11, lineHeight: 19, color: 'muted' })
+  }
+
+  lines.push({ text: 'Prepared by Echo Journeys', size: 8, lineHeight: 26, color: 'light' })
+  lines.push({ text: '', lineHeight: 6, rule: true, ruleColor: 'accent' })
+  lines.push({ text: '', lineHeight: 10 })
+  lines.push({ text: 'Overview', size: 14, bold: true, lineHeight: 24, color: 'heading' })
 
   for (const field of overviewFields) {
     lines.push({
       text: '',
       label: field.label,
       value: field.value,
-      labelColumnWidth: 112,
-      indent: 16,
+      labelColumnWidth: 120,
       lineHeight: 17,
-      boxGroup: 'client-overview',
+      color: 'body',
+      labelMuted: true,
     })
   }
 
-  lines.push({ text: '', lineHeight: 26 })
-  lines.push({ text: 'Detailed Itinerary', size: 15, bold: true, lineHeight: 24 })
+  lines.push({ text: '', lineHeight: 6, rule: true, ruleColor: 'light' })
+  lines.push({ text: '', lineHeight: 14 })
+  lines.push({ text: 'Detailed Itinerary', size: 16, bold: true, lineHeight: 24, color: 'heading' })
 
   for (const section of sections) {
     lines.push({ text: '', lineHeight: 8 })
-    lines.push({ text: section.dateLabel, size: 13, bold: true, lineHeight: 20 })
+    lines.push({ text: section.dateLabel, size: 14, bold: true, lineHeight: 22, color: 'accent' })
+    lines.push({ text: '', lineHeight: 4, rule: true, ruleColor: 'light' })
+    lines.push({ text: '', lineHeight: 6 })
 
-    for (const [index, tripSheet] of section.tripSheets.entries()) {
-      lines.push({ text: `${index + 1}. ${tripSheet.title?.trim() || 'Untitled module'}`, size: 12, bold: true, lineHeight: 18 })
-      const schedule = formatDateTimeRange(tripSheet)
+    for (const tripSheet of section.tripSheets) {
+      const schedule = formatActivityTimeRange(tripSheet)
+      const assignedResources = assignedResourcesByTripSheetId.get(tripSheet.id) ?? []
+
+      lines.push({
+        text: tripSheet.title?.trim() || 'Untitled module',
+        size: 12,
+        bold: true,
+        lineHeight: schedule ? 17 : 20,
+        color: 'heading',
+      })
 
       if (schedule) {
-        lines.push({ text: schedule, size: 10, muted: true, lineHeight: 15 })
+        lines.push({ text: schedule, size: 9, bold: true, lineHeight: 16, color: 'muted' })
       }
 
-      pushMarkdownPdfLines(lines, tripSheet.body_text)
-      lines.push({ text: '', lineHeight: 8, rule: true })
+      if (includeResourceDetails && assignedResources.length > 0) {
+        lines.push({
+          text: `Guide / Coordinator: ${formatAssignedResourceDetails(assignedResources)}`,
+          size: 9,
+          bold: true,
+          lineHeight: 16,
+          color: 'muted',
+        })
+      }
+
+      if (schedule || (includeResourceDetails && assignedResources.length > 0)) {
+        lines.push({ text: '', lineHeight: 3 })
+      }
+
+      pushClientBodyPdfLines(lines, tripSheet.body_text)
+      lines.push({ text: '', lineHeight: 6, rule: true, ruleColor: 'light' })
+      lines.push({ text: '', lineHeight: 6 })
     }
   }
 

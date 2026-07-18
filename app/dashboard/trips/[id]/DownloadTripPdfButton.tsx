@@ -54,7 +54,7 @@ export default function DownloadTripPdfButton({ tripId }: DownloadTripPdfButtonP
             <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-5 shadow-xl">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-gray-500">Download PDF</p>
-                <h2 className="text-lg font-semibold text-gray-900">Trip Operations Brief</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Trip Itinerary</h2>
                 <label className="mt-4 flex items-center gap-2 text-sm text-gray-800">
                   <input
                     type="checkbox"
@@ -62,7 +62,7 @@ export default function DownloadTripPdfButton({ tripId }: DownloadTripPdfButtonP
                     onChange={(event) => setIncludeResources(event.target.checked)}
                     className="h-4 w-4 rounded border-zinc-300"
                   />
-                  <span>Include resource details</span>
+                  <span>Include guide / coordinator details</span>
                 </label>
               </div>
 
