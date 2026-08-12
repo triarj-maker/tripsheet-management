@@ -97,50 +97,63 @@ function formatTime(value: string | null) {
   }).format(new Date(Date.UTC(1970, 0, 1, hours, minutes)))
 }
 
-function formatDateTime(dateValue: string | null, timeValue: string | null) {
-  const formattedDate = formatDate(dateValue)
-
-  if (formattedDate === '-') {
-    return '-'
-  }
-
-  const formattedTime = formatTime(timeValue)
-
-  return formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate
-}
-
-function formatTripSheetSchedule(tripSheet: TripSheetRow) {
-  const start = formatDateTime(tripSheet.start_date, tripSheet.start_time)
-  const end = formatDateTime(tripSheet.end_date, tripSheet.end_time)
-
-  if (start === '-' && end === '-') {
-    return '-'
-  }
-
-  if (end === '-') {
-    return start
-  }
-
-  if (
-    (tripSheet.start_date ?? '') === (tripSheet.end_date ?? '') &&
-    (tripSheet.start_time ?? '') === (tripSheet.end_time ?? '')
-  ) {
-    return start
-  }
-
-  return `${start} → ${end}`
-}
-
 function sortTripSheetsChronologically(tripSheets: TripSheetRow[]) {
-  return [...tripSheets].sort((left, right) => {
-    const dateComparison = (left.start_date ?? '').localeCompare(right.start_date ?? '')
+  return tripSheets
+    .map((tripSheet, originalIndex) => ({ tripSheet, originalIndex }))
+    .sort((leftEntry, rightEntry) => {
+      const left = leftEntry.tripSheet
+      const right = rightEntry.tripSheet
+      const dateComparison = (left.start_date ?? '9999-12-31').localeCompare(
+        right.start_date ?? '9999-12-31'
+      )
 
-    if (dateComparison !== 0) {
-      return dateComparison
+      if (dateComparison !== 0) {
+        return dateComparison
+      }
+
+      const timeComparison = (left.start_time ?? '99:99').localeCompare(
+        right.start_time ?? '99:99'
+      )
+
+      return timeComparison || leftEntry.originalIndex - rightEntry.originalIndex
+    })
+    .map(({ tripSheet }) => tripSheet)
+}
+
+function groupTripSheetsByStartDate(tripSheets: TripSheetRow[]) {
+  const groups = new Map<string | null, TripSheetRow[]>()
+
+  for (const tripSheet of tripSheets) {
+    const date = tripSheet.start_date
+    const existingGroup = groups.get(date)
+
+    if (existingGroup) {
+      existingGroup.push(tripSheet)
+    } else {
+      groups.set(date, [tripSheet])
     }
+  }
 
-    return (left.start_time ?? '00:00').localeCompare(right.start_time ?? '00:00')
-  })
+  return Array.from(groups, ([date, modules]) => ({ date, modules }))
+}
+
+function formatModuleTimeRange(tripSheet: TripSheetRow) {
+  const startTime = formatTime(tripSheet.start_time)
+  const endTime = formatTime(tripSheet.end_time)
+
+  if (!startTime && !endTime) {
+    return 'Time not set'
+  }
+
+  if (!startTime) {
+    return `Ends ${endTime}`
+  }
+
+  if (!endTime || startTime === endTime) {
+    return startTime
+  }
+
+  return `${startTime} – ${endTime}`
 }
 
 export default async function AssignedTripViewPage({
@@ -215,6 +228,7 @@ export default async function AssignedTripViewPage({
   if (assignedTripSheets.length === 0) {
     redirect(getSignedInHomePath(role))
   }
+  const tripSheetDateGroups = groupTripSheetsByStartDate(allTripSheets)
 
   const currentNav =
     query.from === 'my-trip-sheets'
@@ -310,77 +324,118 @@ export default async function AssignedTripViewPage({
 
           <section className="space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">All Trip Sheets in This Trip</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Trip Timeline</h2>
               <p className="mt-1 text-sm text-gray-600">
-                Full trip timeline, with your assigned trip sheets clearly highlighted.
+                Full trip flow, organised by day and time.
               </p>
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 rounded-full border border-emerald-300 bg-emerald-100"
+                />
+                <span>Assigned to you</span>
+              </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {allTripSheets.map((tripSheet) => {
-                const isAssignedToCurrentUser = assignedTripSheetIds.has(tripSheet.id)
-                const cardClass = [
-                  'app-section-card block space-y-3 transition',
-                  isAssignedToCurrentUser
-                    ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-100 shadow-sm'
-                    : 'border-zinc-200 bg-zinc-50/40',
-                  isAssignedToCurrentUser
-                    ? 'hover:border-emerald-400 hover:bg-emerald-100/70'
-                    : 'hover:bg-zinc-50',
-                ]
-                  .filter(Boolean)
-                  .join(' ')
+            {tripSheetDateGroups.length === 0 ? (
+              <div className="app-section-card text-sm text-gray-600">
+                No modules have been added to this trip yet.
+              </div>
+            ) : null}
 
-                return (
-                  <Link
-                    key={tripSheet.id}
-                    href={`/trip-sheets/${tripSheet.id}?from=${fromParam}`}
-                    className={cardClass}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <p
-                          className={[
-                            'break-words text-lg font-bold leading-7 sm:min-w-0',
-                            isAssignedToCurrentUser ? 'text-gray-900' : 'text-gray-800',
-                          ].join(' ')}
-                        >
-                          {formatValue(tripSheet.title)}
-                        </p>
+            <div className="space-y-5 md:hidden">
+              {tripSheetDateGroups.map(({ date, modules }) => (
+                <section key={date ?? 'date-not-set'} className="space-y-2">
+                  <h3 className="border-b border-gray-200 pb-1.5 text-base font-semibold text-gray-900">
+                    {date ? formatDate(date) : 'Date not set'}
+                  </h3>
+                  <div className="space-y-2">
+                    {modules.map((tripSheet) => {
+                      const isAssignedToCurrentUser = assignedTripSheetIds.has(tripSheet.id)
 
-                        <span
+                      return (
+                        <Link
+                          key={tripSheet.id}
+                          href={`/trip-sheets/${tripSheet.id}?from=${fromParam}`}
                           className={[
-                            'w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium',
+                            'block rounded-lg border px-3 py-2.5 transition',
                             isAssignedToCurrentUser
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-zinc-100 text-gray-600',
+                              ? 'border-emerald-300 bg-emerald-50 shadow-sm hover:bg-emerald-100/70'
+                              : 'border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100/70',
                           ].join(' ')}
                         >
-                          {isAssignedToCurrentUser ? 'Assigned to you' : 'Other trip sheet'}
-                        </span>
-                      </div>
+                          <p className="text-xs font-medium text-gray-500">
+                            {formatModuleTimeRange(tripSheet)}
+                          </p>
+                          <p className="mt-0.5 break-words text-base font-semibold leading-5 text-gray-900">
+                            {formatValue(tripSheet.title)}
+                          </p>
+                          <span className="mt-1 block py-1 text-sm font-medium text-gray-700">
+                            View Details
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
 
-                      <p
-                        className={[
-                          'text-sm',
-                          isAssignedToCurrentUser ? 'text-gray-700' : 'text-gray-600',
-                        ].join(' ')}
-                      >
-                        {formatTripSheetSchedule(tripSheet)}
-                      </p>
+            <div className="hidden overflow-x-auto pb-2 md:block">
+              <div className="grid w-max grid-flow-col auto-cols-[minmax(16rem,20rem)] gap-4">
+                {tripSheetDateGroups.map(({ date, modules }) => (
+                  <section key={date ?? 'date-not-set'} className="space-y-3">
+                    <h3 className="border-b border-gray-300 pb-2 text-base font-semibold text-gray-900">
+                      {date ? formatDate(date) : 'Date not set'}
+                    </h3>
+                    <div className="space-y-3">
+                      {modules.map((tripSheet) => {
+                        const isAssignedToCurrentUser = assignedTripSheetIds.has(tripSheet.id)
+                        const cardClass = [
+                          'block rounded-xl border p-4 transition',
+                          isAssignedToCurrentUser
+                            ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-100 shadow-sm'
+                            : 'border-zinc-200 bg-zinc-50/40',
+                          isAssignedToCurrentUser
+                            ? 'hover:border-emerald-400 hover:bg-emerald-100/70'
+                            : 'hover:bg-zinc-50',
+                        ].join(' ')
+
+                        return (
+                          <Link
+                            key={tripSheet.id}
+                            href={`/trip-sheets/${tripSheet.id}?from=${fromParam}`}
+                            className={cardClass}
+                          >
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">
+                                {formatModuleTimeRange(tripSheet)}
+                              </p>
+                              <p
+                                className={[
+                                  'mt-1 break-words text-base font-semibold leading-6',
+                                  isAssignedToCurrentUser ? 'text-gray-900' : 'text-gray-800',
+                                ].join(' ')}
+                              >
+                                {formatValue(tripSheet.title)}
+                              </p>
+                            </div>
+
+                            <span
+                              className={[
+                                'mt-3 block text-sm font-medium',
+                                isAssignedToCurrentUser ? 'text-gray-700' : 'text-gray-600',
+                              ].join(' ')}
+                            >
+                              View Details
+                            </span>
+                          </Link>
+                        )
+                      })}
                     </div>
-
-                    <span
-                      className={[
-                        'text-sm font-medium',
-                        isAssignedToCurrentUser ? 'text-gray-700' : 'text-gray-600',
-                      ].join(' ')}
-                    >
-                      View Trip Sheet
-                    </span>
-                  </Link>
-                )
-              })}
+                  </section>
+                ))}
+              </div>
             </div>
           </section>
         </div>
