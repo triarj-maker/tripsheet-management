@@ -1,0 +1,642 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Mock Excavation Facilitator Playbook</title><style>
+
+    :root {
+      --bg: #f7f7f4;
+      --card: #ffffff;
+
+      --text: #1f2933;
+      --muted: #66717b;
+
+      --border: #e3e0d8;
+      --soft: #f1efe8;
+
+      --accent: #2f3a31;
+
+      --spoken-bg: #f2f5f1;
+      --instruction-bg: #faf9f6;
+
+      --max-width: 760px;
+    }
+
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      scroll-behavior: smooth;
+    }
+
+
+    body {
+      margin: 0;
+      padding: 10px;
+
+      background: var(--bg);
+      color: var(--text);
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+
+    .ej-card {
+      width: 100%;
+      max-width: var(--max-width);
+
+      margin: 0 auto;
+
+      padding:
+        16px
+        14px
+        24px;
+
+      background: var(--card);
+
+      border:
+        1px solid
+        var(--border);
+
+      border-radius: 14px;
+
+      box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.06);
+
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+
+    /* ===============================================
+       PAGE TITLE
+       =============================================== */
+
+    .ej-page-header {
+      margin:
+        -16px
+        -14px
+        20px;
+
+      padding:
+        20px
+        16px
+        17px;
+
+      background:
+        var(--soft);
+
+      border-bottom:
+        1px solid
+        var(--border);
+
+      border-radius:
+        14px
+        14px
+        0
+        0;
+    }
+
+
+    .ej-page-title {
+      color:
+        var(--accent);
+
+      font-size:
+        1.62rem;
+
+      line-height:
+        1.18;
+
+      font-weight:
+        750;
+
+      letter-spacing:
+        -0.02em;
+    }
+
+
+    /* ===============================================
+       HEADING HIERARCHY
+       =============================================== */
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      color:
+        var(--accent);
+
+      font-weight:
+        700;
+    }
+
+
+    h1 {
+      font-size:
+        1.45rem;
+
+      line-height:
+        1.22;
+
+      margin:
+        1.5em
+        0
+        0.55em;
+
+      padding-bottom:
+        0.35rem;
+
+      border-bottom:
+        2px solid
+        var(--border);
+    }
+
+
+    h2 {
+      font-size:
+        1.24rem;
+
+      line-height:
+        1.25;
+
+      margin:
+        1.35em
+        0
+        0.45em;
+    }
+
+
+    h3 {
+      font-size:
+        1.08rem;
+
+      line-height:
+        1.3;
+
+      margin:
+        1.15em
+        0
+        0.35em;
+    }
+
+
+    h4 {
+      font-size:
+        0.98rem;
+
+      line-height:
+        1.35;
+
+      margin:
+        1em
+        0
+        0.3em;
+    }
+
+
+    h5,
+    h6 {
+      font-size:
+        0.92rem;
+
+      line-height:
+        1.35;
+
+      margin:
+        0.9em
+        0
+        0.3em;
+    }
+
+
+    .ej-content > h1:first-child,
+    .ej-content > h2:first-child,
+    .ej-content > h3:first-child {
+      margin-top: 0;
+    }
+
+
+    /* ===============================================
+       NORMAL BODY TEXT
+       =============================================== */
+
+    p {
+      margin:
+        0.45em
+        0;
+    }
+
+
+    strong,
+    b {
+      font-weight:
+        700;
+    }
+
+
+    /* ===============================================
+       SPOKEN GUIDE DIALOGUE
+       =============================================== */
+
+    .ej-spoken {
+      margin:
+        0.72em
+        0;
+
+      padding:
+        0.67em
+        0.82em;
+
+      background:
+        var(--spoken-bg);
+
+      border-left:
+        3px solid
+        var(--accent);
+
+      border-radius:
+        0
+        8px
+        8px
+        0;
+
+      color:
+        #253029;
+
+      font-weight:
+        600;
+
+      line-height:
+        1.48;
+    }
+
+
+    /* ===============================================
+       GUIDE / FACILITATOR INSTRUCTIONS
+       =============================================== */
+
+    .ej-guide-note {
+      color:
+        var(--muted);
+
+      font-size:
+        0.9em;
+
+      line-height:
+        1.4;
+
+      font-style:
+        italic;
+
+      font-weight:
+        400;
+
+      background:
+        var(--instruction-bg);
+
+      padding:
+        0.05em
+        0.18em;
+
+      border-radius:
+        4px;
+    }
+
+
+    /* ===============================================
+       LISTS
+       =============================================== */
+
+    ul,
+    ol {
+      padding-left:
+        1.2rem;
+
+      margin:
+        0.45em
+        0
+        0.7em;
+    }
+
+
+    li {
+      margin:
+        0.25em
+        0;
+
+      padding-left:
+        0.05rem;
+    }
+
+
+    li > p {
+      margin:
+        0.2em
+        0;
+    }
+
+
+    /* ===============================================
+       BLOCK QUOTES
+       =============================================== */
+
+    blockquote {
+      margin:
+        0.9em
+        0;
+
+      padding:
+        0.75em
+        1em;
+
+      border-left:
+        4px solid
+        var(--accent);
+
+      background:
+        var(--soft);
+
+      border-radius:
+        10px;
+
+      color:
+        var(--text);
+    }
+
+
+    /* ===============================================
+       TABLES
+       =============================================== */
+
+    table {
+      width:
+        100%;
+
+      border-collapse:
+        collapse;
+
+      margin:
+        0.9em
+        0;
+
+      display:
+        block;
+
+      overflow-x:
+        auto;
+
+      -webkit-overflow-scrolling:
+        touch;
+
+      white-space:
+        nowrap;
+
+      border:
+        1px solid
+        var(--border);
+
+      border-radius:
+        10px;
+    }
+
+
+    th,
+    td {
+      border:
+        1px solid
+        var(--border);
+
+      padding:
+        0.55em
+        0.6em;
+
+      vertical-align:
+        top;
+
+      font-size:
+        0.9rem;
+
+      line-height:
+        1.45;
+    }
+
+
+    th {
+      background:
+        var(--soft);
+
+      font-weight:
+        700;
+
+      color:
+        var(--accent);
+    }
+
+
+    /* ===============================================
+       IMAGES
+       =============================================== */
+
+    img {
+      max-width:
+        100%;
+
+      height:
+        auto;
+
+      border-radius:
+        10px;
+
+      margin:
+        0.7em
+        0;
+    }
+
+
+    /* ===============================================
+       LINKS
+       =============================================== */
+
+    a {
+      color:
+        #0645ad;
+
+      text-decoration-thickness:
+        0.08em;
+
+      text-underline-offset:
+        0.18em;
+    }
+
+
+    /* ===============================================
+       HORIZONTAL RULE
+       =============================================== */
+
+    hr {
+      border:
+        0;
+
+      border-top:
+        1px solid
+        var(--border);
+
+      margin:
+        1.1em
+        0;
+    }
+
+
+    /* ===============================================
+       CODE
+       =============================================== */
+
+    code {
+      font-family:
+        monospace;
+
+      font-size:
+        0.92em;
+
+      background:
+        var(--soft);
+
+      padding:
+        0.15em
+        0.35em;
+
+      border-radius:
+        6px;
+    }
+
+
+    pre {
+      overflow-x:
+        auto;
+
+      background:
+        var(--soft);
+
+      padding:
+        1em;
+
+      border-radius:
+        12px;
+
+      font-size:
+        0.92rem;
+
+      line-height:
+        1.45;
+    }
+
+
+    /* ===============================================
+       LARGER SCREENS
+       =============================================== */
+
+    @media (min-width: 700px) {
+
+      body {
+        padding:
+          18px;
+
+        font-size:
+          17px;
+      }
+
+
+      .ej-card {
+        padding:
+          22px
+          24px
+          32px;
+      }
+
+
+      .ej-page-header {
+        margin:
+          -22px
+          -24px
+          24px;
+
+        padding:
+          25px
+          24px
+          20px;
+      }
+
+
+      .ej-page-title {
+        font-size:
+          1.95rem;
+      }
+
+
+      h1 {
+        font-size:
+          1.65rem;
+      }
+
+
+      h2 {
+        font-size:
+          1.4rem;
+      }
+
+
+      h3 {
+        font-size:
+          1.17rem;
+      }
+    }
+
+
+    /* ===============================================
+       PRINT
+       =============================================== */
+
+    @media print {
+
+      body {
+        background:
+          #ffffff;
+
+        padding:
+          0;
+      }
+
+
+      .ej-card {
+        max-width:
+          none;
+
+        border:
+          none;
+
+        box-shadow:
+          none;
+
+        border-radius:
+          0;
+      }
+
+
+      .ej-page-header {
+        border-radius:
+          0;
+      }
+    }
+
+  </style></head><body><main class="ej-card"><header class="ej-page-header"><div class="ej-page-title">Mock Excavation Facilitator Playbook</div></header><div class="ej-content"><h1>1. Module Snapshot</h1><p>Module Name: Mock Excavation</p><p>Location: Anegundi / Hampi activity site</p><p>Duration: Approximately 120 minutes. Allow up to 10 additional minutes if excavation runs behind.</p><p>Batch Size: 25&ndash;50 students</p><p>Teams: 4, one per pit</p><p>Typical Team Size: Approximately 6&ndash;13 students</p><p>Adult Support: 1 school teacher / staff member per pit team</p><p>Pit Size: 1 ft &times; 6 ft, divided into 4 quarters</p><p><strong>Core Learning Sequence:</strong></p><p>Excavation → Recording → Artefact Study → Pattern Recognition → Claims &amp; Evidence → Interpretation → Archaeological Briefing</p><h1>2. Purpose and Operating Model</h1><p>Mock Excavation gives students a structured experience of archaeological fieldwork and interpretation. The aim is not simply to uncover objects. Students must protect context, record finds, study individual artefacts, recognise patterns across an assemblage, and build an interpretation from evidence.</p><p>The batch is divided into four teams, one per pit. Students remain with the same team throughout the module.</p><p><strong>How the activity works:</strong></p><p>&bull; During excavation, students take defined roles and rotate after each quarter. The assigned teacher / staff member manages the rotation.</p><p>&bull; Each team excavates only its assigned pit and moves through Quarter 1 → Quarter 2 → Quarter 3 → Quarter 4.</p><p>&bull; Artefact Case Files are completed individually or in pairs, depending on age, cognitive ability, language and group readiness.</p><p>&bull; After artefact study, the full pit team works together on the Site Interpretation worksheet.</p><p>&bull; Each team ends with a 3-minute archaeological briefing, onsite by default.</p><p><strong>The central learning movement is:</strong></p><p>What did we find? → What patterns do we notice? → What can we reasonably claim? → What interpretation does the evidence support?</p><h1>3. Roles and Responsibilities</h1><h2>Lead Facilitator</h2><p>Owns the overall module flow.</p><p>&bull; Reach the site at least 30 minutes before the group and complete the readiness check.</p><p>&bull; Brief students and school staff, confirm four teams, and explain the excavation method and scoring.</p><p>&bull; Monitor all pits, especially progress at approximately 30 and 45 minutes.</p><p>&bull; Protect synthesis time. If a team is still excavating after the 10-minute catch-up window, intervene and extract remaining artefacts quickly.</p><p>&bull; Manage the transition into Artefact Case Files, the quick artefact-identification check, group synthesis and final briefings.</p><p>&bull; Score the activity and close the module.</p><h2>School Teacher / Staff Member</h2><p>One school teacher / staff member stays with each pit team throughout.</p><p>&bull; Keep the team together, safe and participating.</p><p>&bull; Assign excavation roles and rotate them after every quarter.</p><p>&bull; Help the team follow the worksheet sequence and maintain pace.</p><p>&bull; Encourage quieter students to participate and support the Student Group Leader.</p><p>&bull; Alert the lead facilitator if the team is falling behind or struggling.</p><p>The teacher / staff member facilitates process, behaviour and participation. They should not identify the final story of the pit, supply claims, or tell students which interpretation is correct.</p><h2>Student Group Leader</h2><p>The teacher appoints one Student Group Leader at the start.</p><p>&bull; Help keep the team on task and moving from one stage to the next.</p><p>&bull; Support orderly role rotation.</p><p>&bull; Keep track of the group worksheet and individual / paired Artefact Case Files.</p><p>&bull; Submit all worksheets neatly to the facilitator.</p><h2>Excavation Roles</h2><p>The excavation functions are: Excavators, Soil Screeners, Measurers, Record Keeper(s) and Table Manager(s). Adjust the number of students in each function to suit team size, but make sure every function is covered. Roles change after each quarter.</p><h1>4. Pre-Activity Setup</h1><p>The lead facilitator must reach the site at least 30 minutes before students arrive. The site should be fully ready before the group reaches the activity area.</p><h2>A. Worksheets and Stationery</h2><p>&bull; Carry the required number of Excavation &amp; Recording worksheets.</p><p>&bull; Carry enough Artefact Case Files for either individual or paired work.</p><p>&bull; Keep one correct Site Interpretation worksheet ready for each pit.</p><p>&bull; Carry sufficient pens / pencils, including extras.</p><p>&bull; Keep pit-wise worksheet sets separated for quick distribution.</p><h2>B. Pit and Activity Area Readiness</h2><p>&bull; Confirm all four 1 ft &times; 6 ft pits are prepared and clearly divided into four quarters.</p><p>&bull; Check chalk boundaries, quarter markings and pit flags.</p><p>&bull; Confirm tents / shade structures are set up over the work areas.</p><p>&bull; Set up tables for artefact cleaning, display and interpretation, with sufficient chairs for the later stages.</p><p>&bull; Confirm excavation tools, brushes, soil baskets, measuring tools and recording materials are ready.</p><p>&bull; Confirm the Pit Preparation Artefact Checklist has been completed. Do not disturb a prepared pit unnecessarily while checking.</p><h2>C. Toilet and Hygiene Readiness</h2><p>Physically check the toilets before students arrive.</p><p>&bull; Water supply is available and toilets are clean and usable.</p><p>&bull; Toilet paper and hand-wash soap are in place.</p><p>&bull; Hand sanitiser and extra tissues are available.</p><p>&bull; Dustbins are placed both at the toilet area and the activity site.</p><p>&bull; Drinking water is accessible.</p><p>&bull; First-aid kit is available.</p><h2>D. Escalation</h2><p>If preparation is incomplete, escalate immediately in this order:</p><p>Nagraj → Basava → Arjun</p><p>Do not wait until students arrive to raise a setup issue.</p><h1>5. Safety and Field Conduct</h1><h3>Non-Negotiables</h3><p>&bull; Students remain with their assigned pit team and follow their current excavation role.</p><p>&bull; The chalk-marked pit is protected field space. No stepping inside, walking across it, or leaning into it for support.</p><p>&bull; Excavation must be careful. No stabbing, forceful scraping or rushing. Slow down immediately around a hard object.</p><p>&bull; Artefacts are measured and recorded before removal.</p><p>&bull; Soil is checked before disposal, and recovered artefacts are handled carefully and placed on the table.</p><p>&bull; Sharp objects such as sickles are never swung or played with.</p><p>&bull; Students clean their hands after excavation and before eating or drinking. Water and shade remain accessible throughout.</p><h3>Field Conduct Line</h3><p class="ej-spoken">&ldquo;The pit is evidence. Once you disturb something without recording it, that information is lost. Work carefully, follow the method, and protect the evidence.&rdquo;</p><h1>6. Lead Facilitator Flow</h1><p>Use this section as the live operating sequence. The facilitator does not need to deliver it word-for-word, but the order should be followed.</p><h2>A. Arrival and Opening Briefing</h2><p><strong>Expected Duration: 5&ndash;10 minutes</strong></p><p>Before beginning, allow toilet / water use as needed and bring the full batch together.</p><p>Cover:</p><p>&bull; Archaeology begins with evidence. Observe and record before interpreting.</p><p>&bull; The pit must be excavated methodically, one quarter at a time.</p><p>&bull; This is not a race. Process and discipline are part of the score.</p><p>&bull; Students will later study the objects, find patterns and build an interpretation.</p><p>&bull; A guess is not yet an answer. Claims need evidence.</p><p>Suggested framing:</p><p class="ej-spoken">&ldquo;Today you are working as an archaeological field team. Your first job is not to guess the story. Protect and record the evidence first. By the end, your team should be able to explain what you think happened here and what evidence supports that interpretation.&rdquo;</p><h2>B. Team Allocation and Start</h2><p><strong>Expected Duration: 3&ndash;5 minutes</strong></p><p>&bull; Confirm the four teams and send each team to its assigned pit.</p><p>&bull; Confirm one teacher / staff member per team.</p><p>&bull; Ask the teacher to appoint the Student Group Leader.</p><p>&bull; Hand over the Excavation &amp; Recording worksheet and assign first-quarter roles.</p><p>&bull; Explain that roles rotate after every quarter and that the team is scored on excavation discipline, table display, group synthesis and the final briefing.</p><h2>C. Excavation</h2><p><strong>Expected Duration: 60 minutes</strong></p><p>Catch-Up Allowance: Up to 10 additional minutes if required</p><p><strong>Excavation order:</strong></p><p>Quarter 1 → Quarter 2 → Quarter 3 → Quarter 4</p><p>A quarter is complete only after finds have been carefully exposed, measured, recorded, removed, gently cleaned and placed on the artefact table. Students do not need to identify an unfamiliar object during excavation. A clear description is enough.</p><p><strong>Watch for:</strong></p><p>&bull; Pit-boundary discipline and careful excavation.</p><p>&bull; Measurement and recording before removal.</p><p>&bull; Role rotation after each quarter.</p><p>&bull; Soil screening and orderly transfer of artefacts to the table.</p><p>&bull; Participation across the team.</p><p><strong>Useful prompts:</strong></p><p>&bull; What has to happen before that object can be removed?</p><p>&bull; Has its position been measured and recorded?</p><p>&bull; Is this quarter actually complete?</p><p>&bull; Who is responsible for that task in your current role?</p><p>&bull; Are you observing, or are you guessing?</p><p><strong>Progress checks:</strong></p><p>&bull; At about 30 minutes, check every pit. If a team is behind, identify the bottleneck and help the teacher improve pace without taking over.</p><p>&bull; At about 45 minutes, check again. Tell delayed teams how much time remains and reduce avoidable delays.</p><p>&bull; At 60 minutes, allow up to 10 extra minutes where needed.</p><p>&bull; After the catch-up window, the facilitator locates and extracts any remaining artefacts quickly and moves the group on. Excavation must not consume synthesis time.</p><h2>D. Table Display and Excavation Close</h2><p><strong>Expected Duration: 2&ndash;3 minutes</strong></p><p>Before leaving excavation mode:</p><p>&bull; All recovered artefacts are on the table and gently cleaned.</p><p>&bull; The table is orderly and easy to inspect.</p><p>&bull; The recording sheet is complete.</p><p>&bull; Unrelated items are kept off the table.</p><p>Observe the Table Display score at this point.</p><p>Transition:</p><p class="ej-spoken">&ldquo;Tools down. Until now your job was to uncover, measure, record, protect and organise the evidence. Now we move from finding objects to studying what they might tell us.&rdquo;</p><h2>E. Short Reset</h2><p><strong>Expected Duration: 10 minutes</strong></p><p>Use this as a brief physical reset: coconut water / water, toilet use if needed, hand washing or sanitiser. Keep students near their pit team and artefact table. Do not let this become a long break. Stagger it in a way that teams get the break as they are done with excavation.</p><h2></h2><h2>F. Artefact Case File</h2><p><strong>Expected Duration: 10&ndash;15 minutes</strong></p><p>The facilitator decides in advance whether the group works individually or in pairs. Assign one artefact to each student or pair and keep the artefacts at the pit table.</p><p><strong>Students should:</strong></p><p>&bull; Describe what they can actually see and feel before interpreting.</p><p>&bull; Sketch the artefact and note material, shape, condition, wear or decoration.</p><p>&bull; Suggest a possible use and explain what evidence led them there.</p><p>&bull; Consider what the artefact may reveal about the people who made or used it.</p><p>&bull; Consider skills, tools or technologies involved in making it.</p><p><strong>Useful prompts:</strong></p><p>&bull; What can you actually see?</p><p>&bull; What about the object makes you think that?</p><p>&bull; Is that an observation or an inference?</p><p>&bull; What are you still unsure about?</p><p>Do not build the full pit story during this stage.</p><h2>G. Artefact Identification Check</h2><p><strong>Expected Duration: Approximately 30 seconds per team</strong></p><p>Immediately after the Artefact Case Files, quickly scan each table. Where students are unfamiliar with a traditional object, clarify only its basic identity or established practical function.</p><p>Examples include agricultural sickles, winnowing baskets, cattle decorations, ritual implements, manuscript / stylus, or betel-related objects.</p><p>Key rule: Give specialist identification where needed. Do not give the interpretation.</p><h2>H. Group Site Interpretation</h2><p><strong>Expected Duration: Approximately 30 minutes</strong></p><p>Students now work as one pit team using the correct Site Interpretation worksheet:</p><p>Investigation Brief → Context Clue → Patterns We Notice → Claims &amp; Evidence → Our Interpretation → Archaeological Briefing Plan</p><p>The facilitator should protect this time. This is the main learning landing point of the module.</p><p><strong>Teacher / staff role:</strong></p><p>&bull; Keep the team together and make sure students discuss before writing.</p><p>&bull; Bring quieter students into the conversation.</p><p>&bull; Keep the group moving through the worksheet without supplying interpretations.</p><p><strong>Useful facilitator prompts:</strong></p><p>&bull; What pattern do you notice?</p><p>&bull; Which artefacts seem connected?</p><p>&bull; What evidence supports that claim?</p><p>&bull; What else could explain it?</p><p>&bull; How confident are you?</p><p>&bull; Can you make that claim from what is actually present?</p><p><strong>Critical rule:</strong></p><p>Interpret from what is present at the site. Do not treat something that is missing as proof that it never existed.</p><h2>I. Final Archaeological Briefings</h2><p><strong>Expected Duration: 3 minutes per team, plus transitions</strong></p><p>Location: Onsite by default</p><p>Each team chooses 2 or 3 speakers.</p><p>The briefing should:</p><p>&bull; Present the team&rsquo;s strongest claims.</p><p>&bull; Explain the evidence supporting each claim.</p><p>&bull; Avoid listing every artefact.</p><p>&bull; Use careful language where certainty is limited.</p><p><strong>Recommended structure:</strong></p><p class="ej-spoken">&ldquo;We think ___ because we found / noticed ___.&rdquo;</p><p><strong>If needed, prompt with:</strong></p><p>&bull; What is your strongest claim?</p><p>&bull; Which evidence best supports it?</p><p>&bull; What are you still uncertain about?</p><h2>J. Closing</h2><p>Keep the close brief and return students to the method they practised:</p><p>Evidence → Patterns → Claims → Interpretation</p><p>Suggested closing line:</p><p class="ej-spoken">&ldquo;Archaeology did not happen simply when you found the objects. It happened when you recorded them, compared them, noticed patterns, argued from evidence and decided how much the evidence allowed you to claim.&rdquo;</p><h1>7. Scoring</h1><p><strong>Total: 30 points</strong></p><p><strong>Excavation Discipline &mdash; 10 points</strong></p><p>Score the quality of excavation method: pit-boundary discipline, careful digging, role rotation, recording before removal, following the quarter sequence and team coordination.</p><p><strong>Table Display &mdash; 5 points</strong></p><p>Score the condition and organisation of the table at excavation close: artefacts gently cleaned, arranged neatly, easy to inspect and free of unrelated clutter.</p><p><strong>Group Synthesis Worksheet &mdash; 10 points</strong></p><p>Score the quality of pattern recognition, evidence-based claims, reasonable inferences, careful use of uncertainty and meaningful completion of the Site Interpretation worksheet.</p><p><strong>Final Archaeological Briefing &mdash; 5 points</strong></p><p>Score the strength of selected claims, connection to evidence, clarity of communication and appropriate uncertainty.</p><h1>8. Materials Required</h1><h3>Student Materials</h3><p>Excavation &amp; Recording worksheets, Artefact Case Files, one correct Site Interpretation worksheet per pit, pens / pencils and spares.</p><h3>Excavation and Site Materials</h3><p>Four prepared pits, pit flags, chalk, excavation tools, brushes, soil baskets / containers, measuring tools marked in inches, artefact tables, chairs, tents / shade structures.</p><h3>Site and Hygiene Materials</h3><p>Drinking water, coconut water if planned, hand sanitiser, hand-wash soap, toilet paper, extra tissues, dustbins at the activity site and toilets, first-aid kit.</p><h3>Facilitator Materials</h3><p>Pit Preparation Artefact Checklist, scoring sheet / score-recording method, spare worksheets and spare stationery.</p><h1>9. Facilitator Background Notes</h1><p>These notes are for facilitator preparation. They are not a lecture to be delivered during the activity.</p><h2>A. Core Facilitation Principles</h2><p>&bull; Observation comes before inference.</p><p>&bull; Claims must be supported by specific evidence or patterns.</p><p>&bull; Uncertainty is acceptable when the evidence is ambiguous.</p><p>&bull; Do not reward confidence without evidence.</p><p>&bull; Help students identify unfamiliar objects when needed, but do not give away the pit story.</p><h2>B. Pit 01 &mdash; Kitchen / Modest Household</h2><p><strong>Interpretive direction: A modest household kitchen in a dry landscape outside the capital.</strong></p><p>&bull; Terracotta, wood, coconut shell and stone dominate many everyday objects.</p><p>&bull; Grain, cooking vessels, spatulas, stove, bowl, ladle, pounding stone and butter churner reveal food storage and varied cooking techniques.</p><p>&bull; The assemblage can support discussion of food habits, household economy, technology and adaptation to a dry environment.</p><p>&bull; Chillies are a chronological clue. Their presence means the layer is unlikely to predate the arrival and spread of chillies in India after new trade contacts developed in the 1500s. It does not provide an exact date.</p><p>Caution: Do not claim poverty simply because metal utensils are absent. Interpret from the materials that are present.</p><h2>C. Pit 02 &mdash; Religious / Priest&rsquo;s Household</h2><p><strong>Interpretive direction: A private ritual space associated with a learned Vaishnavite or priestly household connected to the temple world.</strong></p><p>&bull; Gopala Krishna and Vaishnavite objects point toward religious practice.</p><p>&bull; Ritual vessels, lamp, bell, aarti implements, sacred substances, beads and thread suggest repeated ritual activity.</p><p>&bull; Manuscript and stylus support learning, literacy and preservation of knowledge.</p><p>&bull; Copper, brass and bronze objects, together with the Context Clue, can support discussion of status, donations and temple connections.</p><p>Caution: Students are not expected to identify specialist sectarian details without support. Clarify the object where needed, not the household interpretation.</p><h2>D. Pit 03 &mdash; Dancer / Performer</h2><p><strong>Interpretive direction: The personal space or residence of a wealthy professional performer connected to temple and elite cultural networks.</strong></p><p>&bull; Gejje / ghungroo, cymbals, jewellery and grooming objects support performance as a profession or identity.</p><p>&bull; Nataraja and lamp connect performance with devotional culture.</p><p>&bull; Jewellery and finely crafted personal objects support material wealth or patronage.</p><p>&bull; Non-local objects, grooming and adornment can open discussion of trade, cosmopolitan taste, status and elite social networks.</p><p>Caution: Wealth does not equal royalty. Do not turn the interpretation into &ldquo;queen&rdquo; or &ldquo;princess&rdquo; without evidence.</p><h2>E. Pit 04 &mdash; Farmer / Rice-Growing Agricultural Household</h2><p><strong>Interpretive direction: A rice-growing household near Anegundi, potentially around a seasonal harvest-related celebration and connected to Vijayanagara&rsquo;s wider economy.</strong></p><p>&bull; Rice-harvesting sickle, winnowing basket, husked rice and vessels represent different stages of grain work.</p><p>&bull; Two differently shaped sickles support discussion of specialised tools and agricultural knowledge.</p><p>&bull; Repeated cattle decorations can support careful discussion of more than one bull or a working pair.</p><p>&bull; Decorated cattle objects, painted pot, clay lamp and grain-related evidence together can support a seasonal or harvest-related celebration, while the Context Clue connects rural production to Vijayanagara&rsquo;s food needs and markets.</p><p>Caution: Keep the festival name ambiguous. The evidence supports a seasonal or harvest-related celebration, not a definite named festival.</p><h2>F. Common Facilitation Errors to Avoid</h2><p>&bull; Giving students the pit story too early.</p><p>&bull; Treating unfamiliarity with a traditional object as poor reasoning.</p><p>&bull; Allowing excavation to overrun and consume synthesis time.</p><p>&bull; Letting students remove artefacts before measuring and recording.</p><p>&bull; Telling students what claims to write or accepting unsupported claims because they sound plausible.</p><p>&bull; Rushing the Group Synthesis worksheet or allowing the final briefing to become a list of artefacts.</p></div></main></body></html>

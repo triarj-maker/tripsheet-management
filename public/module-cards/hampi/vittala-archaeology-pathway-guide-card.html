@@ -1,0 +1,642 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Vittala - Archaeology Pathway - Guide Card</title><style>
+
+    :root {
+      --bg: #f7f7f4;
+      --card: #ffffff;
+
+      --text: #1f2933;
+      --muted: #66717b;
+
+      --border: #e3e0d8;
+      --soft: #f1efe8;
+
+      --accent: #2f3a31;
+
+      --spoken-bg: #f2f5f1;
+      --instruction-bg: #faf9f6;
+
+      --max-width: 760px;
+    }
+
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      scroll-behavior: smooth;
+    }
+
+
+    body {
+      margin: 0;
+      padding: 10px;
+
+      background: var(--bg);
+      color: var(--text);
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+
+    .ej-card {
+      width: 100%;
+      max-width: var(--max-width);
+
+      margin: 0 auto;
+
+      padding:
+        16px
+        14px
+        24px;
+
+      background: var(--card);
+
+      border:
+        1px solid
+        var(--border);
+
+      border-radius: 14px;
+
+      box-shadow:
+        0 8px 24px
+        rgba(0, 0, 0, 0.06);
+
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+
+    /* ===============================================
+       PAGE TITLE
+       =============================================== */
+
+    .ej-page-header {
+      margin:
+        -16px
+        -14px
+        20px;
+
+      padding:
+        20px
+        16px
+        17px;
+
+      background:
+        var(--soft);
+
+      border-bottom:
+        1px solid
+        var(--border);
+
+      border-radius:
+        14px
+        14px
+        0
+        0;
+    }
+
+
+    .ej-page-title {
+      color:
+        var(--accent);
+
+      font-size:
+        1.62rem;
+
+      line-height:
+        1.18;
+
+      font-weight:
+        750;
+
+      letter-spacing:
+        -0.02em;
+    }
+
+
+    /* ===============================================
+       HEADING HIERARCHY
+       =============================================== */
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      color:
+        var(--accent);
+
+      font-weight:
+        700;
+    }
+
+
+    h1 {
+      font-size:
+        1.45rem;
+
+      line-height:
+        1.22;
+
+      margin:
+        1.5em
+        0
+        0.55em;
+
+      padding-bottom:
+        0.35rem;
+
+      border-bottom:
+        2px solid
+        var(--border);
+    }
+
+
+    h2 {
+      font-size:
+        1.24rem;
+
+      line-height:
+        1.25;
+
+      margin:
+        1.35em
+        0
+        0.45em;
+    }
+
+
+    h3 {
+      font-size:
+        1.08rem;
+
+      line-height:
+        1.3;
+
+      margin:
+        1.15em
+        0
+        0.35em;
+    }
+
+
+    h4 {
+      font-size:
+        0.98rem;
+
+      line-height:
+        1.35;
+
+      margin:
+        1em
+        0
+        0.3em;
+    }
+
+
+    h5,
+    h6 {
+      font-size:
+        0.92rem;
+
+      line-height:
+        1.35;
+
+      margin:
+        0.9em
+        0
+        0.3em;
+    }
+
+
+    .ej-content > h1:first-child,
+    .ej-content > h2:first-child,
+    .ej-content > h3:first-child {
+      margin-top: 0;
+    }
+
+
+    /* ===============================================
+       NORMAL BODY TEXT
+       =============================================== */
+
+    p {
+      margin:
+        0.45em
+        0;
+    }
+
+
+    strong,
+    b {
+      font-weight:
+        700;
+    }
+
+
+    /* ===============================================
+       SPOKEN GUIDE DIALOGUE
+       =============================================== */
+
+    .ej-spoken {
+      margin:
+        0.72em
+        0;
+
+      padding:
+        0.67em
+        0.82em;
+
+      background:
+        var(--spoken-bg);
+
+      border-left:
+        3px solid
+        var(--accent);
+
+      border-radius:
+        0
+        8px
+        8px
+        0;
+
+      color:
+        #253029;
+
+      font-weight:
+        600;
+
+      line-height:
+        1.48;
+    }
+
+
+    /* ===============================================
+       GUIDE / FACILITATOR INSTRUCTIONS
+       =============================================== */
+
+    .ej-guide-note {
+      color:
+        var(--muted);
+
+      font-size:
+        0.9em;
+
+      line-height:
+        1.4;
+
+      font-style:
+        italic;
+
+      font-weight:
+        400;
+
+      background:
+        var(--instruction-bg);
+
+      padding:
+        0.05em
+        0.18em;
+
+      border-radius:
+        4px;
+    }
+
+
+    /* ===============================================
+       LISTS
+       =============================================== */
+
+    ul,
+    ol {
+      padding-left:
+        1.2rem;
+
+      margin:
+        0.45em
+        0
+        0.7em;
+    }
+
+
+    li {
+      margin:
+        0.25em
+        0;
+
+      padding-left:
+        0.05rem;
+    }
+
+
+    li > p {
+      margin:
+        0.2em
+        0;
+    }
+
+
+    /* ===============================================
+       BLOCK QUOTES
+       =============================================== */
+
+    blockquote {
+      margin:
+        0.9em
+        0;
+
+      padding:
+        0.75em
+        1em;
+
+      border-left:
+        4px solid
+        var(--accent);
+
+      background:
+        var(--soft);
+
+      border-radius:
+        10px;
+
+      color:
+        var(--text);
+    }
+
+
+    /* ===============================================
+       TABLES
+       =============================================== */
+
+    table {
+      width:
+        100%;
+
+      border-collapse:
+        collapse;
+
+      margin:
+        0.9em
+        0;
+
+      display:
+        block;
+
+      overflow-x:
+        auto;
+
+      -webkit-overflow-scrolling:
+        touch;
+
+      white-space:
+        nowrap;
+
+      border:
+        1px solid
+        var(--border);
+
+      border-radius:
+        10px;
+    }
+
+
+    th,
+    td {
+      border:
+        1px solid
+        var(--border);
+
+      padding:
+        0.55em
+        0.6em;
+
+      vertical-align:
+        top;
+
+      font-size:
+        0.9rem;
+
+      line-height:
+        1.45;
+    }
+
+
+    th {
+      background:
+        var(--soft);
+
+      font-weight:
+        700;
+
+      color:
+        var(--accent);
+    }
+
+
+    /* ===============================================
+       IMAGES
+       =============================================== */
+
+    img {
+      max-width:
+        100%;
+
+      height:
+        auto;
+
+      border-radius:
+        10px;
+
+      margin:
+        0.7em
+        0;
+    }
+
+
+    /* ===============================================
+       LINKS
+       =============================================== */
+
+    a {
+      color:
+        #0645ad;
+
+      text-decoration-thickness:
+        0.08em;
+
+      text-underline-offset:
+        0.18em;
+    }
+
+
+    /* ===============================================
+       HORIZONTAL RULE
+       =============================================== */
+
+    hr {
+      border:
+        0;
+
+      border-top:
+        1px solid
+        var(--border);
+
+      margin:
+        1.1em
+        0;
+    }
+
+
+    /* ===============================================
+       CODE
+       =============================================== */
+
+    code {
+      font-family:
+        monospace;
+
+      font-size:
+        0.92em;
+
+      background:
+        var(--soft);
+
+      padding:
+        0.15em
+        0.35em;
+
+      border-radius:
+        6px;
+    }
+
+
+    pre {
+      overflow-x:
+        auto;
+
+      background:
+        var(--soft);
+
+      padding:
+        1em;
+
+      border-radius:
+        12px;
+
+      font-size:
+        0.92rem;
+
+      line-height:
+        1.45;
+    }
+
+
+    /* ===============================================
+       LARGER SCREENS
+       =============================================== */
+
+    @media (min-width: 700px) {
+
+      body {
+        padding:
+          18px;
+
+        font-size:
+          17px;
+      }
+
+
+      .ej-card {
+        padding:
+          22px
+          24px
+          32px;
+      }
+
+
+      .ej-page-header {
+        margin:
+          -22px
+          -24px
+          24px;
+
+        padding:
+          25px
+          24px
+          20px;
+      }
+
+
+      .ej-page-title {
+        font-size:
+          1.95rem;
+      }
+
+
+      h1 {
+        font-size:
+          1.65rem;
+      }
+
+
+      h2 {
+        font-size:
+          1.4rem;
+      }
+
+
+      h3 {
+        font-size:
+          1.17rem;
+      }
+    }
+
+
+    /* ===============================================
+       PRINT
+       =============================================== */
+
+    @media print {
+
+      body {
+        background:
+          #ffffff;
+
+        padding:
+          0;
+      }
+
+
+      .ej-card {
+        max-width:
+          none;
+
+        border:
+          none;
+
+        box-shadow:
+          none;
+
+        border-radius:
+          0;
+      }
+
+
+      .ej-page-header {
+        border-radius:
+          0;
+      }
+    }
+
+  </style></head><body><main class="ej-card"><header class="ej-page-header"><div class="ej-page-title">Vittala - Archaeology Pathway - Guide Card</div></header><div class="ej-content"><h2><strong>Use During Live Module</strong></h2><p>Live guide reference. Use this for sequence, key questions, visual aids, transitions and what must land. Read the master playbook before the trip for full depth and script training.</p><h1><strong>Snapshot</strong></h1><p><strong>Total Vittala runtime:</strong> 140 mins</p><p><strong>Guide-led academic route:</strong> Gopura 15 mins → Kalyana Mantapa 10 mins → Ranga Mantapa 15 mins → Stone Chariot 10 mins</p><p><strong>Group:</strong> approximately 20 students per Guide</p><p><strong>Academic arc:</strong> Observe → Interpret → Build Evidence → Test a Claim</p><h1><strong>Core Arc</strong></h1><p>Students use the monuments themselves as archaeological evidence. The pathway moves from observing and interpreting a site, to reading sculpture, to combining scientific and historical evidence, and finally to testing claims independently.</p><h1><strong>Guide Rules</strong></h1><ul><li>Keep each stop focused on one archaeological idea.</li><li>Ask questions sparingly. Take 1&ndash;2 responses unless the card says otherwise, then move forward.</li><li>Start with what students can see before explaining what it might mean.</li><li>Do not add extra questions simply because there is time.</li><li>Do not touch, tap, strike or physically test protected monuments.</li><li>Use visual aids as evidence support, not as separate lectures.</li><li>At Stone Chariot, do not reveal answers during team investigation.</li></ul><h1><strong>1. Vittala Entrance: Gopura</strong></h1><p><strong>Time:</strong> 15 mins</p><p><strong>Core idea:</strong> Conservation protects archaeological evidence.</p><p><strong>Central question:</strong> How do we protect an old monument without losing the clues it gives us about the past?</p><h3><strong>Before You Begin</strong></h3><p><em class="ej-guide-note">The Lead Facilitator has already introduced Observation = what we can see and Interpretation = what the evidence might mean. Build on this. Do not repeat the full introduction.</em></p><h3><strong>LOOK</strong></h3><p class="ej-spoken">&ldquo;Before I tell you anything about this place, look at this structure for a moment. What are you looking at?&rdquo;</p><p><em class="ej-guide-note">Take up to 3 responses. Do not point out repaired areas yet.</em></p><h3><strong>ASK: THE CONSERVATION PROBLEM</strong></h3><p class="ej-spoken">&ldquo;When an old monument is damaged, what should we do with it?&rdquo;</p><p><em class="ej-guide-note">Take 2&ndash;3 responses.</em></p><p><em class="ej-guide-note">Explain the dilemma: replacing damaged material may make the monument look complete, but the new material is not original historical evidence. Doing nothing may allow further deterioration.</em></p><h3><strong>SHORT ANALOGY: SHIP OF THESEUS</strong></h3><p class="ej-spoken">&ldquo;If every original part of a ship is gradually replaced, is it still the same ship?&rdquo;</p><p><em class="ej-guide-note">Take 2&ndash;3 responses, then apply the same problem to an ancient monument: preservation versus reconstruction.</em></p><h3><strong>RETURN TO THE GOPURA</strong></h3><p class="ej-spoken">&ldquo;Do all portions of the gopura look the same?&rdquo;</p><p class="ej-spoken">&ldquo;What differences can you see?&rdquo;</p><p class="ej-spoken">&ldquo;Which portions may have been worked on later? What makes you think that?&rdquo;</p><p><em class="ej-guide-note">Guide attention only if needed: surface, finish, weathering, completeness and stucco styling.</em></p><h3><strong>Use Visual Aid</strong></h3><p><em class="ej-guide-note">Historical photograph of Vittala Gopura, 1856. Show the 1856 photograph only after students have first observed the present Gopura. Use it as additional evidence for comparison.</em></p><h3><strong>EXPLAIN</strong></h3><p>Some portions show later conservation and reconstruction while others preserve more weathered older fabric.</p><p>Twentieth-century conservation sometimes recreated missing architectural or stucco portions.</p><p>At Vittala, later stucco reconstruction was halted after objections to the quality and finish of the work.</p><p>A reconstruction may make the monument look more complete, but the new work is not original Vijayanagara-period evidence.</p><h3><strong>Must Land</strong></h3><p class="ej-spoken">&ldquo;Conservation is not about making an old building look new again.&rdquo;</p><p class="ej-spoken">&ldquo;How do we protect this monument without losing the clues it gives us about the past?&rdquo;</p><h3><strong>Orientation</strong></h3><p>This is a gopura, an entrance gateway into the walled inner courtyard. It is close to 50 feet high. Vittala has three gopuras towards the east, north and south.</p><h3><strong>Transition</strong></h3><p class="ej-spoken">&ldquo;At our next stop, we&rsquo;ll look at sculptures and ask what they can tell us about the people represented here.&rdquo;</p><h1><strong>2. Kalyana Mantapa</strong></h1><p><strong>Time:</strong> 10 mins</p><p><strong>Core idea:</strong> Sculpture can become evidence about people and ideas.</p><p><strong>Central question:</strong> What can these sculptures tell us about the people represented here?</p><h3><strong>ORIENT</strong></h3><p class="ej-spoken">&ldquo;This is the Kalyana Mantapa, traditionally understood as a ceremonial wedding hall associated with the temple.&rdquo;</p><p><em class="ej-guide-note">For this stop, focus on the sculptures.</em></p><h3><strong>LOOK: THE YALI</strong></h3><p class="ej-spoken">&ldquo;This is a mythical creature called a Yali. Break it into parts. What different animal features can you see?&rdquo;</p><p><em class="ej-guide-note">Take up to 4 responses.</em></p><p><em class="ej-guide-note">Land the observations: lion-like mane, horse-like body, deer-like pointed ears, eagle-like talons on the hind legs.</em></p><h3><strong>INTERPRET</strong></h3><p>The Yali brings together courage and leadership, responsiveness, dependability and quickness. It becomes a symbol of a powerful warrior and protector.</p><p class="ej-spoken">&ldquo;A Yali is not evidence that such an animal really existed. It is evidence of an idea people chose to show in their architecture.&rdquo;</p><h3><strong>LOOK: THE RIDERS</strong></h3><p><em class="ej-guide-note">Direct students to two adjacent mounted riders.</em></p><p class="ej-spoken">&ldquo;What differences can you see in their clothing, hairstyle or headgear, and weapons?&rdquo;</p><p><em class="ej-guide-note">Take 2&ndash;3 responses.</em></p><h3><strong>EXPLAIN</strong></h3><p>The riders represent diverse warlords of Vijayanagara from different parts of the empire and regions beyond it.</p><p>The repeated image presents the army as protectors of the kingdom, temples, sacred spaces and deity.</p><p>Placing the warlord on the Yali links the warrior with the qualities represented by the Yali.</p><h3><strong>Use Visual Aid</strong></h3><p><em class="ej-guide-note">Krishnadevaraya Use briefly to compare the royal headgear on the Tirupati bronze of Krishnadevaraya with the headgear visible on one of the Yali warlords, connecting royal imagery with the martial role of the warlord.</em></p><h3><strong>Must Land</strong></h3><p class="ej-spoken">&ldquo;First we looked at what was actually carved. Then we asked what those details might mean.&rdquo;</p><p class="ej-spoken">&ldquo;That is how sculpture can become evidence about people and ideas from the past.&rdquo;</p><h3><strong>Transition</strong></h3><p class="ej-spoken">&ldquo;At our next stop, we will start with a claim and see how different kinds of evidence can help us investigate it.&rdquo;</p><h1><strong>3. Ranga Mantapa</strong></h1><p><strong>Time:</strong> 15 mins</p><p><strong>Core idea:</strong> Archaeologists strengthen an interpretation by combining different kinds of evidence, including scientific evidence.</p><p><strong>Central question:</strong> What evidence can tell us what this hall was used for, and whether its pillars were deliberately designed to produce sound?</p><p><strong>Materials:</strong> tuning fork + rubber activator + Tuning Fork: How Sound Is Created infographic + Why Stone Matters: Pink Feldspar &amp; Hampi Granite infographic + Musicians &amp; Dancers of the Ranga Mantapa visual aid</p><h3><strong>ORIENT</strong></h3><p class="ej-spoken">&ldquo;This is the Ranga Mantapa. The word Ranga is connected with performance, stage and art.&rdquo;</p><p class="ej-spoken">&ldquo;This hall has 56 main pillars. Many have smaller stone columns carved within them.&rdquo;</p><p class="ej-spoken">&ldquo;At this stop, we are investigating two questions: what happened in this hall, and why are these called musical pillars?&rdquo;</p><h3><strong>FRAME THE CLAIM</strong></h3><p class="ej-spoken">&ldquo;These are popularly called the musical pillars. The claim is that some of these smaller stone columns can produce different sounds when struck.&rdquo;</p><p class="ej-spoken">&ldquo;But we cannot strike them ourselves. This is a protected monument.&rdquo;</p><p class="ej-spoken">&ldquo;So how can we investigate the claim without touching the pillars?&rdquo;</p><p><em class="ej-guide-note">Take 2&ndash;3 responses. Land: observe the monument, experiment with something else, examine other evidence and use research.</em></p><h3><strong>EVIDENCE 1: PILLAR FORM</strong></h3><p class="ej-spoken">&ldquo;Are the smaller columns all the same?&rdquo;</p><p><em class="ej-guide-note">Land: different lengths, thicknesses and shapes; smaller columns are carved as part of the same stone block as the larger pillar.</em></p><p>Different forms alone do not prove deliberate acoustic design.</p><h3><strong>EVIDENCE 2: VIBRATION AND RESONANCE</strong></h3><p><em class="ej-guide-note">Use the tuning fork only with the rubber activator.</em></p><p class="ej-spoken">&ldquo;What do you think is producing the sound?&rdquo;</p><p><em class="ej-guide-note">Land: vibration pushes and pulls surrounding air; pressure changes travel as sound. Length and thickness affect natural frequency. Different frequencies give different pitch. Resonance is strong vibration at a natural frequency.</em></p><p><em class="ej-guide-note">Use Tuning Fork: How Sound Is Created infographic to make vibration, compression and rarefaction, frequency and pitch visible. Do not turn this into a separate physics lecture.</em></p><h3><strong>EVIDENCE 3: WHY THE STONE MATTERS</strong></h3><p class="ej-spoken">&ldquo;The shape of the pillar is one part of the story. The other part is the stone itself.&rdquo;</p><p>Hampi granite contains pink feldspar in a higher proportion than is normally found in granite. Its structure allows vibration to travel through the stone more easily without damping quickly.</p><p>Put the two pieces together: column form affects how it vibrates; stone properties affect how vibration travels and lasts.</p><p><em class="ej-guide-note">Use Why Stone Matters: Pink Feldspar &amp; Hampi Granite infographic only to support this explanation.</em></p><h3><strong>EVIDENCE 4: SCULPTURES AND FUNCTION</strong></h3><p><em class="ej-guide-note">Show Musicians &amp; Dancers of the Ranga Mantapa visual aid.</em></p><p class="ej-spoken">&ldquo;These are sculptures from inside this hall. What activities can you see?&rdquo;</p><p><em class="ej-guide-note">Land: musicians and dancers provide strong evidence that music, dance and performance were important activities in this space.</em></p><h3><strong>EVIDENCE 5: REPORTED SOUND ASSOCIATIONS</strong></h3><p>Columns associated with the cymbal player have been reported to produce higher-pitched sounds, while columns associated with the mridangam player have been reported to produce deeper sounds.</p><h3><strong>EVIDENCE 6: HISTORICAL KNOWLEDGE</strong></h3><p>Historical architecture and sculpting texts describe testing stone for qualities including sound. Later texts discuss links between pillar form and sound. Naturally resonant rocks were also used as rock gongs in the wider Hampi region before Vijayanagara.</p><h3><strong>MODERN SCIENTIFIC RESEARCH</strong></h3><p>Researchers can measure column dimensions, study the stone, record frequencies and examine vibration.</p><p class="ej-spoken">&ldquo;The study of sound in archaeological and historical places is called archaeoacoustics.&rdquo;</p><h3><strong>BUILD THE EVIDENCE STACK</strong></h3><p><em class="ej-guide-note">Count six forms of evidence: pillar design; vibration and resonance; mineral composition and crystal structure; musician and dancer sculptures; reported sound associations; historical knowledge about stone, shape and sound.</em></p><h3><strong>Ask</strong></h3><p class="ej-spoken">&ldquo;Does any one of these pieces prove everything?&rdquo;</p><h3><strong>Must Land</strong></h3><p class="ej-spoken">&ldquo;No. But when several different kinds of evidence point in the same direction, our interpretation becomes stronger.&rdquo;</p><p class="ej-spoken">&ldquo;That is scientific archaeology: ask a question, collect different kinds of evidence, test the idea, and make a conclusion based on the evidence.&rdquo;</p><h3><strong>Transition</strong></h3><p class="ej-spoken">&ldquo;At the Stone Chariot, you will use the same way of thinking yourselves.&rdquo;</p><h1><strong>4. Stone Chariot</strong></h1><p><strong>Time:</strong> 10 mins</p><p><strong>Led by:</strong> Guide or Lead Facilitator</p><p><strong>Core idea:</strong> Students independently test a claim using visible archaeological evidence.</p><p><strong>Central question:</strong> Can we test a claim using what we can actually observe?</p><p><strong>Materials:</strong> A5 Stone Chariot Investigation Cards</p><h3><strong>INTRODUCE</strong></h3><p class="ej-spoken">&ldquo;We have now reached the Stone Chariot.&rdquo;</p><p>This structure is a shrine dedicated to Garuda, the vahana of Vittala, built in the architectural form of a chariot.</p><h3><strong>RECALL THE METHOD</strong></h3><p><em class="ej-guide-note">Briefly connect the previous stops: Gopura = conservation; Kalyana = observe then interpret; Ranga = investigate a claim using multiple kinds of evidence.</em></p><p><em class="ej-guide-note">Land the sequence: Claim → Observation → Interpretation → Conclusion.</em></p><h3><strong>INVESTIGATION 1: MODEL THE METHOD</strong></h3><p>Claim: &ldquo;The Stone Chariot is carved from one enormous piece of stone.&rdquo;</p><p><em class="ej-guide-note">Ask students to inspect the structure from bottom to top and look for places where one piece of stone meets another.</em></p><p><em class="ej-guide-note">Guide attention towards separate blocks, joints, wheels, platform and upper shrine structure.</em></p><p>Ask: &ldquo;If we can identify separate stone blocks and joints, what does that tell us about the way this structure was made?&rdquo;</p><p>Conclusion: the Stone Chariot is not a monolith. It was constructed from multiple stone components fitted together.</p><h3><strong>INVESTIGATION 2: TEAM INVESTIGATION</strong></h3><ul><li><em class="ej-guide-note">Divide the guide group into teams of approximately 5.</em></li><li><em class="ej-guide-note">Give one A5 Investigation Card to each team. Three claim types are used. If four teams are formed, duplicate one card.</em></li><li><em class="ej-guide-note">Students investigate orally. No writing is required. Allow 2&ndash;3 minutes.</em></li><li><em class="ej-guide-note">Students must remain within permitted viewing areas and must not touch the monument.</em></li><li><em class="ej-guide-note">Do not reveal the answer.</em></li></ul><h3><strong>If a team is stuck, use only:</strong></h3><ul><li class="ej-spoken">&ldquo;What can you actually see?&rdquo;</li><li class="ej-spoken">&ldquo;What is your evidence?&rdquo;</li><li class="ej-spoken">&ldquo;Is that an observation or an assumption?&rdquo;</li><li class="ej-spoken">&ldquo;Could there be another explanation?&rdquo;</li></ul><h3><strong>REGROUP</strong></h3><p class="ej-spoken">&ldquo;Each team, tell us three things: your claim, your conclusion, and your strongest piece of evidence.&rdquo;</p><p><em class="ej-guide-note">Hear every team. Where two teams had the same claim, compare what they noticed and whether they reached the same conclusion.</em></p><h3><strong>Must Land</strong></h3><p class="ej-spoken">&ldquo;Archaeology does not mean guessing. It means being clear about what you observed, what you interpreted, and how strongly the evidence supports your conclusion.&rdquo;</p><p class="ej-spoken">&ldquo;Sometimes the evidence is strong enough for a confident conclusion. Sometimes the most accurate answer is that we need more evidence.&rdquo;</p><p class="ej-spoken">&ldquo;Claim. Observation. Interpretation. Conclusion. You have now used the process yourselves.&rdquo;</p><h3><strong>Academic Handover</strong></h3><p><em class="ej-guide-note">The academic component ends after Stone Chariot. Purandara Dasa Mantapa is a 30-minute recreational break led by Facilitators, followed by the return journey.</em></p><h1><strong>Archaeology Pathway Has Landed If</strong></h1><ul><li>Students can distinguish observation from interpretation.</li><li>Students can explain how sculpture can be used as evidence about people and ideas.</li><li>Students understand that archaeological interpretations become stronger when different kinds of evidence support them.</li><li>Students can use Claim → Observation → Interpretation → Conclusion to investigate a monument themselves.</li></ul><ul><li></li></ul></div></main></body></html>
