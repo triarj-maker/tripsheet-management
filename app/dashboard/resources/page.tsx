@@ -7,6 +7,7 @@ import { requireAdmin } from '@/app/dashboard/lib'
 import { ASSIGNABLE_ROLES, getRoleLabel, isAdminRole } from '@/lib/roles'
 
 import { toggleResourceActive } from './actions'
+import ResetResourcePasswordDialog from './ResetResourcePasswordDialog'
 
 type ResourcesPageProps = {
   searchParams: Promise<{
@@ -68,7 +69,7 @@ export default async function ResourcesPage({
   searchParams,
 }: ResourcesPageProps) {
   const params = await searchParams
-  const { supabase } = await requireAdmin()
+  const { supabase, user } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role, is_active, created_at')
@@ -155,13 +156,20 @@ export default async function ResourcesPage({
                     {formatCreatedAt(resource.created_at)}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/dashboard/resources/${resource.id}/edit`}
                         className="ui-button ui-button-secondary"
                       >
                         Edit
                       </Link>
+                      {resource.id !== user.id ? (
+                        <ResetResourcePasswordDialog
+                          resourceId={resource.id}
+                          fullName={resource.full_name}
+                          email={resource.email}
+                        />
+                      ) : null}
                       <form action={toggleResourceActive}>
                         <input type="hidden" name="id" value={resource.id} />
                         <input

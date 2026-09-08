@@ -4,7 +4,11 @@ import { redirect } from 'next/navigation'
 
 import { requireAdmin } from '@/app/dashboard/lib'
 import { appendToastParam } from '@/app/lib/action-feedback'
-import { APP_ROLES, type AppRole } from '@/lib/roles'
+import {
+  APP_ROLES,
+  canBeAssignedToTripSheet,
+  type AppRole,
+} from '@/lib/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 function buildResourcesRedirect(error: string) {
@@ -20,6 +24,16 @@ function buildNewResourceRedirect(error: string) {
 function buildEditResourceRedirect(id: string, error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/resources/${id}/edit?${params.toString()}`
+}
+
+function buildPasswordResetErrorRedirect(
+  id: string,
+  error: string,
+  returnToResources: boolean
+) {
+  return returnToResources
+    ? buildResourcesRedirect(error)
+    : buildEditResourceRedirect(id, error)
 }
 
 function normalizeRole(value: FormDataEntryValue | null) {
@@ -140,37 +154,70 @@ export async function updateResource(formData: FormData) {
 }
 
 export async function updateResourcePassword(formData: FormData) {
-  await requireAdmin()
+  const { supabase, user: currentUser } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirm_password') ?? '')
+  const returnToResources = formData.get('return_to') === 'resources'
+
+  function redirectWithError(error: string): never {
+    redirect(buildPasswordResetErrorRedirect(id, error, returnToResources))
+  }
 
   if (!id) {
     redirect(buildResourcesRedirect('Resource not found.'))
   }
 
+  if (id === currentUser.id) {
+    redirectWithError(
+      'You cannot reset your own password from user management.'
+    )
+  }
+
   if (!password && !confirmPassword) {
-    redirect(buildEditResourceRedirect(id, 'Enter a new password to update.'))
+    redirectWithError('Enter a new password to update.')
   }
 
   if (password !== confirmPassword) {
-    redirect(buildEditResourceRedirect(id, 'New password and confirmation must match.'))
+    redirectWithError('New password and confirmation must match.')
   }
 
   if (password.length < 6) {
-    redirect(buildEditResourceRedirect(id, 'Password must be at least 6 characters.'))
+    redirectWithError('Password must be at least 6 characters.')
+  }
+
+  const { data: targetProfile, error: targetProfileError } = await supabase
+    .from('profiles')
+    .select('id, role')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (targetProfileError) {
+    redirectWithError(
+      'Unable to verify the selected resource. Please try again.'
+    )
+  }
+
+  if (!targetProfile || !canBeAssignedToTripSheet(targetProfile.role)) {
+    redirectWithError('Resource not found or cannot be managed.')
   }
 
   let adminClient: ReturnType<typeof createAdminClient>
 
   try {
     adminClient = createAdminClient()
-  } catch (error) {
-    redirect(
-      buildEditResourceRedirect(
-        id,
-        error instanceof Error ? error.message : 'Unable to update password.'
-      )
+  } catch {
+    redirectWithError(
+      'Password reset is not configured. Contact the system administrator.'
+    )
+  }
+
+  const { data: authUserData, error: authUserError } =
+    await adminClient.auth.admin.getUserById(id)
+
+  if (authUserError || !authUserData.user) {
+    redirectWithError(
+      'The selected profile is not linked to a Supabase Auth user.'
     )
   }
 
@@ -179,8 +226,16 @@ export async function updateResourcePassword(formData: FormData) {
   })
 
   if (error) {
-    redirect(buildEditResourceRedirect(id, error.message))
+    redirectWithError(
+      error.code === 'weak_password'
+        ? error.message
+        : 'Unable to update the password. Please try again.'
+    )
   }
 
-  redirect(appendToastParam(`/dashboard/resources/${id}/edit`, 'Password updated.'))
+  const successPath = returnToResources
+    ? '/dashboard/resources'
+    : `/dashboard/resources/${id}/edit`
+
+  redirect(appendToastParam(successPath, 'Password updated successfully.'))
 }

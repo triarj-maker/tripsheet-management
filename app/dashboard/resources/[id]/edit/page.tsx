@@ -44,7 +44,7 @@ export default async function EditResourcePage({
   searchParams,
 }: EditResourcePageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams])
-  const { supabase } = await requireAdmin()
+  const { supabase, user } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, email, phone, role, is_active')
@@ -159,46 +159,50 @@ export default async function EditResourcePage({
           </div>
         </form>
 
-        <form action={updateResourcePassword} className="app-section-card space-y-4">
-          <input type="hidden" name="id" value={resource.id} />
+        {resource.id !== user.id ? (
+          <form action={updateResourcePassword} className="app-section-card space-y-4">
+            <input type="hidden" name="id" value={resource.id} />
 
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Password</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Set a new sign-in password for this managed account.
-            </p>
-          </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Password</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Set a new sign-in password for this managed account.
+              </p>
+            </div>
 
-          <div>
-            <label htmlFor="password" className="ui-label">New Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              minLength={6}
-              className="ui-input"
+            <div>
+              <label htmlFor="password" className="ui-label">New Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                required
+                className="ui-input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirm_password" className="ui-label">Confirm Password</label>
+              <input
+                id="confirm_password"
+                name="confirm_password"
+                type="password"
+                autoComplete="new-password"
+                minLength={6}
+                required
+                className="ui-input"
+              />
+            </div>
+
+            <ActionSubmitButton
+              idleLabel="Update Password"
+              pendingLabel="Updating…"
+              className="ui-button-secondary"
             />
-          </div>
-
-          <div>
-            <label htmlFor="confirm_password" className="ui-label">Confirm Password</label>
-            <input
-              id="confirm_password"
-              name="confirm_password"
-              type="password"
-              autoComplete="new-password"
-              minLength={6}
-              className="ui-input"
-            />
-          </div>
-
-          <ActionSubmitButton
-            idleLabel="Update Password"
-            pendingLabel="Updating…"
-            className="ui-button-secondary"
-          />
-        </form>
+          </form>
+        ) : null}
     </>
   )
 }
