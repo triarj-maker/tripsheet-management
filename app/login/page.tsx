@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
 import { getSignedInHomePath } from '@/app/dashboard/lib'
 import { login } from '@/app/auth/actions'
@@ -7,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string
+    message?: string
   }>
 }
 
@@ -44,6 +46,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </p>
         ) : null}
 
+        {params.message ? (
+          <p className="app-banner-success">
+            {params.message}
+          </p>
+        ) : null}
+
         <form action={login} className="space-y-4">
           <div>
             <label htmlFor="email" className="ui-label">Email</label>
@@ -67,6 +75,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               required
               className="ui-input"
             />
+            <div className="mt-2 text-right">
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button
