@@ -1,0 +1,19 @@
+-- READ ONLY: one result table after Trip Task Management V1 migration.
+with checks(check_name,ok,details) as (
+  select 'tables_and_rls',count(*)=2 and bool_and(relrowsecurity),'Both task tables exist with RLS enabled.'
+  from pg_class where oid in (to_regclass('public.trip_tasks'),to_regclass('public.trip_task_comments'))
+  union all select 'same_trip_foreign_key',exists(select 1 from pg_constraint where conrelid=to_regclass('public.trip_tasks') and conname='trip_tasks_sheet_same_trip_fkey'),'Trip Sheet and parent Trip must match.'
+  union all select 'required_task_columns',count(*)=13,'All required task columns exist.' from information_schema.columns where table_schema='public' and table_name='trip_tasks' and column_name in ('id','trip_id','trip_sheet_id','title','description','assigned_to','due_at','status','created_by','created_at','updated_at','completed_by','completed_at')
+  union all select 'due_at_timezone_aware',exists(select 1 from information_schema.columns where table_schema='public' and table_name='trip_tasks' and column_name='due_at' and data_type='timestamp with time zone'),'Task due dates retain timezone information.'
+  union all select 'completion_constraint',exists(select 1 from pg_constraint where conrelid=to_regclass('public.trip_tasks') and conname='trip_tasks_completion_check'),'Completion actor and timestamp must match completed status.'
+  union all select 'task_policies',count(*)=4 and count(*) filter(where cmd='SELECT')=1 and count(*) filter(where cmd='INSERT')=1 and count(*) filter(where cmd='UPDATE')=1 and count(*) filter(where cmd='DELETE')=1,'Expected task policies exist for every operation.' from pg_policies where schemaname='public' and tablename='trip_tasks'
+  union all select 'comment_policies',count(*)=2 and count(*) filter(where cmd='SELECT')=1 and count(*) filter(where cmd='INSERT')=1,'Comments support read and append only.' from pg_policies where schemaname='public' and tablename='trip_task_comments'
+  union all select 'guards_enabled',count(*)=2 and bool_and(tgenabled='O'),'Task and comment guards are enabled.' from pg_trigger where tgname in ('guard_trip_task_write','guard_trip_task_comment')
+  union all select 'client_truncate_denied',not has_table_privilege('authenticated','public.trip_tasks','TRUNCATE') and not has_table_privilege('authenticated','public.trip_task_comments','TRUNCATE'),'Authenticated clients cannot truncate task data.'
+  union all select 'comments_append_only',not has_table_privilege('authenticated','public.trip_task_comments','UPDATE') and not has_table_privilege('authenticated','public.trip_task_comments','DELETE'),'Comments cannot be edited or deleted by clients.'
+  union all select 'authenticated_grants',has_table_privilege('authenticated','public.trip_tasks','SELECT,INSERT,UPDATE,DELETE') and has_table_privilege('authenticated','public.trip_task_comments','SELECT,INSERT'),'Authenticated has only the operations mediated by task RLS and guards.'
+  union all select 'anonymous_denied',not has_table_privilege('anon','public.trip_tasks','SELECT,INSERT,UPDATE,DELETE,TRUNCATE') and not has_table_privilege('anon','public.trip_task_comments','SELECT,INSERT,UPDATE,DELETE,TRUNCATE'),'Anonymous clients have no task data privileges.'
+  union all select 'current_same_trip_rows',not exists(select 1 from public.trip_tasks t join public.trip_sheets s on s.id=t.trip_sheet_id where s.trip_id is distinct from t.trip_id),'Every current linked Trip Sheet belongs to the task Trip.'
+  union all select 'current_completion_rows',not exists(select 1 from public.trip_tasks where (status='pending' and (completed_by is not null or completed_at is not null)) or (status='completed' and (completed_by is null or completed_at is null))),'Every current row has consistent completion metadata.'
+)
+select check_name,case when ok then 'PASS' else 'FAIL' end status,details from checks order by check_name;

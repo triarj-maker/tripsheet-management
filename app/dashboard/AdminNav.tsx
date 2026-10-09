@@ -14,7 +14,9 @@ type Section =
   | 'my-trips'
   | 'templates'
   | 'resources'
+  | 'tasks'
   | 'my-trip-sheets'
+  | 'my-tasks'
 
 type AdminNavProps = {
   current: Section
@@ -38,6 +40,7 @@ const adminNavItems: NavItem[] = [
   { href: '/dashboard/schools', key: 'schools', label: 'Schools' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
   { href: '/dashboard/resources', key: 'resources', label: 'Team' },
+  { href: '/dashboard/tasks', key: 'tasks', label: 'Tasks' },
 ]
 
 const resourceNavItems: NavItem[] = [
@@ -48,6 +51,7 @@ const resourceNavItems: NavItem[] = [
     label: 'My Trip Sheets',
     mobileLabel: 'My Sheets',
   },
+  { href: '/my-tasks', key: 'my-tasks', label: 'My Tasks' },
 ]
 
 const profileNavItem: NavItem = {
@@ -72,7 +76,7 @@ export default function AdminNav({
   className = '',
 }: AdminNavProps) {
   const inferredView: InterfaceView = view ?? (
-    current === 'my-trips' || current === 'my-trip-sheets' || isOperationalRole(profile)
+    current === 'my-trips' || current === 'my-trip-sheets' || current === 'my-tasks' || isOperationalRole(profile)
       ? 'resource'
       : 'admin'
   )

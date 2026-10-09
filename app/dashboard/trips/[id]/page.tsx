@@ -10,6 +10,10 @@ import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
 import { getPermissionLabel, isAdminRole } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
+import type { TaskListItem } from '@/lib/trip-tasks'
+import TaskList from '@/app/tasks/TaskList'
+import TaskDetailPanel from '@/app/tasks/TaskDetailPanel'
+import type { TaskComment } from '@/app/tasks/types'
 import {
   formatTripCustomerSummary,
   formatTripTypeLabel,
@@ -35,6 +39,9 @@ type TripDetailPageProps = {
   }>
   searchParams: Promise<{
     error?: string
+    success?: string
+    task?: string
+    newTask?: string
   }>
 }
 
@@ -362,6 +369,19 @@ export default async function TripDetailPage({
 
   const latestNotification =
     (latestNotificationData as TripNotificationSummaryRow | null) ?? null
+  const { data: taskData, error: tasksError } = await supabase
+    .from('trip_tasks')
+    .select('id, title, description, trip_id, trip_sheet_id, assigned_to, due_at, status, completed_at, trip:trips(id, title), trip_sheet:trip_sheets(id, title), assignee:profiles!trip_tasks_assigned_to_fkey(id, full_name, email)')
+    .eq('trip_id', id)
+  const tasks = (taskData as TaskListItem[] | null) ?? []
+  const selectedTask = query.task ? tasks.find((task) => task.id === query.task) ?? null : null
+  const { data: taskCommentData, error: taskCommentsError } = selectedTask
+    ? await supabase
+        .from('trip_task_comments')
+        .select('id, body, created_at, author:profiles!trip_task_comments_author_id_fkey(id, full_name, email)')
+        .eq('task_id', selectedTask.id)
+        .order('created_at')
+    : { data: [], error: null }
   const resourcesById = new Map<string, ResourceProfile>()
   const assignedTripSheetCountByResourceUserId = new Map<string, number>()
 
@@ -410,6 +430,8 @@ export default async function TripDetailPage({
     conflictTripSheetsError?.message ||
     conflictAssignmentsError?.message ||
     latestNotificationError?.message ||
+    tasksError?.message ||
+    taskCommentsError?.message ||
     null
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
   const tripColorStyle = getTripColorStyle(trip.trip_color)
@@ -434,6 +456,7 @@ export default async function TripDetailPage({
       <AdminNav current="trips" />
 
       {query.error ? <p className="app-banner-error">{query.error}</p> : null}
+      {query.success ? <p className="app-banner-success">{query.success}</p> : null}
 
       <div className="app-page-header">
         <div>
@@ -566,6 +589,19 @@ export default async function TripDetailPage({
             </div>
           </div>
         ) : null}
+      </section>
+
+      <section className="app-section-card mb-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+            <p className="mt-1 text-sm text-gray-600">Operational work for this Trip.</p>
+          </div>
+          <Link href={`/dashboard/trips/${trip.id}?newTask=1`} className="ui-button ui-button-primary">
+            Create task
+          </Link>
+        </div>
+        <TaskList tasks={tasks} hrefForTask={(taskId) => `/dashboard/trips/${trip.id}?task=${taskId}`} />
       </section>
 
       <section className="app-section-card space-y-4">
@@ -718,6 +754,20 @@ export default async function TripDetailPage({
         </div>
         </BulkTripSheetAssignmentForm>
       </section>
+
+      {(query.newTask === '1' || selectedTask) ? (
+        <TaskDetailPanel
+          task={selectedTask}
+          comments={(taskCommentData as TaskComment[] | null) ?? []}
+          trips={[{ id: trip.id, title: trip.title }]}
+          tripSheets={tripSheets.map(({ id: sheetId, trip_id, title }) => ({ id: sheetId, trip_id, title }))}
+          assignees={activeResources.map(({ id: profileId, full_name, email }) => ({ id: profileId, full_name, email }))}
+          isAdmin
+          returnTo={`/dashboard/trips/${trip.id}`}
+          closeHref={`/dashboard/trips/${trip.id}`}
+          lockedTripId={trip.id}
+        />
+      ) : null}
 
     </>
   )

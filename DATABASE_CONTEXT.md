@@ -38,6 +38,22 @@ Core relationship:
 - One Trip Sheet has many assignments
 - One Trip Template can have many Template Cards
 - One Trip Sheet can have many Trip Sheet Cards
+- One Trip has many Tasks; a Task may additionally reference one Trip Sheet from that same Trip
+- One Task has append-only comments
+
+Trip Task Management V1 is prepared locally in
+`sql/20261010_trip_task_management.sql`. `trip_tasks` records title, description,
+assignee, timezone-aware due timestamp, pending/completed state, creator, timestamps,
+and completion actor/time. A composite foreign key enforces that an optional
+`trip_sheet_id` belongs to the task's required `trip_id`.
+
+Both task tables have RLS. Active Admin permission grants all task operations.
+An active assignee can select only their tasks and can change only status; a trigger
+rejects changes to task content, ownership, or creation metadata. Completion
+metadata and `updated_at` are trigger-managed. Comments can be selected and inserted
+only through a visible task, must identify the authenticated author, and cannot be
+updated or directly deleted. Parent-task deletion cascades its comments. Client
+roles do not receive TRUNCATE.
 
 --------------------------------------------------
 

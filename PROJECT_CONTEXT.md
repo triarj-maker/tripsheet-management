@@ -118,6 +118,18 @@ administrative details retain Admin access. Cards use the membership union; Admi
 see both categories. Trip timelines, staged calendar assignments and manual
 notifications retain their existing behavior.
 
+Trip Task Management V1 adds operational tasks under Trips, optionally linked to a
+Trip Sheet and assigned to one active Team member. Admin View has a central task
+list and each Trip detail has a task section. Resource View has My Tasks, explicitly
+scoped to the signed-in profile even for an Admin using that view. Overdue is derived
+from an incomplete task whose timezone-aware due timestamp is in the past.
+
+Admins manage task fields, status, assignment, and deletion. The assigned active
+user can read a task, complete or reopen it, and append comments. Comments are
+permanent except when their parent task is deleted. Tasks are not shown on either
+calendar and do not create notifications. See
+`sql/verification/20261010_trip_task_runbook.md` for deployment and rollback.
+
 Failed profile creation preserves the Auth account and reports its UUID for reviewed
 recovery. See `sql/verification/20261009_stage2b_runbook.md` for atomic permission
 APIs, deployment history, recovery and rollback.
