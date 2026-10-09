@@ -103,10 +103,8 @@ Known app-used assignment fields:
 6. Profiles and Roles
 
 
-Combined Stage 2B/2C authorization (local only; deploy together):
-- Production Stage 2A database is user-confirmed applied/validated; its application
-  changes are not deployed. Production continues on the legacy-authoritative bridge.
-- Local app checks use `is_admin AND is_active` and active operational memberships.
+Combined Stage 2B/2C authorization (user-confirmed deployed):
+- App checks use `is_admin AND is_active` and active operational memberships.
   Profile queries embed memberships; assignment pickers deduplicate profile IDs.
 - `sql/20261009_multi_role_authorization.sql` replaces Admin helper bodies and
   recognized inline legacy policy predicates, preserving other conditions and RLS
@@ -132,6 +130,8 @@ Combined Stage 2B/2C authorization (local only; deploy together):
   `sql/verification/20261009_stage2b_validation.sql`. Block/drain legacy mutations,
   migrate, deploy combined Stage 2B/2C, verify, then reopen. Never reinstall the
   Stage 2A sync after independent multi-role data exists.
+- Stage 3 adds no database objects. Its browser cookie stores only a validated,
+  user-bound interface preference; database permissions remain authoritative.
 
 Historical Stage 2A preparation notes (database now user-confirmed applied):
 Stage 2A compatibility bridge (installed in production; retained until cutover):

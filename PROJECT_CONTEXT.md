@@ -84,11 +84,10 @@ Sees expert-specific operational cards.
 
 4. User Roles
 
-Production status confirmed by the user: Stage 1 and the Stage 2A database bridge
-are applied and validated. Vercel still runs the old single-role application.
-Stages 2B and 2C are implemented locally only and will be deployed together.
+Production status confirmed by the user: Stages 1, 2A, 2B and 2C are deployed.
+The independent multi-role permission model is authoritative.
 
-Local authorization now uses active status plus independent `profiles.is_admin`
+Authorization uses active status plus independent `profiles.is_admin`
 or Facilitator/Expert memberships. Admin permission does not infer operational
 memberships; Admin-only users remain assignable. One person keeps one Auth/profile
 UUID and assignments are neither recreated nor removed when permissions change.
@@ -99,20 +98,29 @@ fields plus the complete permission set through one atomic RPC. Active non-admin
 need at least one operational role; Admin-only and inactive/no-role accounts are
 valid. The Team list shows one row per identity with all roles.
 
-`profiles.role` becomes a derived display compatibility value after migration and
-is never the new authorization or Team-form source. Production Stage 2A remains
-legacy-authoritative until the coordinated database/application cutover.
+`profiles.role` is a derived display compatibility value and is never the
+authorization or Team-form source.
 
-Admin navigation is unchanged. Operational users share the existing resource
-interface. Personal details remain scoped to own assignments even for Admins;
+Stage 3 adds Admin View and Resource View without changing authorization. Active
+Admins can switch in the existing navigation; non-admin operational users see only
+Resource View. A validated, per-user browser cookie stores the default workspace and
+is never permission evidence. Admin deep links remain available and render the Admin
+workspace without changing the saved default. A stale Admin preference is ignored
+after permission removal.
+
+Admin View navigation contains only Overview, Trips, Calendar, Companies, Schools,
+Templates and Team, plus the view switcher and Profile. Resource View contains My
+Trips and My Trip Sheets, plus Profile and the switcher for Admins. On mobile, the
+switcher occupies its own full-width row above the workspace navigation.
+
+Operational users share the existing resource interface. Personal details remain scoped to own assignments even for Admins;
 administrative details retain Admin access. Cards use the membership union; Admins
 see both categories. Trip timelines, staged calendar assignments and manual
 notifications retain their existing behavior.
 
 Failed profile creation preserves the Auth account and reports its UUID for reviewed
 recovery. See `sql/verification/20261009_stage2b_runbook.md` for atomic permission
-APIs, combined deployment, recovery and rollback. Stage 3 interface switching has
-not been implemented.
+APIs, deployment history, recovery and rollback.
 
 Admin
 

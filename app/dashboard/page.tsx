@@ -4,6 +4,8 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
 import CopyCalendarLinkButton from '@/app/components/CopyCalendarLinkButton'
 import { requireAdminOrResource } from '@/app/dashboard/lib'
+import { getInterfaceViewPreference } from '@/app/lib/interface-view-cookie'
+import { getEffectiveInterfaceView } from '@/lib/interface-view'
 import { getPermissionLabel } from '@/lib/roles'
 
 function formatText(value: string | null) {
@@ -22,6 +24,8 @@ export default async function DashboardPage() {
   const name = formatText(currentProfile?.full_name ?? null)
   const email = formatText(currentProfile?.email ?? user.email ?? null)
   const role = getPermissionLabel(currentProfile)
+  const preference = await getInterfaceViewPreference(user.id)
+  const currentView = getEffectiveInterfaceView(currentProfile, preference) ?? 'resource'
   const isActive = currentProfile?.is_active !== false
   const forwardedProto = headersList.get('x-forwarded-proto')
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
@@ -34,7 +38,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <AdminNav current="profile" profile={currentProfile} />
+      <AdminNav current="profile" profile={currentProfile} view={currentView} />
 
       <div className="mx-auto w-full max-w-2xl">
         <div className="app-page-header mb-4">

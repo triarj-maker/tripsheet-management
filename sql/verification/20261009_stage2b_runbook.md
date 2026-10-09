@@ -1,10 +1,7 @@
 # Stage 2B/2C — combined multi-role release
 
-Production status supplied by the user: Stage 1 and the Stage 2A database bridge
-are applied and validated. The production Vercel app is still the older single-role
-app. Neither the Stage 2A app changes nor Stage 2B have been deployed. Do not change
-production during Stage 2B development. The current production app stays compatible
-with the installed Stage 2A bridge until the coordinated cutover.
+Deployment status supplied later by the user: Stages 1, 2A, 2B and 2C are deployed.
+The sequence below is retained as the historical cutover and rollback procedure.
 
 ## Authority and compatibility
 

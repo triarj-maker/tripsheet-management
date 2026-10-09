@@ -115,19 +115,23 @@ Do not rebuild old queue/cron/assignment-email patterns unless explicitly reques
 8. Roles and Assigned Work Views
 
 - Roles are `admin`, `facilitator`, and `expert`
-- Production Stage 2A database is installed; local Stage 2B/2C authorization uses
+- Production Stage 2B/2C is installed; authorization uses
   active status, is_admin and operational memberships. Do not authorize by role.
 - Team permissions use independent Admin / Facilitator / Expert checkboxes and the
   atomic `save_profile_permissions` RPC. Do not infer permissions from or write
   the legacy role directly.
-- Do not deploy local Stage 2B/2C code against Stage 2A or remove synchronization
-  before the coordinated maintenance cutover.
 - See `sql/verification/20261009_stage2b_runbook.md` for transition/rollback.
 - Preserve Auth users after profile-creation failures; report the existing Auth
   UUID for reviewed recovery. Never automatically delete/recreate the identity.
 - Admin = full access
 - Facilitator / Expert = assigned work access
 - Admins may also access personal assigned-work views when assigned
+- Active Admins may select Admin View or Resource View. The browser cookie is a
+  per-user UI preference only; every route/action must still authorize from profile data.
+- Admin deep links remain available regardless of the preferred view. Resource routes
+  always retain personal assignment scoping and display the Resource navigation.
+- Keep My Trips/My Trip Sheets out of Admin View navigation; use the full-width
+  mobile switcher above the workspace navigation so Admins can always change views.
 - Personal views must remain scoped to the logged-in user's own assignments only
 - Facilitator/expert-facing views should be execution-first and mobile-first
 - Assigned work pages should prioritize Trip Sheet context, module cards, and execution body before parent Trip context

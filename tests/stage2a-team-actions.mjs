@@ -133,6 +133,7 @@ for(const action of ['createResource','updateResource','toggleResourceActive','u
 // Exercise existing real authorization helpers; Stage 2A must not change landing
 // or permit inactive/missing profiles to reach privileged actions.
 const authSource=await compile('../app/dashboard/lib.ts');
+const interfaceView=moduleFrom(await compile('../lib/interface-view.ts'),{'@/lib/roles':roles});
 for(const [role,active,exists] of [
   ['admin',true,true],['facilitator',true,true],['expert',true,true],
   ['admin',false,true],['admin',true,false]
@@ -141,6 +142,7 @@ for(const [role,active,exists] of [
   const auth=moduleFrom(authSource,{
     'next/navigation':{redirect(path) { throw Object.assign(new Error('redirect'),{path}); }},
     '@/lib/roles':roles,
+    '@/lib/interface-view':interfaceView,
     '@/lib/supabase/server':{async createClient() { return {
       auth:{async getUser() { return {data:{user:{id:'current-id'}}}; },async signOut() { signedOut=true; }},
       from() { return {select() { return {eq() { return {async maybeSingle() {
@@ -151,6 +153,7 @@ for(const [role,active,exists] of [
   eq(auth.getSignedInHomePath({is_active:true,is_admin:role==='admin',profile_operational_roles:role==='admin'?[]:[{role_code:role}]}),role==='admin'?'/dashboard/trips':'/my-trips');
   if(active && exists && role==='admin') {
     eq((await auth.requireAdmin()).profile.role,'admin');
+    eq((await auth.requireResource()).profile.role,'admin');
   } else {
     const r=await redirectOf(()=>auth.requireAdmin());
     eq(r.pathname,active && exists?'/my-trip-sheets':'/login');

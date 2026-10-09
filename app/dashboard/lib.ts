@@ -6,6 +6,11 @@ import {
   isAdminRole,
   isOperationalRole,
 } from '@/lib/roles'
+import {
+  getEffectiveInterfaceView,
+  getInterfaceViewHomePath,
+  type InterfaceView,
+} from '@/lib/interface-view'
 import { createClient } from '@/lib/supabase/server'
 
 export type DashboardProfile = PermissionProfile & {
@@ -20,16 +25,12 @@ function buildLoginRedirect(error: string) {
   return `/login?${params.toString()}`
 }
 
-export function getSignedInHomePath(role: PermissionProfile | null | undefined) {
-  if (isAdminRole(role)) {
-    return '/dashboard/trips'
-  }
-
-  if (isOperationalRole(role)) {
-    return '/my-trips'
-  }
-
-  return '/login'
+export function getSignedInHomePath(
+  role: PermissionProfile | null | undefined,
+  preference: InterfaceView | null = null
+) {
+  const view = getEffectiveInterfaceView(role, preference)
+  return view ? getInterfaceViewHomePath(view) : '/login'
 }
 
 export async function getCurrentUserProfile() {
@@ -79,11 +80,7 @@ export async function requireAdmin() {
 export async function requireResource() {
   const context = await getCurrentUserProfile()
 
-  if (isAdminRole(context.profile)) {
-    redirect(getSignedInHomePath(context.profile))
-  }
-
-  if (!isOperationalRole(context.profile)) {
+  if (!canAccessAssignedWork(context.profile)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 

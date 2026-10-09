@@ -13,6 +13,7 @@ function load(code,dependencies={}) {
   return exports;
 }
 const roles=load(await compile('../lib/roles.ts'));
+const interfaceView=load(await compile('../lib/interface-view.ts'),{'@/lib/roles':roles});
 const permissions=load(await compile('../app/dashboard/resources/permissions.ts'),{'@/lib/roles':roles});
 const combinations=[[true,[]],[false,['facilitator']],[false,['expert']],[false,['facilitator','expert']],
   [true,['facilitator']],[true,['expert']],[true,['facilitator','expert']]];
@@ -35,14 +36,14 @@ for(const [admin,codes] of combinations) {
   eq(roles.eligibleProfiles([profile,profile,{...profile,id:'inactive',is_active:false}]).map(p=>p.id),['user']);
   let queries=0;
   const auth=load(authCode,{
-    'next/navigation':{redirect},'@/lib/roles':roles,
+    'next/navigation':{redirect},'@/lib/roles':roles,'@/lib/interface-view':interfaceView,
     '@/lib/supabase/server':{async createClient(){return {
       auth:{async getUser(){return {data:{user:{id:'user'}}};}},
       from(){return {select(){queries++;return {eq(){return {async maybeSingle(){return {data:profile,error:null};}};}};}};}
     };}}
   });
   eq(auth.getSignedInHomePath(profile),admin?'/dashboard/trips':'/my-trips');
-  if(admin) {eq((await auth.requireAdmin()).profile.is_admin,true);await expectRedirect(()=>auth.requireResource(),'/dashboard/trips');}
+  if(admin) {eq((await auth.requireAdmin()).profile.is_admin,true);eq((await auth.requireResource()).profile.id,'user');}
   else {await expectRedirect(()=>auth.requireAdmin(),'/my-trip-sheets');eq((await auth.requireResource()).profile.id,'user');}
   eq((await auth.requireAdminOrResource()).profile.id,'user');
   eq(queries,3); // One embedded-membership query per guard call, not a query per role.
@@ -70,6 +71,7 @@ for(const [admin,codes] of combinations) {
   dependencies['react/jsx-runtime']={jsx(){throw new Error('Unassigned personal details must never render');},jsxs(){throw new Error('Unassigned personal details must never render');}};
   dependencies['next/navigation']={redirect};
   dependencies['@/lib/roles']=roles;
+  dependencies['@/app/lib/interface-view-cookie']={getInterfaceViewPreference:async()=>null};
   dependencies['@/lib/trip-sheets']={getTripParent:r=>r};
   dependencies['@/app/dashboard/lib']={getCurrentUserProfile:async()=>({supabase,user:{id:'user'},profile}),getSignedInHomePath:()=>'/my-trips'};
   const detail=load(detailCode,dependencies);

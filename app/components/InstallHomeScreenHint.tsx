@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from 'react'
 
-import { isOperationalRole, type PermissionProfile } from '@/lib/roles'
+import { canAccessAssignedWork, type PermissionProfile } from '@/lib/roles'
 
 type InstallHomeScreenHintProps = {
   profile?: PermissionProfile | null
@@ -43,7 +43,7 @@ export default function InstallHomeScreenHint({
   const canShowHint = useSyncExternalStore(
     () => () => {},
     () => {
-      if (!isOperationalRole(profile)) {
+      if (!canAccessAssignedWork(profile)) {
         return false
       }
 
@@ -56,7 +56,7 @@ export default function InstallHomeScreenHint({
     () => false
   )
 
-  if (!canShowHint || isDismissed || !isOperationalRole(profile)) {
+  if (!canShowHint || isDismissed || !canAccessAssignedWork(profile)) {
     return null
   }
 

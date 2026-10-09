@@ -1,6 +1,8 @@
 import Link from 'next/link'
 
-import { isOperationalRole, type PermissionProfile } from '@/lib/roles'
+import InterfaceViewSwitcher from '@/app/components/InterfaceViewSwitcher'
+import type { InterfaceView } from '@/lib/interface-view'
+import { isAdminRole, isOperationalRole, type PermissionProfile } from '@/lib/roles'
 
 type Section =
   | 'profile'
@@ -17,6 +19,7 @@ type Section =
 type AdminNavProps = {
   current: Section
   profile?: PermissionProfile | null
+  view?: InterfaceView
   className?: string
 }
 
@@ -35,8 +38,6 @@ const adminNavItems: NavItem[] = [
   { href: '/dashboard/schools', key: 'schools', label: 'Schools' },
   { href: '/dashboard/templates', key: 'templates', label: 'Templates' },
   { href: '/dashboard/resources', key: 'resources', label: 'Team' },
-  { href: '/my-trips', key: 'my-trips', label: 'My Trips' },
-  { href: '/my-trip-sheets', key: 'my-trip-sheets', label: 'My Trip Sheets' },
 ]
 
 const resourceNavItems: NavItem[] = [
@@ -67,9 +68,17 @@ function linkClass(isCurrent: boolean) {
 export default function AdminNav({
   current,
   profile,
+  view,
   className = '',
 }: AdminNavProps) {
-  const isResourceNav = isOperationalRole(profile)
+  const inferredView: InterfaceView = view ?? (
+    current === 'my-trips' || current === 'my-trip-sheets' || isOperationalRole(profile)
+      ? 'resource'
+      : 'admin'
+  )
+  // Admin-route callers omit profile only after requireAdmin() succeeds.
+  const canSwitchViews = isAdminRole(profile) || (profile === undefined && inferredView === 'admin')
+  const isResourceNav = inferredView === 'resource'
   const navItems = isResourceNav ? resourceNavItems : adminNavItems
   const mobileNavItems = isResourceNav
     ? [...resourceNavItems, profileNavItem]
@@ -95,10 +104,19 @@ export default function AdminNav({
           ))}
         </div>
 
-        <Link href="/dashboard" className={linkClass(current === 'profile')}>
-          Profile
-        </Link>
+        <div className="flex items-center gap-2">
+          {canSwitchViews ? <InterfaceViewSwitcher currentView={inferredView} /> : null}
+          <Link href="/dashboard" className={linkClass(current === 'profile')}>
+            Profile
+          </Link>
+        </div>
       </div>
+
+      {canSwitchViews ? (
+        <div className="mb-2 w-full md:hidden">
+          <InterfaceViewSwitcher currentView={inferredView} className="w-full" />
+        </div>
+      ) : null}
 
       {isResourceNav ? (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 md:hidden">

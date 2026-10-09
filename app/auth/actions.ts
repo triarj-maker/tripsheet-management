@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 
 import { getSignedInHomePath } from '@/app/dashboard/lib'
+import { getInterfaceViewPreference } from '@/app/lib/interface-view-cookie'
 import { passwordRecoveryCookieName } from '@/lib/auth-recovery'
 import { createClient } from '@/lib/supabase/server'
 
@@ -102,7 +103,8 @@ export async function login(formData: FormData) {
       redirect(buildLoginRedirect('Your account is inactive.'))
     }
 
-    redirect(getSignedInHomePath(currentProfile))
+    const preference = await getInterfaceViewPreference(user.id)
+    redirect(getSignedInHomePath(currentProfile, preference))
   }
 
   redirect(getSignedInHomePath(null))

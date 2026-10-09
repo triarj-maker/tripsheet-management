@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
+import { getInterfaceViewPreference } from '@/app/lib/interface-view-cookie'
 import { canAccessAssignedWork, isOperationalRole } from '@/lib/roles'
 import {
   formatTripCustomerSummary,
@@ -167,6 +168,8 @@ export default async function AssignedTripViewPage({
   ])
 
   const role = profile
+  const preference = await getInterfaceViewPreference(user.id)
+  const homePath = getSignedInHomePath(role, preference)
 
   if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
@@ -183,7 +186,7 @@ export default async function AssignedTripViewPage({
   const trip = (tripData as TripRow | null) ?? null
 
   if (!trip) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
 
   const { data: tripSheetData, error: tripSheetsError } = await supabase
@@ -194,7 +197,7 @@ export default async function AssignedTripViewPage({
     .order('start_time', { ascending: true, nullsFirst: true })
 
   if (tripSheetsError) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
 
   const allTripSheets = sortTripSheetsChronologically(
@@ -213,7 +216,7 @@ export default async function AssignedTripViewPage({
       : { data: [], error: null }
 
   if (assignmentError) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
 
   const assignedTripSheetIds = new Set(
@@ -226,7 +229,7 @@ export default async function AssignedTripViewPage({
   )
 
   if (assignedTripSheets.length === 0) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
   const tripSheetDateGroups = groupTripSheetsByStartDate(allTripSheets)
 

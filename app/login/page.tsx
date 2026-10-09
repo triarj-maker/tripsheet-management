@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 import { getSignedInHomePath } from '@/app/dashboard/lib'
+import { getInterfaceViewPreference } from '@/app/lib/interface-view-cookie'
 import { canAccessAssignedWork } from '@/lib/roles'
 import { login } from '@/app/auth/actions'
 import { createClient } from '@/lib/supabase/server'
@@ -27,7 +28,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (canAccessAssignedWork(profile)) redirect(getSignedInHomePath(profile))
+    if (canAccessAssignedWork(profile)) {
+      const preference = await getInterfaceViewPreference(user.id)
+      redirect(getSignedInHomePath(profile, preference))
+    }
   }
 
   return (

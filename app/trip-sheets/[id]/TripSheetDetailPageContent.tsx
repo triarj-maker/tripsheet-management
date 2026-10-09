@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import MarkdownBody from '@/app/components/MarkdownBody'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
+import { getInterfaceViewPreference } from '@/app/lib/interface-view-cookie'
 import {
   canAccessAssignedWork,
   visibleCardCategories,
@@ -197,6 +198,8 @@ export async function renderTripSheetDetailPage({
 }) {
   const { supabase, user, profile } = context ?? await getCurrentUserProfile()
   const role = profile
+  const preference = await getInterfaceViewPreference(user.id)
+  const homePath = getSignedInHomePath(role, preference)
 
   if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
@@ -213,13 +216,13 @@ export async function renderTripSheetDetailPage({
   const tripSheet = (data as TripSheet | null) ?? null
 
   if (!tripSheet) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
 
   const trip = getTripParent(tripSheet.trip)
 
   if (!trip) {
-    redirect(getSignedInHomePath(role))
+    redirect(homePath)
   }
 
   if (personal || !isAdminRole(role)) {
