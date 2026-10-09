@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 import { getSignedInHomePath } from '@/app/dashboard/lib'
+import { canAccessAssignedWork } from '@/lib/roles'
 import { login } from '@/app/auth/actions'
 import { createClient } from '@/lib/supabase/server'
 
@@ -22,11 +23,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_admin, is_active, profile_operational_roles(role_code)')
       .eq('id', user.id)
       .maybeSingle()
 
-    redirect(getSignedInHomePath((profile as { role: string | null } | null)?.role))
+    if (canAccessAssignedWork(profile)) redirect(getSignedInHomePath(profile))
   }
 
   return (

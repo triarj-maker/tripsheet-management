@@ -166,7 +166,7 @@ export default async function AssignedTripViewPage({
     getCurrentUserProfile(),
   ])
 
-  const role = profile?.role ?? null
+  const role = profile
 
   if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
@@ -255,7 +255,7 @@ export default async function AssignedTripViewPage({
   return (
     <main className="app-page">
       <div className="app-shell app-card">
-        <AdminNav current={currentNav} role={role} />
+        <AdminNav current={currentNav} profile={role} />
 
         <div className="space-y-4">
           <div>

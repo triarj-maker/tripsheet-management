@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
-import { ASSIGNABLE_ROLES, canBeAssignedToTripSheet } from '@/lib/roles'
+import { canBeAssignedToTripSheet } from '@/lib/roles'
 import {
   getNextTripColorByIndex,
   normalizeTripColorInput,
@@ -1323,20 +1323,19 @@ export async function bulkAssignTripSheets(formData: FormData) {
 
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
-    .select('id, role, is_active')
+    .select('id, role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', resourceUserId)
-    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .maybeSingle()
 
   const assignableProfile =
-    (resourceData as { id: string; role: string | null; is_active: boolean | null } | null) ??
+    (resourceData as { id: string; role: string | null; is_admin: boolean; profile_operational_roles: Array<{ role_code: string }>; is_active: boolean | null } | null) ??
     null
 
   if (
     resourceError ||
     !assignableProfile ||
-    !canBeAssignedToTripSheet(assignableProfile.role)
+    !canBeAssignedToTripSheet(assignableProfile)
   ) {
     redirect(
       appendErrorParam(

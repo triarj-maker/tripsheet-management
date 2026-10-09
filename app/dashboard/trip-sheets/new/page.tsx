@@ -1,7 +1,8 @@
+import type { PermissionProfile } from '@/lib/roles'
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
-import { ASSIGNABLE_ROLES } from '@/lib/roles'
+import { eligibleProfiles } from '@/lib/roles'
 import {
   buildDuplicatedTripSheetTitle,
   getDestinationName,
@@ -28,7 +29,7 @@ type TripTemplate = {
   body: string | null
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
@@ -80,12 +81,11 @@ export default async function NewTripSheetPage({
   const tripTemplates = (data as TripTemplate[] | null) ?? []
   const { data: resourceData, error: resourceError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role')
-    .in('role', [...ASSIGNABLE_ROLES])
+    .select('id, full_name, email, phone, role, is_admin, is_active, profile_operational_roles(role_code)')
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
-  const availableResources = (resourceData as ResourceProfile[] | null) ?? []
+  const availableResources = eligibleProfiles((resourceData as ResourceProfile[] | null) ?? [])
 
   let tripId = params.tripId?.trim() ?? ''
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { isOperationalRole } from '@/lib/roles'
+import { isOperationalRole, type PermissionProfile } from '@/lib/roles'
 
 type Section =
   | 'profile'
@@ -16,7 +16,7 @@ type Section =
 
 type AdminNavProps = {
   current: Section
-  role?: string | null
+  profile?: PermissionProfile | null
   className?: string
 }
 
@@ -66,10 +66,10 @@ function linkClass(isCurrent: boolean) {
 
 export default function AdminNav({
   current,
-  role = 'admin',
+  profile,
   className = '',
 }: AdminNavProps) {
-  const isResourceNav = isOperationalRole(role)
+  const isResourceNav = isOperationalRole(profile)
   const navItems = isResourceNav ? resourceNavItems : adminNavItems
   const mobileNavItems = isResourceNav
     ? [...resourceNavItems, profileNavItem]

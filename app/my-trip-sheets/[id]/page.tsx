@@ -17,6 +17,7 @@ export default async function MyTripSheetDetailPage({
 
   return renderTripSheetDetailPage({
     id,
+    personal: true,
     from: query.from ?? 'my-trip-sheets',
   })
 }

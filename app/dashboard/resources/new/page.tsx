@@ -4,6 +4,8 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
 
+import TeamPermissionFields from '../TeamPermissionFields'
+
 import { createResource } from '../actions'
 
 type NewResourcePageProps = {
@@ -72,20 +74,12 @@ export default async function NewResourcePage({
             />
           </div>
 
-          <div>
-            <label htmlFor="role" className="ui-label">Role</label>
-            <select
-              id="role"
-              name="role"
-              defaultValue="facilitator"
-              required
-              className="ui-select"
-            >
-              <option value="admin">Admin</option>
-              <option value="facilitator">Facilitator</option>
-              <option value="expert">Expert</option>
-            </select>
-          </div>
+          <TeamPermissionFields />
+
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input type="checkbox" name="is_active" defaultChecked />
+            <span>Is Active</span>
+          </label>
 
           <div>
             <label htmlFor="password" className="ui-label">Password</label>

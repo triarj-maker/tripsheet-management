@@ -1,10 +1,11 @@
+import type { PermissionProfile } from '@/lib/roles'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
-import { isLegacyResourceRole } from '@/lib/roles'
+import TeamPermissionFields from '../../TeamPermissionFields'
 
 import { updateResource, updateResourcePassword } from '../../actions'
 
@@ -17,26 +18,17 @@ type EditResourcePageProps = {
   }>
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
   phone: string | null
-  role: string | null
   is_active: boolean | null
 }
 
 function buildResourcesRedirect(error: string) {
   const params = new URLSearchParams({ error })
   return `/dashboard/resources?${params.toString()}`
-}
-
-function getEditableRoleValue(role: string | null) {
-  if (role === 'admin' || role === 'facilitator' || role === 'expert') {
-    return role
-  }
-
-  return 'facilitator'
 }
 
 export default async function EditResourcePage({
@@ -47,7 +39,7 @@ export default async function EditResourcePage({
   const { supabase, user } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role, is_active')
+    .select('id, full_name, email, phone, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', id)
     .maybeSingle()
 
@@ -57,7 +49,6 @@ export default async function EditResourcePage({
     redirect(buildResourcesRedirect(error?.message ?? 'Resource not found.'))
   }
 
-  const isLegacyResource = isLegacyResourceRole(resource.role)
 
   return (
     <>
@@ -115,25 +106,7 @@ export default async function EditResourcePage({
             />
           </div>
 
-          <div>
-            <label htmlFor="role" className="ui-label">Role</label>
-            <select
-              id="role"
-              name="role"
-              defaultValue={getEditableRoleValue(resource.role)}
-              required
-              className="ui-select"
-            >
-              <option value="admin">Admin</option>
-              <option value="facilitator">Facilitator</option>
-              <option value="expert">Expert</option>
-            </select>
-            {isLegacyResource ? (
-              <p className="mt-1 text-sm text-amber-700">
-                Current role is legacy Resource. Save as Facilitator, Expert, or Admin.
-              </p>
-            ) : null}
-          </div>
+          <TeamPermissionFields profile={resource} />
 
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input

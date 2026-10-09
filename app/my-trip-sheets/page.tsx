@@ -379,7 +379,7 @@ export default async function MyTripSheetsPage() {
   return (
     <main className="app-page">
       <div className="app-shell app-card">
-        <AdminNav current="my-trip-sheets" role={profile?.role} />
+        <AdminNav current="my-trip-sheets" profile={profile} />
 
         <div className="app-page-header">
           <div>

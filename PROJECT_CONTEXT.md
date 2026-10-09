@@ -84,6 +84,36 @@ Sees expert-specific operational cards.
 
 4. User Roles
 
+Production status confirmed by the user: Stage 1 and the Stage 2A database bridge
+are applied and validated. Vercel still runs the old single-role application.
+Stages 2B and 2C are implemented locally only and will be deployed together.
+
+Local authorization now uses active status plus independent `profiles.is_admin`
+or Facilitator/Expert memberships. Admin permission does not infer operational
+memberships; Admin-only users remain assignable. One person keeps one Auth/profile
+UUID and assignments are neither recreated nor removed when permissions change.
+
+Team create/edit forms now select Administrator, Facilitator and Expert
+independently. They render from `is_admin` and memberships and save ordinary profile
+fields plus the complete permission set through one atomic RPC. Active non-admins
+need at least one operational role; Admin-only and inactive/no-role accounts are
+valid. The Team list shows one row per identity with all roles.
+
+`profiles.role` becomes a derived display compatibility value after migration and
+is never the new authorization or Team-form source. Production Stage 2A remains
+legacy-authoritative until the coordinated database/application cutover.
+
+Admin navigation is unchanged. Operational users share the existing resource
+interface. Personal details remain scoped to own assignments even for Admins;
+administrative details retain Admin access. Cards use the membership union; Admins
+see both categories. Trip timelines, staged calendar assignments and manual
+notifications retain their existing behavior.
+
+Failed profile creation preserves the Auth account and reports its UUID for reviewed
+recovery. See `sql/verification/20261009_stage2b_runbook.md` for atomic permission
+APIs, combined deployment, recovery and rollback. Stage 3 interface switching has
+not been implemented.
+
 Admin
 
 * Full system access

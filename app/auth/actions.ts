@@ -86,21 +86,23 @@ export async function login(formData: FormData) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, is_active')
+      .select('role, is_active, is_admin, profile_operational_roles(role_code)')
       .eq('id', user.id)
       .maybeSingle()
 
     const currentProfile = (profile as {
       role: string | null
+      is_admin: boolean
+      profile_operational_roles: Array<{ role_code: string }>
       is_active: boolean | null
     } | null)
 
-    if (currentProfile?.is_active === false) {
+    if (currentProfile?.is_active !== true) {
       await supabase.auth.signOut()
       redirect(buildLoginRedirect('Your account is inactive.'))
     }
 
-    redirect(getSignedInHomePath(currentProfile?.role))
+    redirect(getSignedInHomePath(currentProfile))
   }
 
   redirect(getSignedInHomePath(null))

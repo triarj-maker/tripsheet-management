@@ -2,10 +2,10 @@
 
 import { useState, useSyncExternalStore } from 'react'
 
-import { isOperationalRole } from '@/lib/roles'
+import { isOperationalRole, type PermissionProfile } from '@/lib/roles'
 
 type InstallHomeScreenHintProps = {
-  role?: string | null
+  profile?: PermissionProfile | null
 }
 
 const DISMISS_KEY = 'trip-sheet-install-hint-dismissed'
@@ -37,13 +37,13 @@ function isAndroidChrome() {
 }
 
 export default function InstallHomeScreenHint({
-  role,
+  profile,
 }: InstallHomeScreenHintProps) {
   const [isDismissed, setIsDismissed] = useState(false)
   const canShowHint = useSyncExternalStore(
     () => () => {},
     () => {
-      if (!isOperationalRole(role)) {
+      if (!isOperationalRole(profile)) {
         return false
       }
 
@@ -56,7 +56,7 @@ export default function InstallHomeScreenHint({
     () => false
   )
 
-  if (!canShowHint || isDismissed || !isOperationalRole(role)) {
+  if (!canShowHint || isDismissed || !isOperationalRole(profile)) {
     return null
   }
 

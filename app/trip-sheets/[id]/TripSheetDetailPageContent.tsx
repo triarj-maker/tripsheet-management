@@ -6,6 +6,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { getCurrentUserProfile, getSignedInHomePath } from '@/app/dashboard/lib'
 import {
   canAccessAssignedWork,
+  visibleCardCategories,
   isAdminRole,
   isOperationalRole,
 } from '@/lib/roles'
@@ -130,13 +131,7 @@ function formatTripSheetWindow(tripSheet: TripSheet) {
   return `${start} -> ${end}`
 }
 
-function getVisibleCardCategory(role: string | null) {
-  if (role === 'facilitator' || role === 'expert') {
-    return role
-  }
 
-  return null
-}
 
 function formatCardCategoryLabel(category: string | null) {
   if (category === 'expert') {
@@ -192,12 +187,16 @@ function ModuleCardsSection({ cards }: { cards: TripSheetCard[] }) {
 export async function renderTripSheetDetailPage({
   id,
   from,
+  personal = false,
+  context,
 }: {
   id: string
   from?: string
+  personal?: boolean
+  context?: Awaited<ReturnType<typeof getCurrentUserProfile>>
 }) {
-  const { supabase, user, profile } = await getCurrentUserProfile()
-  const role = profile?.role ?? null
+  const { supabase, user, profile } = context ?? await getCurrentUserProfile()
+  const role = profile
 
   if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
@@ -223,7 +222,7 @@ export async function renderTripSheetDetailPage({
     redirect(getSignedInHomePath(role))
   }
 
-  if (isOperationalRole(role)) {
+  if (personal || !isAdminRole(role)) {
     const { data: assignmentRows, error: assignmentError } = await supabase
       .from('trip_sheet_assignments')
       .select('id')
@@ -239,8 +238,8 @@ export async function renderTripSheetDetailPage({
     }
   }
 
-  const visibleCardCategory = getVisibleCardCategory(role)
-  const shouldLoadCards = isAdminRole(role) || Boolean(visibleCardCategory)
+  const categories = visibleCardCategories(role)
+  const shouldLoadCards = categories.length > 0
   let tripSheetCards: TripSheetCard[] = []
   let cardsErrorMessage: string | null = null
 
@@ -252,8 +251,8 @@ export async function renderTripSheetDetailPage({
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
 
-    if (visibleCardCategory && !isAdminRole(role)) {
-      cardQuery = cardQuery.eq('category', visibleCardCategory)
+    if (!isAdminRole(role)) {
+      cardQuery = cardQuery.in('category', categories)
     }
 
     const { data: cardData, error: cardsError } = await cardQuery
@@ -292,7 +291,7 @@ export async function renderTripSheetDetailPage({
       <div className="app-shell app-card">
         <AdminNav
           current={currentNav}
-          role={role}
+          profile={role}
         />
 
         <div className="space-y-4">

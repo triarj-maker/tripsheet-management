@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
 import {
-  ASSIGNABLE_ROLES,
   canBeAssignedToTripSheet,
   isAdminRole,
 } from '@/lib/roles'
@@ -559,13 +558,13 @@ export async function updateTripSheetSchedule({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_active')
+    .select('role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', user.id)
     .maybeSingle()
 
-  const profileRow = (profile as { role: string | null; is_active: boolean | null } | null) ?? null
+  const profileRow = (profile as { role: string | null; is_admin: boolean; profile_operational_roles: Array<{ role_code: string }>; is_active: boolean | null } | null) ?? null
 
-  if (profileRow?.is_active === false || !isAdminRole(profileRow?.role)) {
+  if (profileRow?.is_active === false || !isAdminRole(profileRow)) {
     return {
       ok: false,
       tripSheetId: normalizedTripSheetId,
@@ -712,20 +711,19 @@ export async function assignResourceToTripSheet(formData: FormData) {
 
   const { data: resourceProfile, error: resourceError } = await supabase
     .from('profiles')
-    .select('id, role, is_active')
+    .select('id, role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', resourceUserId)
-    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
     .maybeSingle()
 
   const assignableProfile =
-    (resourceProfile as { id: string; role: string | null; is_active: boolean | null } | null) ??
+    (resourceProfile as { id: string; role: string | null; is_admin: boolean; profile_operational_roles: Array<{ role_code: string }>; is_active: boolean | null } | null) ??
     null
 
   if (
     resourceError ||
     !assignableProfile ||
-    !canBeAssignedToTripSheet(assignableProfile.role)
+    !canBeAssignedToTripSheet(assignableProfile)
   ) {
     redirect(
       appendErrorParam(
@@ -937,13 +935,13 @@ export async function replaceTripSheetAssignments(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_active')
+    .select('role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', user.id)
     .maybeSingle()
 
-  const profileRow = (profile as { role: string | null; is_active: boolean | null } | null) ?? null
+  const profileRow = (profile as { role: string | null; is_admin: boolean; profile_operational_roles: Array<{ role_code: string }>; is_active: boolean | null } | null) ?? null
 
-  if (profileRow?.is_active === false || !isAdminRole(profileRow?.role)) {
+  if (profileRow?.is_active === false || !isAdminRole(profileRow)) {
     return {
       ok: false,
       tripSheetId: normalizedTripSheetId,
@@ -1011,9 +1009,8 @@ export async function replaceTripSheetAssignments(
   if (toAdd.length > 0) {
     const { data: resourceProfileData, error: resourceProfileError } = await supabase
       .from('profiles')
-      .select('id, role, is_active')
+      .select('id, role, is_active, is_admin, profile_operational_roles(role_code)')
       .in('id', toAdd)
-      .in('role', [...ASSIGNABLE_ROLES])
       .eq('is_active', true)
 
     if (resourceProfileError) {
@@ -1030,9 +1027,11 @@ export async function replaceTripSheetAssignments(
       ((resourceProfileData as Array<{
         id: string
         role: string | null
+        is_admin: boolean
+        profile_operational_roles: Array<{ role_code: string }>
         is_active: boolean | null
       }> | null) ?? [])
-        .filter((profile) => canBeAssignedToTripSheet(profile.role))
+        .filter((profile) => canBeAssignedToTripSheet(profile))
         .map((profile) => profile.id)
     )
 

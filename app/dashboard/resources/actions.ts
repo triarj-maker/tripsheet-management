@@ -4,11 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { requireAdmin } from '@/app/dashboard/lib'
 import { appendToastParam } from '@/app/lib/action-feedback'
-import {
-  APP_ROLES,
-  canBeAssignedToTripSheet,
-  type AppRole,
-} from '@/lib/roles'
+import { parseTeamPermissions } from './permissions'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 function buildResourcesRedirect(error: string) {
@@ -36,12 +32,6 @@ function buildPasswordResetErrorRedirect(
     : buildEditResourceRedirect(id, error)
 }
 
-function normalizeRole(value: FormDataEntryValue | null) {
-  const role = String(value ?? '').trim()
-
-  return APP_ROLES.includes(role as AppRole) ? role : null
-}
-
 export async function toggleResourceActive(formData: FormData) {
   const { supabase } = await requireAdmin()
   const id = String(formData.get('id') ?? '').trim()
@@ -51,12 +41,9 @@ export async function toggleResourceActive(formData: FormData) {
     redirect(buildResourcesRedirect('Resource not found.'))
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      is_active: nextIsActive,
-    })
-    .eq('id', id)
+  const { error } = await supabase.rpc('set_profile_active', {
+    p_id: id, p_active: nextIsActive,
+  })
 
   if (error) {
     redirect(buildResourcesRedirect(error.message))
@@ -66,16 +53,18 @@ export async function toggleResourceActive(formData: FormData) {
 }
 
 export async function createResource(formData: FormData) {
-  await requireAdmin()
+  const { supabase } = await requireAdmin()
   const fullName = String(formData.get('full_name') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const phone = String(formData.get('phone') ?? '').trim()
   const password = String(formData.get('password') ?? '')
-  const role = normalizeRole(formData.get('role'))
+  const selection = parseTeamPermissions(formData)
 
-  if (!fullName || !email || !password || !role) {
-    redirect(buildNewResourceRedirect('Full name, email, password, and role are required.'))
+  if (!fullName || !email || !password) {
+    redirect(buildNewResourceRedirect('Full name, email, and password are required.'))
   }
+  if (selection.error !== null) redirect(buildNewResourceRedirect(selection.error))
+  const { isAdmin, roles, isActive } = selection.permissions
 
   let adminClient: ReturnType<typeof createAdminClient>
 
@@ -99,20 +88,24 @@ export async function createResource(formData: FormData) {
     redirect(buildNewResourceRedirect(error?.message ?? 'Unable to create resource.'))
   }
 
-  const { error: profileError } = await adminClient.from('profiles').insert({
-    id: data.user.id,
-    full_name: fullName,
-    phone: phone || null,
-    email,
-    role,
-    is_active: true,
-  })
+  // Profile fields and permissions commit together; Auth identity is separate.
+  let profileFailure: string | null = null
+  try {
+    const { error: profileError } = await supabase.rpc('save_profile_permissions', {
+      p_id: data.user.id, p_full_name: fullName, p_phone: phone || null,
+      p_admin: isAdmin, p_roles: roles, p_active: isActive, p_email: email,
+    })
+    if (profileError) profileFailure = profileError.message
+  } catch {
+    // A transport failure may leave the commit outcome unknown. Preserve the
+    // identity and require inspection before attempting any recovery write.
+    profileFailure = 'The database request could not be confirmed.'
+  }
 
-  if (profileError) {
-    await adminClient.auth.admin.deleteUser(data.user.id)
+  if (profileFailure !== null) {
     redirect(
       buildNewResourceRedirect(
-        `Auth user was created, but profile creation failed and was rolled back: ${profileError.message}`
+        `Auth account ${data.user.id} was created, but Team profile creation could not be confirmed. The account has been preserved. Do not create it again; ask a database administrator to verify this Auth ID and complete its profile using the multi-role deployment recovery runbook. Error: ${profileFailure}`
       )
     )
   }
@@ -125,26 +118,22 @@ export async function updateResource(formData: FormData) {
   const id = String(formData.get('id') ?? '').trim()
   const fullName = String(formData.get('full_name') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
-  const role = normalizeRole(formData.get('role'))
-  const isActive = formData.get('is_active') === 'on'
+  const selection = parseTeamPermissions(formData)
 
   if (!id) {
     redirect(buildResourcesRedirect('Resource not found.'))
   }
 
-  if (!fullName || !role) {
-    redirect(buildEditResourceRedirect(id, 'Full name and role are required.'))
+  if (!fullName) {
+    redirect(buildEditResourceRedirect(id, 'Full name is required.'))
   }
+  if (selection.error !== null) redirect(buildEditResourceRedirect(id, selection.error))
+  const { isAdmin, roles, isActive } = selection.permissions
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      full_name: fullName,
-      phone: phone || null,
-      role,
-      is_active: isActive,
-    })
-    .eq('id', id)
+  const { error } = await supabase.rpc('save_profile_permissions', {
+    p_id: id, p_full_name: fullName, p_phone: phone || null,
+    p_admin: isAdmin, p_roles: roles, p_active: isActive, p_email: null,
+  })
 
   if (error) {
     redirect(buildEditResourceRedirect(id, error.message))
@@ -188,7 +177,7 @@ export async function updateResourcePassword(formData: FormData) {
 
   const { data: targetProfile, error: targetProfileError } = await supabase
     .from('profiles')
-    .select('id, role')
+    .select('id')
     .eq('id', id)
     .maybeSingle()
 
@@ -198,7 +187,7 @@ export async function updateResourcePassword(formData: FormData) {
     )
   }
 
-  if (!targetProfile || !canBeAssignedToTripSheet(targetProfile.role)) {
+  if (!targetProfile) {
     redirectWithError('Resource not found or cannot be managed.')
   }
 

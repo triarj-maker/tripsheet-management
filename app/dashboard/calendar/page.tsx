@@ -1,6 +1,8 @@
+import { eligibleProfiles } from '@/lib/roles'
+import type { PermissionProfile } from '@/lib/roles'
 import AdminNav from '@/app/dashboard/AdminNav'
 import { requireAdmin } from '@/app/dashboard/lib'
-import { ASSIGNABLE_ROLES, getRoleLabel } from '@/lib/roles'
+import { getPermissionLabel } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import {
   getTripSchoolCustomerName,
@@ -74,7 +76,7 @@ type Assignment = {
   resource_user_id: string
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
@@ -165,9 +167,9 @@ function getInclusiveDateRange(startDate: string | null, endDate: string | null)
   return dateRange
 }
 
-function formatAssignableLabel(resource: Pick<ResourceProfile, 'id' | 'full_name' | 'email' | 'role'>) {
+function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name?.trim() || resource.email?.trim() || resource.id
-  const roleLabel = getRoleLabel(resource.role)
+  const roleLabel = getPermissionLabel(resource)
 
   return `${baseLabel} (${roleLabel})`
 }
@@ -268,19 +270,18 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     resourceUserIds.length > 0
       ? await supabase
           .from('profiles')
-          .select('id, full_name, email, role')
+          .select('id, full_name, email, role, is_admin, is_active, profile_operational_roles(role_code)')
           .in('id', resourceUserIds)
       : { data: [], error: null }
 
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role')
-    .in('role', [...ASSIGNABLE_ROLES])
+    .select('id, full_name, email, role, is_admin, is_active, profile_operational_roles(role_code)')
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
   const resources = (resourceData as ResourceProfile[] | null) ?? []
-  const activeResources = (activeResourceData as ResourceProfile[] | null) ?? []
+  const activeResources = eligibleProfiles((activeResourceData as ResourceProfile[] | null) ?? [])
   const resourcesById = new Map<string, ResourceProfile>()
   const resourceNamesById = new Map<string, string>()
   const assignedNamesByTripSheetId = new Map<string, string[]>()

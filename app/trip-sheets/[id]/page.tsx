@@ -17,13 +17,13 @@ export default async function TripSheetViewPage({
   params,
   searchParams,
 }: TripSheetViewPageProps) {
-  const [{ id }, query, { profile }] = await Promise.all([
+  const [{ id }, query, context] = await Promise.all([
     params,
     searchParams,
     getCurrentUserProfile(),
   ])
 
-  const role = profile?.role ?? null
+  const role = context.profile
 
   if (!canAccessAssignedWork(role)) {
     redirect('/login?error=You%20do%20not%20have%20access%20to%20that%20page.')
@@ -42,5 +42,6 @@ export default async function TripSheetViewPage({
   return renderTripSheetDetailPage({
     id,
     from: query.from,
+    context,
   })
 }

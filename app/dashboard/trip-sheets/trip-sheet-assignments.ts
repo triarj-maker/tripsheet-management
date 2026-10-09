@@ -1,7 +1,7 @@
 'use server'
 
 import { requireAdmin } from './lib'
-import { ASSIGNABLE_ROLES, canBeAssignedToTripSheet } from '@/lib/roles'
+import { canBeAssignedToTripSheet } from '@/lib/roles'
 
 type DashboardSupabaseClient = Awaited<ReturnType<typeof requireAdmin>>['supabase']
 
@@ -28,9 +28,8 @@ export async function insertTripSheetAssignments({
 
   const { data: resourceProfiles, error: resourceProfileError } = await supabase
     .from('profiles')
-    .select('id, role, is_active')
+    .select('id, role, is_active, is_admin, profile_operational_roles(role_code)')
     .in('id', uniqueResourceUserIds)
-    .in('role', [...ASSIGNABLE_ROLES])
     .eq('is_active', true)
 
   if (resourceProfileError) {
@@ -41,9 +40,11 @@ export async function insertTripSheetAssignments({
     ((resourceProfiles as Array<{
       id: string
       role: string | null
+      is_admin: boolean
+      profile_operational_roles: Array<{ role_code: string }>
       is_active: boolean | null
     }> | null) ?? [])
-      .filter((profile) => canBeAssignedToTripSheet(profile.role))
+      .filter((profile) => canBeAssignedToTripSheet(profile))
       .map((profile) => profile.id)
   )
 

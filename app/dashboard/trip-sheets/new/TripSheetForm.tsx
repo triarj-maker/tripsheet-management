@@ -1,10 +1,12 @@
 'use client'
 
+import type { PermissionProfile } from '@/lib/roles'
+
 import { useState } from 'react'
 
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { createTripSheet } from '@/app/dashboard/trip-sheets/actions'
-import { getRoleLabel } from '@/lib/roles'
+import { getPermissionLabel } from '@/lib/roles'
 import { formatTripTypeLabel } from '@/lib/trip-sheets'
 import {
   isDateRangeOrdered,
@@ -22,7 +24,7 @@ type TripTemplate = {
   body: string | null
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
@@ -88,7 +90,7 @@ function shouldApplyTemplateValue({
 
 function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name ?? resource.email ?? resource.id
-  const roleLabel = getRoleLabel(resource.role)
+  const roleLabel = getPermissionLabel(resource)
 
   return `${baseLabel} (${roleLabel})`
 }

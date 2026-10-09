@@ -2,12 +2,13 @@ import { redirect } from 'next/navigation'
 
 import {
   canAccessAssignedWork,
+  type PermissionProfile,
   isAdminRole,
   isOperationalRole,
 } from '@/lib/roles'
 import { createClient } from '@/lib/supabase/server'
 
-export type DashboardProfile = {
+export type DashboardProfile = PermissionProfile & {
   full_name: string | null
   email: string | null
   role: string | null
@@ -19,7 +20,7 @@ function buildLoginRedirect(error: string) {
   return `/login?${params.toString()}`
 }
 
-export function getSignedInHomePath(role: string | null | undefined) {
+export function getSignedInHomePath(role: PermissionProfile | null | undefined) {
   if (isAdminRole(role)) {
     return '/dashboard/trips'
   }
@@ -28,7 +29,7 @@ export function getSignedInHomePath(role: string | null | undefined) {
     return '/my-trips'
   }
 
-  return '/dashboard/trips'
+  return '/login'
 }
 
 export async function getCurrentUserProfile() {
@@ -43,13 +44,17 @@ export async function getCurrentUserProfile() {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('full_name, email, role, is_active')
+    .select('full_name, email, role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', user.id)
     .maybeSingle()
 
   const profile = (data as DashboardProfile | null) ?? null
 
-  if (profile?.is_active === false) {
+  if (!profile || error) {
+    redirect(buildLoginRedirect('Your profile is unavailable.'))
+  }
+
+  if (profile.is_active !== true) {
     await supabase.auth.signOut()
     redirect(buildLoginRedirect('Your account is inactive.'))
   }
@@ -60,11 +65,11 @@ export async function getCurrentUserProfile() {
 export async function requireAdmin() {
   const context = await getCurrentUserProfile()
 
-  if (isOperationalRole(context.profile?.role)) {
+  if (isOperationalRole(context.profile)) {
     redirect('/my-trip-sheets')
   }
 
-  if (!isAdminRole(context.profile?.role)) {
+  if (!isAdminRole(context.profile)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 
@@ -74,11 +79,11 @@ export async function requireAdmin() {
 export async function requireResource() {
   const context = await getCurrentUserProfile()
 
-  if (isAdminRole(context.profile?.role)) {
-    redirect(getSignedInHomePath(context.profile?.role))
+  if (isAdminRole(context.profile)) {
+    redirect(getSignedInHomePath(context.profile))
   }
 
-  if (!isOperationalRole(context.profile?.role)) {
+  if (!isOperationalRole(context.profile)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 
@@ -88,7 +93,7 @@ export async function requireResource() {
 export async function requireAdminOrResource() {
   const context = await getCurrentUserProfile()
 
-  if (!canAccessAssignedWork(context.profile?.role)) {
+  if (!canAccessAssignedWork(context.profile)) {
     redirect(buildLoginRedirect('You do not have access to that page.'))
   }
 

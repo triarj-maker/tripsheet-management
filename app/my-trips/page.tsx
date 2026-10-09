@@ -41,7 +41,7 @@ export default async function MyTripsPage() {
   return (
     <main className="app-page">
       <div className="app-shell app-card">
-        <AdminNav current="my-trips" role={profile?.role} />
+        <AdminNav current="my-trips" profile={profile} />
 
         <div className="app-page-header">
           <div>
@@ -52,7 +52,7 @@ export default async function MyTripsPage() {
           </div>
         </div>
 
-        <InstallHomeScreenHint role={profile?.role} />
+        <InstallHomeScreenHint profile={profile} />
 
         {errorMessage ? (
           <p className="app-banner-error">

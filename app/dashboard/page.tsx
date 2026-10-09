@@ -4,7 +4,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import { logout } from '@/app/auth/actions'
 import CopyCalendarLinkButton from '@/app/components/CopyCalendarLinkButton'
 import { requireAdminOrResource } from '@/app/dashboard/lib'
-import { getRoleLabel } from '@/lib/roles'
+import { getPermissionLabel } from '@/lib/roles'
 
 function formatText(value: string | null) {
   return value ?? '-'
@@ -17,11 +17,11 @@ function badgeClass(isPositive: boolean) {
 }
 
 export default async function DashboardPage() {
-  const { user, profile: currentProfile, error } = await requireAdminOrResource()
+  const { user, profile: currentProfile } = await requireAdminOrResource()
   const headersList = await headers()
   const name = formatText(currentProfile?.full_name ?? null)
   const email = formatText(currentProfile?.email ?? user.email ?? null)
-  const role = getRoleLabel(currentProfile?.role)
+  const role = getPermissionLabel(currentProfile)
   const isActive = currentProfile?.is_active !== false
   const forwardedProto = headersList.get('x-forwarded-proto')
   const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <AdminNav current="profile" role={currentProfile?.role} />
+      <AdminNav current="profile" profile={currentProfile} />
 
       <div className="mx-auto w-full max-w-2xl">
         <div className="app-page-header mb-4">
@@ -45,12 +45,6 @@ export default async function DashboardPage() {
             </p>
           </div>
         </div>
-
-        {error ? (
-          <p className="app-banner-error">
-            {error.message}
-          </p>
-        ) : null}
 
         <section className="app-section-card space-y-4 px-4 py-4 sm:px-5">
           <div className="space-y-3">

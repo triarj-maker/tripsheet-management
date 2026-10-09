@@ -1,3 +1,5 @@
+import { eligibleProfiles } from '@/lib/roles'
+import type { PermissionProfile } from '@/lib/roles'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -6,7 +8,7 @@ import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
 import TripSheetCardsSection from '@/app/dashboard/trip-sheets/TripSheetCardsSection'
-import { ASSIGNABLE_ROLES, getRoleLabel } from '@/lib/roles'
+import { getPermissionLabel } from '@/lib/roles'
 import {
   getDestinationName,
   getTripParent,
@@ -62,7 +64,7 @@ type Assignment = {
   resource_user_id: string
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
@@ -87,7 +89,7 @@ function buildTripsRedirect(error: string) {
 
 function formatAssignableLabel(resource: ResourceProfile) {
   const baseLabel = resource.full_name ?? resource.email ?? resource.id
-  const roleLabel = getRoleLabel(resource.role)
+  const roleLabel = getPermissionLabel(resource)
 
   return `${baseLabel} (${roleLabel})`
 }
@@ -131,18 +133,17 @@ export default async function EditTripSheetPage({
 
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role')
-    .in('role', [...ASSIGNABLE_ROLES])
+    .select('id, full_name, email, phone, role, is_admin, is_active, profile_operational_roles(role_code)')
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
-  const activeResources = (activeResourceData as ResourceProfile[] | null) ?? []
+  const activeResources = eligibleProfiles((activeResourceData as ResourceProfile[] | null) ?? [])
 
   const { data: assignedProfilesData, error: assignedProfilesError } =
     assignedResourceIds.length > 0
       ? await supabase
           .from('profiles')
-          .select('id, full_name, email, phone, role')
+          .select('id, full_name, email, phone, role, is_admin, is_active, profile_operational_roles(role_code)')
           .in('id', assignedResourceIds)
       : { data: [], error: null }
 

@@ -1,3 +1,5 @@
+import { eligibleProfiles } from '@/lib/roles'
+import type { PermissionProfile } from '@/lib/roles'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -5,7 +7,7 @@ import AdminNav from '@/app/dashboard/AdminNav'
 import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
 import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
 import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
-import { ASSIGNABLE_ROLES, getRoleLabel, isAdminRole } from '@/lib/roles'
+import { getPermissionLabel, isAdminRole } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
 import {
@@ -83,7 +85,7 @@ type AssignmentRow = {
   resource_user_id: string
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
@@ -299,17 +301,16 @@ export default async function TripDetailPage({
   )
   const { data: activeResourceData, error: activeResourcesError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role')
-    .in('role', [...ASSIGNABLE_ROLES])
+    .select('id, full_name, email, role, is_admin, is_active, profile_operational_roles(role_code)')
     .eq('is_active', true)
     .order('full_name', { ascending: true })
 
-  const activeResources = (activeResourceData as ResourceProfile[] | null) ?? []
+  const activeResources = eligibleProfiles((activeResourceData as ResourceProfile[] | null) ?? [])
   const { data: resourceData, error: resourcesError } =
     resourceUserIds.length > 0
       ? await supabase
           .from('profiles')
-          .select('id, full_name, email, role')
+          .select('id, full_name, email, role, is_admin, is_active, profile_operational_roles(role_code)')
           .in('id', resourceUserIds)
       : { data: [], error: null }
 
@@ -479,7 +480,7 @@ export default async function TripDetailPage({
 
           <DownloadTripPdfButton tripId={trip.id} />
 
-          {isAdminRole(profile?.role) ? (
+          {isAdminRole(profile) ? (
             <SendTripNotificationButton
               tripId={trip.id}
               tripTitle={trip.title ?? 'Untitled trip'}
@@ -580,7 +581,7 @@ export default async function TripDetailPage({
           returnPath={returnPath}
           availableResources={activeResources.map((resource) => ({
             id: resource.id,
-            label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${getRoleLabel(resource.role)})`,
+            label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${getPermissionLabel(resource)})`,
           }))}
           tripSheetCount={tripSheets.length}
         >

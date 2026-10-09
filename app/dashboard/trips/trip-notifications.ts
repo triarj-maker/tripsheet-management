@@ -125,17 +125,17 @@ export async function sendTripNotification(tripId: string): Promise<TripNotifica
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role, is_active')
+    .select('id, role, is_active, is_admin, profile_operational_roles(role_code)')
     .eq('id', user.id)
     .maybeSingle()
 
   const currentProfile =
-    (profile as { id: string; role: string | null; is_active: boolean | null } | null) ?? null
+    (profile as { id: string; role: string | null; is_admin: boolean; profile_operational_roles: Array<{ role_code: string }>; is_active: boolean | null } | null) ?? null
 
   if (
     !currentProfile ||
     currentProfile.is_active === false ||
-    !isAdminRole(currentProfile.role)
+    !isAdminRole(currentProfile)
   ) {
     return {
       ok: false,

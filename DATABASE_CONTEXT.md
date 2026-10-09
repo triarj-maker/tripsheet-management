@@ -102,6 +102,89 @@ Known app-used assignment fields:
 
 6. Profiles and Roles
 
+
+Combined Stage 2B/2C authorization (local only; deploy together):
+- Production Stage 2A database is user-confirmed applied/validated; its application
+  changes are not deployed. Production continues on the legacy-authoritative bridge.
+- Local app checks use `is_admin AND is_active` and active operational memberships.
+  Profile queries embed memberships; assignment pickers deduplicate profile IDs.
+- `sql/20261009_multi_role_authorization.sql` replaces Admin helper bodies and
+  recognized inline legacy policy predicates, preserving other conditions and RLS
+  enabled/disabled states. Unknown predicates/functions fail transactionally.
+- Retires Stage 2A sync/guards, retains timestamp and serialization triggers, and
+  installs independent permission guards with transaction-scoped private write
+  capabilities. Direct legacy permission writes fail after cutover.
+- `save_profile_permissions` is the sole Team create/edit permission API. It writes
+  ordinary profile fields, independent Admin permission, all selected memberships,
+  active status and the compatibility projection in one transaction.
+- `set_profile_active` preserves independent permissions. The obsolete scalar-role
+  `save_team_profile` function is explicitly absent after migration.
+- If the pre-existing `public.is_active_resource(uuid)` helper is present, the
+  migration preserves its signature/dependencies and updates it to require an active
+  Facilitator or Expert membership. It no longer reads the retired `resource` role.
+- `profiles.role` becomes a derived display projection only: Admin, else Facilitator,
+  else Expert (inactive/no memberships uses Facilitator to retain the legacy NOT NULL
+  column). No existing profile/assignment rows are rewritten by installation.
+- Final-active-Admin, identity, unauthorized permission/membership-write and
+  active-non-admin membership protections are enforced in the database. Auth
+  creation remains separate and partial failures never delete the Auth identity.
+- Deployment and validation: `sql/verification/20261009_stage2b_runbook.md` and
+  `sql/verification/20261009_stage2b_validation.sql`. Block/drain legacy mutations,
+  migrate, deploy combined Stage 2B/2C, verify, then reopen. Never reinstall the
+  Stage 2A sync after independent multi-role data exists.
+
+Historical Stage 2A preparation notes (database now user-confirmed applied):
+Stage 2A compatibility bridge (installed in production; retained until cutover):
+- `sql/20261009_multi_role_compatibility_bridge.sql` keeps `profiles.role`
+  authoritative and all existing helpers/RLS unchanged. BEFORE/AFTER profile
+  triggers derive `is_admin = (role = 'admin')` and reconcile memberships in the
+  same transaction. Admin maps to no memberships; Facilitator/Expert maps to one.
+- Deferred constraints prevent direct membership writes from creating drift.
+  All profile/membership write statements update a private serialization row;
+  last-active-Admin checks run under that transaction-held serialization mechanism.
+  Concurrent native PostgreSQL testing remains a deployment gate.
+- Active Admin permission is checked server-side; role/active/permission changes
+  are guarded at the database level. Self changes use OLD permissions. Profile
+  IDs cannot change; profile deletion is unavailable during Stage 2A.
+- Installation is atomic, repeatable, makes no existing profile/assignment changes,
+  and refuses pre-existing role drift rather than guessing a reconciliation.
+  Existing timestamp/audit triggers are neither disabled nor replaced.
+- A separate `sql/20261009_profiles_revoke_client_truncate.sql` revokes only client
+  TRUNCATE on profiles, aborting if inherited/PUBLIC access remains. The user now
+  confirms this correction is applied; omit it from Stage 2A production deployment.
+- At the Stage 2A production deployment, the application kept its single role
+  dropdown and legacy authorization. Its
+  Auth creation error path preserves the Auth account and reports the UUID for
+  manual recovery. A profile INSERT uses the existing identity, never an upsert.
+- `sql/verification/20261009_stage2a_preflight.sql` retrieves live policies,
+  helpers, triggers, grants and drift read-only in one result. Review before any
+  production application: repository SQL is not proof of complete live RLS.
+- See `sql/verification/20261009_stage2a_runbook.md` for the historical Stage 2A
+  staging/concurrency gates,
+  database-first deployment, partial-account recovery and rollback that retains
+  synchronization. That release did not implement Stage 2B/2C or interface
+  switching. The combined local Stage 2B/2C candidate now explicitly retires this
+  single-role bridge before independent multi-role writes begin.
+
+Stage 1 multi-role foundation (user reports applied/validated 2026-10-09):
+- `sql/20261009_multi_role_foundation.sql` introduced `profiles.is_admin`, an
+  `operational_roles` catalogue and `profile_operational_roles` memberships.
+- Existing `profiles.role` and application authorization remain unchanged.
+- Every resource retains an Auth login and the existing profile/user identity.
+- Read-only live preflight, validation, security assumptions, snapshot drift and
+  approval steps: `sql/verification/20261009_multi_role_runbook.md`.
+- Latest user-supplied live diagnostics show the new column, tables, RLS, policies
+  and security functions present. The supplied final validation passed current-state
+  backfill checks; historical preservation and completion of the original integrity
+  check cannot be proven without the original execution evidence/snapshots. App
+  authorization still uses the legacy role.
+- `sql/verification/20261009_multi_role_final_validation.sql` returns one read-only
+  PASS/FAIL/WARNING report; it cannot prove history without a pre-migration snapshot.
+- User-supplied live diagnostics confirmed the original attempt rolled back and
+  `set_profiles_updated_at` invokes `set_updated_at()` (`NEW.updated_at = NOW()`).
+  The correction validates that timestamp only on actual initial-backfill rows;
+  all other old fields and all rerun timestamps remain protected.
+
 Current app roles:
 - `admin`
 - `facilitator`
@@ -257,3 +340,20 @@ Use current terminology in product-facing changes, but do not rename legacy sche
 15. One-line Summary
 
 Trips plan the program, Trip Sheets execute the work, assignments link users to execution, templates and cards seed creation-time defaults, and existing rows should be mutated explicitly from current DB state.
+
+
+Stage 2A live preflight review (user-reported findings, 2026-10-09):
+- Two active Admins; permission drift and membership drift both zero.
+- Client TRUNCATE on profiles has already been revoked; do not reapply its SQL.
+- `public.is_admin()` remains legacy-role-based; Stage 1 Admin helper uses both
+  legacy role and is_admin. Existing enabled timestamp/Admin-protection triggers
+  and direct legacy-role policies are consistent with the Stage 2A design.
+- RLS is reported DISABLED on `trips`, `trip_sheets`, `trip_sheet_assignments`,
+  and `destinations`. Track this existing authorization gap separately: policies
+  do not enforce row restrictions while RLS is disabled. Actual exposure depends
+  on effective grants/API exposure. The bridge adds no access path to these tables
+  and does not enable RLS or redesign their policies.
+- The complete preflight JSON was not included in the review request or available
+  attachments. Full definitions/grants/Auth-hook compatibility and native concurrent
+  transaction tests remain deployment gates. See
+  `sql/verification/20261009_stage2a_live_review.md`.

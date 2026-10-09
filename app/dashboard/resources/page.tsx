@@ -1,10 +1,11 @@
+import type { PermissionProfile } from '@/lib/roles'
 import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
 import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
-import { ASSIGNABLE_ROLES, getRoleLabel, isAdminRole } from '@/lib/roles'
+import { teamPermissionLabels } from './permissions'
 
 import { toggleResourceActive } from './actions'
 import ResetResourcePasswordDialog from './ResetResourcePasswordDialog'
@@ -15,12 +16,11 @@ type ResourcesPageProps = {
   }>
 }
 
-type ResourceProfile = {
+type ResourceProfile = PermissionProfile & {
   id: string
   full_name: string | null
   email: string | null
   phone: string | null
-  role: string | null
   is_active: boolean | null
   created_at: string | null
 }
@@ -54,14 +54,14 @@ function statusBadgeClass(isActive: boolean | null) {
   ].join(' ')
 }
 
-function roleLabel(role: string | null) {
-  return getRoleLabel(role)
+function roleLabel(role: ResourceProfile) {
+  return teamPermissionLabels(role).join(', ') || 'No roles'
 }
 
-function roleBadgeClass(role: string | null) {
+function roleBadgeClass(role: ResourceProfile) {
   return [
     'ui-badge',
-    isAdminRole(role) ? 'ui-badge-blue' : 'ui-badge-neutral',
+    role.is_admin === true ? 'ui-badge-blue' : 'ui-badge-neutral',
   ].join(' ')
 }
 
@@ -72,8 +72,7 @@ export default async function ResourcesPage({
   const { supabase, user } = await requireAdmin()
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, phone, role, is_active, created_at')
-    .in('role', [...ASSIGNABLE_ROLES])
+    .select('id, full_name, email, phone, is_active, created_at, is_admin, profile_operational_roles(role_code)')
     .order('created_at', { ascending: false })
 
   const resources = (data as ResourceProfile[] | null) ?? []
@@ -117,7 +116,7 @@ export default async function ResourcesPage({
               <th className="px-3 py-2 font-medium text-gray-700">Name</th>
               <th className="px-3 py-2 font-medium text-gray-700">Email</th>
               <th className="px-3 py-2 font-medium text-gray-700">Phone</th>
-              <th className="px-3 py-2 font-medium text-gray-700">Role</th>
+              <th className="px-3 py-2 font-medium text-gray-700">Roles</th>
               <th className="px-3 py-2 font-medium text-gray-700">Status</th>
               <th className="px-3 py-2 font-medium text-gray-700">Created At</th>
               <th className="px-3 py-2 font-medium text-gray-700">Actions</th>
@@ -143,8 +142,8 @@ export default async function ResourcesPage({
                     {formatValue(resource.phone)}
                   </td>
                   <td className="px-3 py-2">
-                    <span className={roleBadgeClass(resource.role)}>
-                      {roleLabel(resource.role)}
+                    <span className={roleBadgeClass(resource)}>
+                      {roleLabel(resource)}
                     </span>
                   </td>
                   <td className="px-3 py-2">
