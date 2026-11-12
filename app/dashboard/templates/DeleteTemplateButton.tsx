@@ -4,11 +4,15 @@ import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { deleteTemplate } from '@/app/dashboard/templates/actions'
 
 type DeleteTemplateButtonProps = {
+  returnTo?: string
+  className?: string
   templateId: string
 }
 
 export default function DeleteTemplateButton({
   templateId,
+  returnTo,
+  className = 'ui-button-danger',
 }: DeleteTemplateButtonProps) {
   return (
     <form
@@ -20,10 +24,11 @@ export default function DeleteTemplateButton({
       }}
     >
       <input type="hidden" name="id" value={templateId} />
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       <ActionSubmitButton
         idleLabel="Delete"
         pendingLabel="Deleting…"
-        className="ui-button-danger"
+        className={className}
       />
     </form>
   )

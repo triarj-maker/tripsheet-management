@@ -11,6 +11,7 @@ type NewTemplatePageProps = {
 }
 
 type TripTemplate = {
+  destination_id: string | null
   title: string | null
   heading: string | null
   default_start_time: string | null
@@ -27,7 +28,10 @@ export default async function NewTemplatePage({
 }: NewTemplatePageProps) {
   const params = await searchParams
   const { supabase } = await requireAdmin()
+  const { data: destinations, error: destinationsError } = await supabase
+    .from('destinations').select('id, name').order('name', { ascending: true })
   let duplicateError: string | null = null
+  let initialDestinationId = ''
   let initialTitle = ''
   let initialHeading = ''
   let initialDefaultStartTime = ''
@@ -37,7 +41,7 @@ export default async function NewTemplatePage({
   if (params.duplicateFrom) {
     const { data, error } = await supabase
       .from('trip_templates')
-      .select('title, heading, default_start_time, default_end_time, body')
+      .select('title, heading, default_start_time, default_end_time, body, destination_id')
       .eq('id', params.duplicateFrom)
       .maybeSingle()
 
@@ -48,6 +52,7 @@ export default async function NewTemplatePage({
     } else if (!tripTemplate) {
       duplicateError = 'Template to duplicate was not found.'
     } else {
+      initialDestinationId = tripTemplate.destination_id ?? ''
       initialTitle = `${tripTemplate.title ?? ''} Copy`
       initialHeading = tripTemplate.heading ?? ''
       initialDefaultStartTime = formatTimeInputValue(tripTemplate.default_start_time)
@@ -83,7 +88,11 @@ export default async function NewTemplatePage({
           </p>
         ) : null}
 
-        <TemplateForm
+        {destinationsError ? <p className="app-banner-error">Unable to load destinations. Please reload before saving.</p> : null}
+        {!destinationsError && !duplicateError ? <TemplateForm
+          destinations={destinations ?? []}
+          duplicateFrom={params.duplicateFrom}
+          initialDestinationId={initialDestinationId}
           action={createTemplate}
           submitLabel="Save Template"
           initialTitle={initialTitle}
@@ -91,7 +100,7 @@ export default async function NewTemplatePage({
           initialDefaultStartTime={initialDefaultStartTime}
           initialDefaultEndTime={initialDefaultEndTime}
           initialBody={initialBody}
-        />
+        /> : null}
     </>
   )
 }

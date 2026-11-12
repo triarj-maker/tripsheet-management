@@ -315,6 +315,19 @@ export async function createTripSheet(formData: FormData) {
     redirect(buildNewTripSheetRedirect(tripSheetWithinTripRangeMessage, tripId))
   }
 
+  // Recheck persisted state: a stale dropdown or forged request cannot select
+  // an archived template for a new sheet. Historical sheet references stay intact.
+  if (templateId) {
+    const { data: template, error: templateError } = await supabase
+      .from('trip_templates').select('id, archived_at').eq('id', templateId).maybeSingle()
+    if (templateError || !template) {
+      redirect(buildNewTripSheetRedirect(templateError?.message ?? 'Template not found.', tripId))
+    }
+    if (template.archived_at !== null) {
+      redirect(buildNewTripSheetRedirect('This template is archived. Select an active template or start without one.', tripId))
+    }
+  }
+
   const { data: tripSheet, error } = await supabase
     .from('trip_sheets')
     .insert({

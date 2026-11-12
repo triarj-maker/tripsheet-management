@@ -76,6 +76,7 @@ export default async function NewTripSheetPage({
   const { data, error } = await supabase
     .from('trip_templates')
     .select('id, title, heading, default_start_time, default_end_time, body')
+    .is('archived_at', null)
     .order('title', { ascending: true })
 
   const tripTemplates = (data as TripTemplate[] | null) ?? []

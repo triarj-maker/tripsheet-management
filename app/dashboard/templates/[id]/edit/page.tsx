@@ -16,6 +16,7 @@ type EditTemplatePageProps = {
 }
 
 type TripTemplate = {
+  destination_id: string | null
   id: string
   title: string | null
   heading: string | null
@@ -48,9 +49,11 @@ export default async function EditTemplatePage({
 }: EditTemplatePageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams])
   const { supabase } = await requireAdmin()
+  const { data: destinations, error: destinationsError } = await supabase
+    .from('destinations').select('id, name').order('name', { ascending: true })
   const { data, error } = await supabase
     .from('trip_templates')
-    .select('id, title, heading, default_start_time, default_end_time, body')
+    .select('id, title, heading, default_start_time, default_end_time, body, destination_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -94,7 +97,10 @@ export default async function EditTemplatePage({
           </p>
         ) : null}
 
-        <TemplateForm
+        {destinationsError ? <p className="app-banner-error">Unable to load destinations. Please reload before saving.</p> : null}
+        {!destinationsError ? <TemplateForm
+          destinations={destinations ?? []}
+          initialDestinationId={tripTemplate.destination_id ?? ''}
           action={updateTemplate}
           submitLabel="Save Changes"
           templateId={tripTemplate.id}
@@ -104,7 +110,7 @@ export default async function EditTemplatePage({
           initialDefaultEndTime={formatTimeInputValue(tripTemplate.default_end_time)}
           initialBody={tripTemplate.body ?? ''}
           closeHref="/dashboard/templates"
-        />
+        /> : null}
 
         <TemplateCardsSection
           templateId={tripTemplate.id}

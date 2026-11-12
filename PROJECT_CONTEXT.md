@@ -1,558 +1,144 @@
-##Trip Sheet Management System - ChatGPT Context
+# Echo Journeys — Project Context
 
-Updated: 26/05/2026
+**Last Updated:** 2026-11-12
 
-⸻
+## Purpose and scope
 
-1. Purpose
+Echo Journeys Trip Management supports travel-program planning and field execution. Trips are parent planning entities; Trip Sheets are child execution units assigned to people. The current implementation includes trip planning, templates and module cards, calendars and conflict indicators, Team administration, manual Trip notifications, tasks/comments, personal work views, and downloadable itineraries and resource schedules.
 
-This file provides high-level context for:
+This document describes repository behavior. It does not certify production configuration. [DATABASE.md](DATABASE.md) distinguishes SQL evidence, application usage, and live-state gaps. [README.md](README.md) covers setup and checks; [AGENTS.md](AGENTS.md) contains agent rules. `DATABASE_CONTEXT.md` and older SQL runbooks remain historical references; their stage-specific statements are not the current authorization specification.
 
-* product reasoning
-* UX decisions
-* system behavior
-* debugging logic issues
+## Architecture
 
-This is NOT an implementation file.
+- Next.js 16 App Router, React 19, TypeScript and Tailwind CSS 4; hosted on Vercel.
+- Supabase PostgreSQL is the data source of truth; Supabase Auth provides password-based identity and cookie-backed sessions through `@supabase/ssr`.
+- Server-rendered pages query Supabase; server actions perform mutations. Browser clients are also present, so server guards must not be mistaken for database-wide isolation.
+- FullCalendar supports scheduling. Resend sends manual notifications. Custom PDF utilities generate documents in memory without a browser/PDF dependency.
+- The configured application timezone is `Asia/Kolkata` in `lib/time.ts`. Use its comparable timestamp/date helpers; do not mix wall-clock comparable timestamps with Unix instants.
 
-This defines how the system should behave.
+## Permissions and workspaces
 
-⸻
+One person retains one Auth/profile UUID. Current permissions are independent Administrator access (`profiles.is_admin`) and Facilitator/Expert memberships (`profile_operational_roles`). Authorization requires an active profile. `profiles.role` is a derived compatibility projection, never authorization evidence or the Team form source.
 
-2. System Overview
+| Account | Implemented access |
+|---|---|
+| Active Administrator | Full administrative workspace; can also be assigned and use personal views, including Admin-only accounts without operational memberships. |
+| Active Facilitator / Expert | Own assigned work; card visibility is the union of operational memberships. |
+| Inactive / missing profile | Denied application access. Administrators can still inspect inactive target accounts and their schedules. |
 
-Trip Sheet Management is an operational scheduling and execution system for travel programs.
+Team forms save independent checkboxes through the atomic `save_profile_permissions` RPC. Activation uses `set_profile_active`; permission changes do not recreate assignments. The system protects the final active Administrator. Creating an Auth account and its profile are separate operations: a profile failure preserves the Auth identity and reports its UUID for reviewed recovery.
 
-Core Hierarchy:
+Active Admins may select Admin View or Resource View. The validated, per-user browser cookie is a preference, not authorization. Admin deep links remain available regardless of that preference. Resource routes always retain personal scoping, even for Admins; personal Trip Sheet detail checks the logged-in user's assignment.
 
-Trip
-↓
-Trip Sheets
-↓
-Facilitators / Experts assigned to Trip Sheets
+Admin navigation: Overview, Trips, Calendar, Companies, Schools, Templates, Team, Tasks, and Profile. Resource navigation: My Trips, My Trip Sheets, My Tasks, and Profile. On mobile the Admin view switcher has its own full-width row above workspace navigation. Navigation labels and retained route names differ: Team still uses `/dashboard/resources`, whose page heading currently says Resources.
 
-⸻
+## Trips, Trip Sheets, and assignments
 
-3. Core Concepts
+Trips contain overall dates, destination, Educational/Private type, school/company relationships, participant counts, color, and workflow context. Trip Sheets contain session titles, dates/times, execution Markdown, transportation information, and module-card snapshots.
 
-Trip
+Assignments are stored in `trip_sheet_assignments` using `resource_user_id` and `trip_sheet_id`. Assignable users include active Admins, Facilitators, and Experts. Administrators manage all assignment changes; there is no acceptance, rejection, or availability workflow and no implemented per-session role selection.
 
-Represents the overall program.
+Mutation rules:
 
-Defines:
+- Read persisted state before computing changes; do not trust stale form values.
+- When Trip dates actually change, shift existing child Trip Sheets with update semantics. Preserve duration, times, and execution body. Unrelated Trip edits must not shift children.
+- Validate child dates against parent timelines; errors can originate in database triggers as well as application validation.
+- `workflow_state` normalizes to tentative/active. Completed is derived from end date; archived is separate. Archive/restore actions update parent and child archive state. The retained auto-archive cron handler is disabled.
+- Trip creation and archived-reference cloning are implemented in `app/dashboard/trips/actions.ts`; templates/cards provide reusable starting content.
+- School/company relationships use IDs and lookup joins. Legacy `guest_name` / `company` text remains a display fallback, not the preferred filtering model.
 
-* overall duration (start_date → end_date)
-* destination
-* trip type (Educational / Private)
-* customer context
-* participant counts
+## Template Library destinations and lifecycle
 
-Trip Sheet
+Create/Edit forms support an optional Destination from the existing destinations
+lookup, saved as `trip_templates.destination_id`. Legacy null destinations remain
+valid. Edit and Duplicate prefill the saved value. Duplicates retain the submitted
+content and default times, copy source module-card metadata into new card rows,
+and explicitly set `archived_at` to null even for archived sources. Edit does not
+change archive state or existing Trip Sheets. Destination lookup failures block
+the form rather than risk clearing a saved selection. Destination is template
+metadata; this step does not change Trip Sheet creation or destination inheritance.
 
-Represents an execution unit within a Trip.
+The owner reports the nullable destination FK (delete restrict), archive timestamp,
+and indexes already applied manually. `sql/20261112_trip_templates_destination_archive.sql`
+records that schema without execution here. Admin-only archive/restore actions update only `archived_at`, checking the current
+record first and treating repeated requests as no-ops. The existing listing retains
+its columns and Edit/Duplicate/Delete controls, adds Active/Archived badges and
+Archive/Restore buttons, and keeps both states visible. Listing redesign is deferred.
 
-Can be:
+The new/duplicate Trip Sheet form lists only active templates. Its server action
+rechecks the selected template before insertion and rejects missing or archived
+records, including stale or forged submissions. Blank-template creation remains
+available. Archived templates remain inspectable/editable/duplicable through direct
+Admin routes. Historical Trip Sheet references and snapshot content/cards are not
+changed; existing Trip cloning/provenance flows are not redesigned.
 
-* a full trip (Private)
-* a batch / segment (Educational)
+## Calendars and assignment editing
 
-Has its own:
+Month view shows Trips; week view shows Trip Sheets. Clicking month-cell whitespace opens that week. Conflict indicators include conflicts hidden behind “+X more”; they must not depend on visible pills.
 
-* title
-* start_date + start_time
-* end_date + end_time
-* operational instructions (body_text)
-* module cards
+The weekly drawer stages assignment additions/removals locally until Save Changes calls `replaceTripSheetAssignments`. Compare users by `resource_user_id`, not assignment-row ID. Preserve pending/saving feedback. Other assignment entry points remain administrative; do not change them as a side effect of schedule presentation work.
 
-Facilitator
+## Resource Assignment Schedule
 
-Operational delivery role.
+The Admin Resources table has Assignments and Edit links plus a compact secondary-action popover. Assignments is available for every profile, including Admins, and navigates using `profiles.id`.
 
-Responsible for executing assigned Trip Sheets.
+`/dashboard/resources/[id]/assignments` is an Admin-only, read-only schedule. A server-only loader enforces `requireAdmin()` itself as well as serving the guarded page and PDF route. It validates UUIDs, handles absent/error results, and supports active and inactive target profiles.
 
-Sees facilitator-specific operational cards.
+The loader retrieves Trip Sheet assignments and non-archived Trip Sheets with parent Trip context. Shared utilities **filter sessions before grouping by `trip_id`**:
 
-Expert
+- Upcoming (default): ongoing/future sessions and undated sessions. Ongoing sessions sort first, then nearest starts; undated starts sort last.
+- Past: completed sessions, most recently completed first.
+- All: all non-archived assigned sessions, chronological by start.
 
-Operational delivery role.
+Groups preserve their eligible sessions and count, earliest assigned start and latest assigned end, plus the separate actual Trip dates. A Trip spanning now may appear in both Past and Upcoming with different eligible sessions. Gaps do not imply continuous assignment. Date-only ends include the final minute of the day. Different Trips never merge merely because their school matches.
 
-Responsible for domain expertise and assigned Trip Sheets.
+The page shows assigned dates, School / Trip, destination and session count. Accessible expand/collapse buttons reveal eligible session dates/times/titles and links to `/trip-sheets/[id]`, plus actual parent Trip dates. Counts and ranges reflect the current filter, not all historical assignments.
 
-Sees expert-specific operational cards.
+The independently protected `/dashboard/resources/[id]/assignments/pdf` endpoint uses the same loader/filter/grouping utilities. Download PDF preserves the selected filter. The A4 portrait export contains one summary row per Trip, resource name, generation date, selected filter, coverage clarification, repeated headings, and page numbers. It omits individual Trip Sheet details, account email, IDs, roles and administrative controls. Responses are attachments with `Cache-Control: no-store`. Built-in Helvetica normalizes accented Latin characters and replaces unsupported characters with `?`; it is not a multilingual-font pipeline.
 
-⸻
+No migration or Trip-level assignment record was needed. Assignments remain Trip Sheet-based; this grouping is presentation only.
 
-4. User Roles
-
-Production status confirmed by the user: Stages 1, 2A, 2B and 2C are deployed.
-The independent multi-role permission model is authoritative.
-
-Authorization uses active status plus independent `profiles.is_admin`
-or Facilitator/Expert memberships. Admin permission does not infer operational
-memberships; Admin-only users remain assignable. One person keeps one Auth/profile
-UUID and assignments are neither recreated nor removed when permissions change.
-
-Team create/edit forms now select Administrator, Facilitator and Expert
-independently. They render from `is_admin` and memberships and save ordinary profile
-fields plus the complete permission set through one atomic RPC. Active non-admins
-need at least one operational role; Admin-only and inactive/no-role accounts are
-valid. The Team list shows one row per identity with all roles.
-
-`profiles.role` is a derived display compatibility value and is never the
-authorization or Team-form source.
-
-Stage 3 adds Admin View and Resource View without changing authorization. Active
-Admins can switch in the existing navigation; non-admin operational users see only
-Resource View. A validated, per-user browser cookie stores the default workspace and
-is never permission evidence. Admin deep links remain available and render the Admin
-workspace without changing the saved default. A stale Admin preference is ignored
-after permission removal.
-
-Admin View navigation contains only Overview, Trips, Calendar, Companies, Schools,
-Templates and Team, plus the view switcher and Profile. Resource View contains My
-Trips and My Trip Sheets, plus Profile and the switcher for Admins. On mobile, the
-switcher occupies its own full-width row above the workspace navigation.
-
-Operational users share the existing resource interface. Personal details remain scoped to own assignments even for Admins;
-administrative details retain Admin access. Cards use the membership union; Admins
-see both categories. Trip timelines, staged calendar assignments and manual
-notifications retain their existing behavior.
-
-Trip Task Management V1 adds operational tasks under Trips, optionally linked to a
-Trip Sheet and assigned to one active Team member. Admin View has a central task
-list and each Trip detail has a task section. Resource View has My Tasks, explicitly
-scoped to the signed-in profile even for an Admin using that view. Overdue is derived
-from an incomplete task whose timezone-aware due timestamp is in the past.
-
-Admins manage task fields, status, assignment, and deletion. The assigned active
-user can read a task, complete or reopen it, and append comments. Comments are
-permanent except when their parent task is deleted. Tasks are not shown on either
-calendar and do not create notifications. See
-`sql/verification/20261010_trip_task_runbook.md` for deployment and rollback.
-
-Failed profile creation preserves the Auth account and reports its UUID for reviewed
-recovery. See `sql/verification/20261009_stage2b_runbook.md` for atomic permission
-APIs, deployment history, recovery and rollback.
-
-Admin
-
-* Full system access
-* Creates and manages Trips
-* Creates and manages Templates
-* Assigns Facilitators and Experts
-* Can also participate operationally if assigned
-
-Facilitator
-
-* Access to assigned Trips
-* Access to assigned Trip Sheets
-* Mobile-first execution experience
-* Sees facilitator module cards
-
-Expert
-
-* Access to assigned Trips
-* Access to assigned Trip Sheets
-* Mobile-first execution experience
-* Sees expert module cards
-
-⸻
-
-5. Data Model (Conceptual)
-
-trips
-
-* id
-* title
-* start_date
-* end_date
-* trip_type
-* destination_id
-* trip_color
-* school_id
-* company_id
-* phone_number
-* adult_count
-* kid_count
-
-trip_sheets
-
-* id
-* trip_id
-* title
-* start_date
-* start_time
-* end_date
-* end_time
-* body_text
-
-trip_sheet_assignments
-
-* trip_sheet_id
-* assigned_user_id
-
-companies
-
-* id
-* name
-* is_active
-
-schools
-
-* id
-* name
-* is_active
-
-template_cards
-
-* id
-* template_id
-* title
-* category
-* card_url
-* sort_order
-
-trip_sheet_cards
-
-* id
-* trip_sheet_id
-* source_template_card_id
-* title
-* category
-* card_url
-* sort_order
-
-trip_notifications
-
-* id
-* trip_id
-* sent_by_user_id
-* sent_at
-* status
-* recipient_count
-* success_count
-* failure_count
-
-trip_notification_recipients
-
-* trip_notification_id
-* assigned_user_id
-* delivery_status
-* error_message
-
-⸻
-
-6. Source of Truth
-
-* Database is the PRIMARY source of truth.
-* Form inputs should NOT be trusted for existing values by default.
-* All mutations SHOULD:
-    * fetch current DB state first
-    * compute changes relative to DB values.
-
-Database validation may exist independently of application logic.
-
-Mutation failures may originate from:
-
-* application validation
-* database constraints
-* triggers/functions
-
-⸻
-
-7. Core Behavioral Rules
-
-Parent-Child Relationship
-
-* Trips define programs.
-* Trip Sheets always belong to Trips.
-* Trip Sheets cannot exist independently.
-
-Timeline Logic
-
-Trip Sheets should logically operate within Trip timelines.
-
-Application layer maintains this consistency.
-
-Date Shift Logic
-
-When Trip dates change:
-
-* Child Trip Sheets shift relative to original Trip start_date.
-* Preserve:
-    * time
-    * duration
-    * body_text
-* Shift by:
-
-delta = new_start_date − original_start_date
-
-Additional rules:
-
-* Existing Trip Sheets are updated.
-* Child rows are never recreated.
-* Child rows are never duplicated.
-
-Mutation Principle
-
-* Parent drives children.
-* Child updates triggered only when parent dates change.
-* Avoid unnecessary rewrites.
-* Mutate existing rows.
-
-⸻
-
-8. Body Text Behavior
-
-body_text stores Markdown text.
-
-Supported formatting:
-
-* headings
-* bold
-* bullet lists
-* numbered lists
-* paragraphs
-
-Rules:
-
-* Stored as plain text.
-* No HTML stored.
-* Rendered safely at read time.
-* Editable after creation.
-* Never auto-regenerated.
-
-⸻
-
-9. Module Cards
-
-Purpose:
-
-Operational playbooks attached to Templates and Trip Sheets.
-
-Architecture:
-
-Google Docs
-↓
-Google Apps Script
-↓
-Mobile HTML
-↓
-/public/module-cards/
-↓
-GitHub
-↓
-Vercel static hosting
-↓
-Template stores relative URLs
-↓
-Trip Sheet receives copied snapshot
-
-Template Cards:
-
-* reusable defaults
-* attached to Templates
-
-Trip Sheet Cards:
-
-* copied at creation
-* independently editable
-* operational snapshots
-* never auto-sync back to Templates
-
-Role Visibility:
-
-* Facilitator → facilitator cards
-* Expert → expert cards
-* Admin → all cards
-
-⸻
-
-10. Calendar Model
-
-Month View
-
-Shows Trips.
-
-Purpose:
-
-* planning
-* overview
-* conflict visibility
-
-Behavior:
-
-* conflict indicators shown at Trip level
-* clicking whitespace opens Week View
-
-Week View
-
-Shows Trip Sheets.
-
-Purpose:
-
-* operational scheduling
-* staffing
-* execution planning
-
-⸻
-
-11. Weekly Drawer Assignment Model
-
-Weekly calendar drawer is a staged editor.
-
-Behavior:
-
-* add/remove assignments locally
-* no immediate server mutation
-* Save Changes commits edits
-* replace assignment set on save
-
-Purpose:
-
-Optimized for multi-assignment workflows.
-
-⸻
-
-12. Personal Operational Views
-
-My Trips
-
-Trip-level operational overview.
-
-Shows Trips assigned through Trip Sheet assignments.
-
-My Trip Sheets
-
-Flat chronological execution list.
-
-Grouped into:
-
-* Ongoing
-* Upcoming
-* Past
-
-Designed as a mobile-first execution experience.
-
-⸻
-
-13. Resource-facing UX Philosophy
-
-Execution-first hierarchy:
-
-1. Trip Sheet context
-2. Module Cards
-3. Execution instructions
-4. Parent Trip context
-
-The page should answer:
-
-“What do I need to do right now?”
-
-before
-
-“What trip is this?”
-
-Principles:
-
-* speed over completeness
-* fast scanning
-* minimal friction
-* mobile-first execution
-
-⸻
-
-14. Notifications
-
-Manual Trip-level notification system.
-
-Behavior:
-
-* triggered explicitly by admin
-* one email per unique assigned user
-* includes only relevant Trip Sheets
-
-History stored in:
-
-* trip_notifications
-* trip_notification_recipients
-
-App remains source of truth.
-
-⸻
-
-15. UX Design Principles
-
-* System is an operational tool.
-* Speed > perfection.
-* Minimize clicks.
-* Reduce navigation friction.
-* Prefer staged editing for batch actions.
-* Immediate feedback for mutations.
-* Mobile-first execution experiences.
-* Full-card interactions where appropriate.
-* Optimize for real-world field usage.
-
-⸻
-
-16. Navigation Philosophy
-
-Navigation reflects user intent.
-
-Operational/Admin
-
-* Trips
-* Calendar
-* Templates
-* Schools
-* Companies
-* Resources (future Team rename)
-
-Personal
-
-* My Trips
-* My Trip Sheets
-
-Account
-
-* Profile
-
-⸻
-
-17. System Boundaries (Current)
-
-Exists:
-
-* conflict visibility
-* notifications
-* scheduling
-* staffing workflows
-* operational execution tooling
-
-Does NOT yet exist:
-
-* automated conflict resolution
-* advanced analytics
-* scheduling engine
-* automated scheduling decisions
-* module analytics
-* offline execution mode
-
-CRM and sales integration are anticipated future directions.
-
-⸻
-
-18. Current Focus
-
-* Stabilize operational UX
-* Improve mobile execution experience
-* Reduce architectural debt
-* Improve scheduling workflows
-* Build toward richer utilization and planning tools
-* Strengthen execution support tooling
-
-⸻
-
-19. One-line Summary
-
-A parent-child travel operations platform where Trips define programs, Trip Sheets define execution, Facilitators and Experts deliver experiences, and the UX is optimized for fast mobile execution in the field.
+## Resource View, content, tasks, and notifications
+
+- **My Trips:** derives parent summaries from own assigned non-archived Trip Sheets; the summary utility shows ongoing/upcoming Trips, not full assignment history.
+- **My Trip Sheets:** own flat execution list grouped into Ongoing, Upcoming and Past. Detail is execution-first: Trip Sheet context, module cards, instructions, then parent context. Existing personal queries are independent of the Admin schedule.
+- **Markdown and cards:** bodies remain plain Markdown, safely rendered to web/PDF without automatic rewriting or stored generated HTML. Template cards are copied on creation; Trip Sheet cards are independent snapshots. URLs must be relative under `/module-cards/`. Admins see both card categories; membership unions govern resource visibility. Public static URLs are not access-controlled by this UI filtering.
+- **Tasks:** Admin central list and Trip task sections support creation, assignment, editing, deletion, completion/reopening, and comments. An active assignee can see their own tasks, change completion status, and append comments. Overdue is derived from due timestamp and incomplete status. Comments are permanent except when the parent task is deleted. Tasks do not appear on calendars or generate notifications.
+- **Notifications:** manual Trip-level sends only, currently allowed for active visible Trip state. One email per unique assigned user includes their relevant Trip Sheets; history records sends and recipients. The removed assignment-email queue/cron workflow must not be rebuilt implicitly.
+
+## Project map
+
+Paths below are source locations; bracketed segments are dynamic Next.js parameters.
+
+| Area | Key routes / source modules |
+|---|---|
+| Login / recovery | `app/login/page.tsx`, `app/forgot-password/page.tsx`, `app/reset-password/page.tsx`, `app/auth/actions.ts`, `app/auth/recovery/route.ts` |
+| Guards / navigation | `app/dashboard/lib.ts`, `lib/roles.ts`, `lib/interface-view.ts`, `app/lib/interface-view-cookie.ts`, `app/dashboard/AdminNav.tsx` |
+| Supabase clients | `lib/supabase/server.ts`, `lib/supabase/client.ts`, `lib/supabase/admin.ts` |
+| Admin overview / planning | `app/dashboard/overview/page.tsx`, `app/dashboard/trips/page.tsx`, `app/dashboard/trips/[id]/page.tsx`, `app/dashboard/trips/actions.ts` |
+| Trip Sheets | `app/dashboard/trip-sheets/page.tsx`, `app/dashboard/trip-sheets/[id]/edit/page.tsx`, `app/dashboard/trip-sheets/actions.ts` |
+| Shared execution detail | `app/trip-sheets/[id]/page.tsx`, `app/trip-sheets/[id]/TripSheetDetailPageContent.tsx`, `app/trips/[id]/page.tsx` |
+| Calendar | `app/dashboard/calendar/page.tsx`, `app/dashboard/calendar/WeeklyTripSheetDrawer.tsx`, `app/dashboard/calendar/TripSheetCalendar.tsx` |
+| Team / schedules | `app/dashboard/resources/page.tsx`, `app/dashboard/resources/actions.ts`, `app/dashboard/resources/[id]/assignments/page.tsx`, `app/dashboard/resources/[id]/assignments/ResourceScheduleRows.tsx` |
+| Schedule data / PDF | `lib/resource-assignment-schedule.server.ts`, `lib/resource-assignment-schedule.ts`, `lib/resource-assignment-schedule-pdf.ts`, `app/dashboard/resources/[id]/assignments/pdf/route.ts` |
+| Personal work | `app/my-trips/page.tsx`, `app/my-trip-sheets/page.tsx`, `app/my-trip-sheets/[id]/page.tsx`, `app/my-tasks/page.tsx`, `app/lib/assigned-trips.ts` |
+| Tasks | `app/dashboard/tasks/page.tsx`, `app/tasks/data.ts`, `app/tasks/actions.ts`, `lib/trip-tasks.ts` |
+| Lookups / templates | `app/dashboard/companies/page.tsx`, `app/dashboard/schools/page.tsx`, `app/dashboard/templates/page.tsx`, `app/dashboard/trip-sheets/template-card-copy.ts` |
+| Itinerary / notifications | `app/dashboard/trips/[id]/pdf/route.ts`, `lib/pdf.ts`, `lib/client-itinerary-html.ts`, `app/dashboard/trips/trip-notifications.ts`, `lib/email.ts` |
+| SQL / regression checks | `sql/`, `sql/verification/`, `sql/tests/`, `tests/resource-assignment-schedule.mjs` |
+
+## Boundaries and evidence
+
+The repository lacks a complete base schema. Application guards and scoped queries do not establish production RLS: historical reports say RLS was disabled on several operational tables, and the multi-role migration preserves existing enabled/disabled states. See [DATABASE.md](DATABASE.md) before security or schema work.
+
+Stages 1/2A/2B/2C were reported deployed in prior project context; this documentation update did not inspect the live database or verify deployments. Old runbooks describe historical installation states. Current code uses independent permissions; do not reinstall the retired single-role bridge after independent roles exist.
+
+No assignment acceptance/decline, availability negotiation, automated staffing/conflict resolution, or offline execution workflow is implemented.
+
+## Recent Changes
+
+| Date | Change | Description |
+|---|---|---|
+| 2026-11-12 | Implement template archive/restore | Documented idempotent Admin actions, temporary listing controls, active-only creation choices and server validation while retaining historical references. |
+| 2026-11-12 | Add optional template destinations | Documented Create/Edit/Duplicate destination handling, preserved cards/defaults, unarchived copies, and the unexecuted schema synchronization record. |
+| 2026-11-12 | Standardize current architecture and workflows | Reconciled independent permissions, tasks, workspace navigation and grouped resource schedules/PDF; added a verified project map and separated historical/live-state claims. |

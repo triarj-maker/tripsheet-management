@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 import { appendToastParam } from '@/app/lib/action-feedback'
 
@@ -15,8 +16,9 @@ function buildTemplatesRedirect(error: string) {
   return `/dashboard/templates?${params.toString()}`
 }
 
-function buildNewTemplateRedirect(error: string) {
+function buildNewTemplateRedirect(error: string, duplicateFrom?: string) {
   const params = new URLSearchParams({ error })
+  if (duplicateFrom) params.set('duplicateFrom', duplicateFrom)
   return `/dashboard/templates/new?${params.toString()}`
 }
 
@@ -108,6 +110,11 @@ function validateTemplateInput(formData: FormData) {
   const defaultStartTime = normalizeOptionalTime(formData.get('default_start_time'))
   const defaultEndTime = normalizeOptionalTime(formData.get('default_end_time'))
   const body = String(formData.get('body') ?? '')
+  const destinationId = String(formData.get('destination_id') ?? '').trim()
+
+  if (destinationId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(destinationId)) {
+    return { error: 'Select a valid destination.' }
+  }
 
   if (!title) {
     return { error: 'Title is required.' }
@@ -138,6 +145,7 @@ function validateTemplateInput(formData: FormData) {
     heading: heading || null,
     defaultStartTime,
     defaultEndTime,
+    destinationId: destinationId || null,
     body,
   }
 }
@@ -156,27 +164,62 @@ function normalizeOptionalTime(value: FormDataEntryValue | null) {
   return normalizedValue
 }
 
+async function validateDestination(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>['supabase'],
+  destinationId: string | null
+) {
+  if (!destinationId) return null
+  const { data, error } = await supabase.from('destinations').select('id').eq('id', destinationId).maybeSingle()
+  return error ? 'Unable to verify destination. Please try again.' : data ? null : 'Selected destination was not found.'
+}
+
 export async function createTemplate(formData: FormData) {
   const { supabase, user } = await requireAdmin()
+  const duplicateFrom = String(formData.get('duplicate_from') ?? '').trim()
   const result = validateTemplateInput(formData)
 
   if ('error' in result) {
-    redirect(buildNewTemplateRedirect(result.error ?? 'Invalid template input.'))
+    redirect(buildNewTemplateRedirect(result.error ?? 'Invalid template input.', duplicateFrom))
+  }
+  const destinationError = await validateDestination(supabase, result.destinationId)
+  if (destinationError) redirect(buildNewTemplateRedirect(destinationError, duplicateFrom))
+
+  let sourceCards: Array<{ title: string; category: string; card_url: string; sort_order: number }> = []
+  if (duplicateFrom) {
+    if (!(await templateExists(supabase, duplicateFrom))) {
+      redirect(buildNewTemplateRedirect('Template to duplicate was not found.', duplicateFrom))
+    }
+    const { data, error } = await supabase.from('template_cards')
+      .select('title, category, card_url, sort_order').eq('template_id', duplicateFrom)
+    if (error) redirect(buildNewTemplateRedirect(error.message, duplicateFrom))
+    sourceCards = data ?? []
   }
 
-  const { error } = await supabase.from('trip_templates').insert({
+  const { data: created, error } = await supabase.from('trip_templates').insert({
     title: result.title,
     heading: result.heading,
     default_start_time: result.defaultStartTime,
     default_end_time: result.defaultEndTime,
+    destination_id: result.destinationId,
+    archived_at: null,
     body: result.body,
     created_by: user.id,
-  })
+  }).select('id').single()
 
-  if (error) {
-    redirect(buildNewTemplateRedirect(error.message))
+  if (error || !created) {
+    redirect(buildNewTemplateRedirect(error?.message ?? 'Template could not be created.', duplicateFrom))
   }
-
+  if (sourceCards.length) {
+    const { error: cardsError } = await supabase.from('template_cards')
+      .insert(sourceCards.map(card => ({ ...card, template_id: created.id })))
+    if (cardsError) {
+      const { error: cleanupError } = await supabase.from('trip_templates').delete().eq('id', created.id)
+      if (cleanupError) {
+        redirect(buildEditTemplateRedirect(created.id, 'Template created, but cards could not be copied. Review this template before retrying duplication.'))
+      }
+      redirect(buildNewTemplateRedirect(cardsError.message, duplicateFrom))
+    }
+  }
   redirect(appendToastParam('/dashboard/templates'))
 }
 
@@ -194,6 +237,9 @@ export async function updateTemplate(formData: FormData) {
     redirect(buildEditTemplateRedirect(id, result.error ?? 'Invalid template input.'))
   }
 
+  const destinationError = await validateDestination(supabase, result.destinationId)
+  if (destinationError) redirect(buildEditTemplateRedirect(id, destinationError))
+
   const { error } = await supabase
     .from('trip_templates')
     .update({
@@ -201,6 +247,7 @@ export async function updateTemplate(formData: FormData) {
       heading: result.heading,
       default_start_time: result.defaultStartTime,
       default_end_time: result.defaultEndTime,
+      destination_id: result.destinationId,
       body: result.body,
     })
     .eq('id', id)
@@ -212,21 +259,68 @@ export async function updateTemplate(formData: FormData) {
   redirect(appendToastParam(`${buildEditTemplatePath(id)}#template-details`, 'Template saved.'))
 }
 
+function templateListingReturnPath(formData: FormData) {
+  const value = String(formData.get('return_to') ?? '')
+  return value === '/dashboard/templates' || value.startsWith('/dashboard/templates?') ? value : '/dashboard/templates'
+}
+
+function templateListingError(path: string, error: string) {
+  const params = new URLSearchParams(path.split('?')[1] ?? '')
+  params.set('error', error)
+  return `/dashboard/templates?${params}`
+}
+
+async function setTemplateArchived(formData: FormData, archive: boolean) {
+  const { supabase } = await requireAdmin()
+  const returnTo = templateListingReturnPath(formData)
+  const id = String(formData.get('id') ?? '').trim()
+  if (!id) redirect(templateListingError(returnTo, 'Template not found.'))
+
+  const { data: template, error: loadError } = await supabase.from('trip_templates')
+    .select('id, archived_at').eq('id', id).maybeSingle()
+  if (loadError || !template) {
+    redirect(templateListingError(returnTo, loadError?.message ?? 'Template not found.'))
+  }
+
+  // Repeated requests are no-ops; never replace an existing archive timestamp.
+  if (archive ? template.archived_at === null : template.archived_at !== null) {
+    const update = supabase.from('trip_templates')
+      .update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', id)
+    const { error } = archive
+      ? await update.is('archived_at', null)
+      : await update.eq('archived_at', template.archived_at)
+    if (error) redirect(templateListingError(returnTo, error.message))
+  }
+  revalidatePath('/dashboard/templates')
+  revalidatePath(`/dashboard/templates/${id}/edit`)
+  revalidatePath('/dashboard/trip-sheets/new')
+  redirect(appendToastParam(returnTo, archive ? 'Template archived.' : 'Template restored.'))
+}
+
+export async function archiveTemplate(formData: FormData) {
+  return setTemplateArchived(formData, true)
+}
+
+export async function restoreTemplate(formData: FormData) {
+  return setTemplateArchived(formData, false)
+}
+
 export async function deleteTemplate(formData: FormData) {
   const { supabase } = await requireAdmin()
+  const returnTo = templateListingReturnPath(formData)
   const id = String(formData.get('id') ?? '').trim()
 
   if (!id) {
-    redirect(buildTemplatesRedirect('Template not found.'))
+    redirect(templateListingError(returnTo, 'Template not found.'))
   }
 
   const { error } = await supabase.from('trip_templates').delete().eq('id', id)
 
   if (error) {
-    redirect(buildTemplatesRedirect(error.message))
+    redirect(templateListingError(returnTo, error.message))
   }
 
-  redirect(appendToastParam('/dashboard/templates'))
+  redirect(appendToastParam(returnTo))
 }
 
 export async function createTemplateCard(formData: FormData) {

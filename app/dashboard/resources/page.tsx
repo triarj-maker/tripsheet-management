@@ -3,12 +3,10 @@ import Link from 'next/link'
 
 import AdminNav from '@/app/dashboard/AdminNav'
 import ActionLinkButton from '@/app/components/ActionLinkButton'
-import ActionSubmitButton from '@/app/components/ActionSubmitButton'
 import { requireAdmin } from '@/app/dashboard/lib'
 import { teamPermissionLabels } from './permissions'
 
-import { toggleResourceActive } from './actions'
-import ResetResourcePasswordDialog from './ResetResourcePasswordDialog'
+import ResourceActionsMenu from './ResourceActionsMenu'
 
 type ResourcesPageProps = {
   searchParams: Promise<{
@@ -115,7 +113,6 @@ export default async function ResourcesPage({
             <tr>
               <th className="px-3 py-2 font-medium text-gray-700">Name</th>
               <th className="px-3 py-2 font-medium text-gray-700">Email</th>
-              <th className="px-3 py-2 font-medium text-gray-700">Phone</th>
               <th className="px-3 py-2 font-medium text-gray-700">Roles</th>
               <th className="px-3 py-2 font-medium text-gray-700">Status</th>
               <th className="px-3 py-2 font-medium text-gray-700">Created At</th>
@@ -125,7 +122,7 @@ export default async function ResourcesPage({
           <tbody>
             {resources.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-gray-700">
+                <td colSpan={6} className="px-3 py-4 text-gray-700">
                   No resources found.
                 </td>
               </tr>
@@ -137,9 +134,6 @@ export default async function ResourcesPage({
                   </td>
                   <td className="px-3 py-2 text-gray-900">
                     {formatValue(resource.email)}
-                  </td>
-                  <td className="px-3 py-2 text-gray-900">
-                    {formatValue(resource.phone)}
                   </td>
                   <td className="px-3 py-2">
                     <span className={roleBadgeClass(resource)}>
@@ -155,33 +149,26 @@ export default async function ResourcesPage({
                     {formatCreatedAt(resource.created_at)}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
+                      <Link
+                        href={`/dashboard/resources/${resource.id}/assignments`}
+                        className="ui-button ui-button-secondary"
+                      >
+                        Assignments
+                      </Link>
                       <Link
                         href={`/dashboard/resources/${resource.id}/edit`}
                         className="ui-button ui-button-secondary"
                       >
                         Edit
                       </Link>
-                      {resource.id !== user.id ? (
-                        <ResetResourcePasswordDialog
-                          resourceId={resource.id}
-                          fullName={resource.full_name}
-                          email={resource.email}
-                        />
-                      ) : null}
-                      <form action={toggleResourceActive}>
-                        <input type="hidden" name="id" value={resource.id} />
-                        <input
-                          type="hidden"
-                          name="next_is_active"
-                          value={resource.is_active ? 'false' : 'true'}
-                        />
-                        <ActionSubmitButton
-                          idleLabel={resource.is_active ? 'Deactivate' : 'Activate'}
-                          pendingLabel="Saving…"
-                          className="ui-button-secondary"
-                        />
-                      </form>
+                      <ResourceActionsMenu
+                        resourceId={resource.id}
+                        fullName={resource.full_name}
+                        email={resource.email}
+                        isActive={resource.is_active}
+                        canResetPassword={resource.id !== user.id}
+                      />
                     </div>
                   </td>
                 </tr>

@@ -9,12 +9,14 @@ type ResetResourcePasswordDialogProps = {
   resourceId: string
   fullName: string | null
   email: string | null
+  triggerClassName?: string
 }
 
 export default function ResetResourcePasswordDialog({
   resourceId,
   fullName,
   email,
+  triggerClassName = 'ui-button ui-button-secondary',
 }: ResetResourcePasswordDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -32,10 +34,10 @@ export default function ResetResourcePasswordDialog({
     <>
       <button
         type="button"
-        className="ui-button ui-button-secondary"
+        className={triggerClassName}
         onClick={() => dialogRef.current?.showModal()}
       >
-        Reset password
+        Reset Password
       </button>
 
       <dialog

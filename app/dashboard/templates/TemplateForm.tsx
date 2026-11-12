@@ -10,6 +10,9 @@ import {
 type TemplateFormProps = {
   action: (formData: FormData) => void | Promise<void>
   submitLabel: string
+  destinations: Array<{ id: string; name: string | null }>
+  initialDestinationId?: string
+  duplicateFrom?: string
   initialTitle?: string
   initialHeading?: string
   initialDefaultStartTime?: string
@@ -22,6 +25,9 @@ type TemplateFormProps = {
 export default function TemplateForm({
   action,
   submitLabel,
+  destinations,
+  initialDestinationId = '',
+  duplicateFrom,
   initialTitle = '',
   initialHeading = '',
   initialDefaultStartTime = '',
@@ -32,6 +38,7 @@ export default function TemplateForm({
 }: TemplateFormProps) {
   return (
     <form id="template-details" action={action} className="app-section-card space-y-4">
+      {duplicateFrom ? <input type="hidden" name="duplicate_from" value={duplicateFrom} /> : null}
       {templateId ? <input type="hidden" name="id" value={templateId} /> : null}
 
       <div>
@@ -47,6 +54,16 @@ export default function TemplateForm({
           maxLength={TEMPLATE_TITLE_MAX_LENGTH}
           className="ui-input"
         />
+      </div>
+
+      <div>
+        <label htmlFor="destination_id" className="ui-label">Destination</label>
+        <select id="destination_id" name="destination_id" defaultValue={initialDestinationId} className="ui-select">
+          <option value="">No destination</option>
+          {destinations.map(destination => (
+            <option key={destination.id} value={destination.id}>{destination.name ?? 'Unnamed destination'}</option>
+          ))}
+        </select>
       </div>
 
       <div>

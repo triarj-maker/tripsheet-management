@@ -23,6 +23,9 @@ type PdfPage = {
 
 type CreateSimplePdfOptions = {
   footerText?: string
+  pageSize?: 'letter' | 'a4'
+  footerLines?: string[]
+  pageNumbers?: boolean
 }
 
 function escapePdfText(value: string) {
@@ -116,6 +119,7 @@ function wrapText(value: string, maxChars: number) {
 }
 
 export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOptions = {}) {
+  const [pageWidth, pageHeight] = options.pageSize === 'a4' ? [595.28, 841.89] : [612, 792]
   const pdfParts = ['%PDF-1.4\n']
   const objectOffsets: number[] = []
 
@@ -145,7 +149,7 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
 
   for (const [index, page] of pages.entries()) {
     const contentCommands: string[] = []
-    let currentY = 744
+    let currentY = pageHeight - 48
     const positionedLines = page.lines.map((line) => {
       const fontSize = line.size ?? 11
       const x = 48 + (line.indent ?? 0)
@@ -263,6 +267,15 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
       contentCommands.push('ET')
     }
 
+    for (const [lineIndex, text] of (options.footerLines ?? []).entries()) {
+      contentCommands.push('BT', '0.4 g', '/F1 7.5 Tf',
+        `1 0 0 1 48 ${52 - lineIndex * 10} Tm`, `(${escapePdfText(sanitizeLine(text))}) Tj`, 'ET')
+    }
+    if (options.pageNumbers) {
+      contentCommands.push('BT', '0.4 g', '/F1 8 Tf', '1 0 0 1 48 24 Tm',
+        `(Page ${index + 1} of ${pages.length}) Tj`, 'ET')
+    }
+
     const contentStream = contentCommands.join('\n')
     pushObject(
       contentObjectNumbers[index]!,
@@ -279,7 +292,7 @@ export function createSimplePdf(pages: PdfPage[], options: CreateSimplePdfOption
   for (const [index, pageObjectNumber] of pageObjectNumbers.entries()) {
     pushObject(
       pageObjectNumber,
-      `<< /Type /Page /Parent ${pagesObject} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontRegularObject} 0 R /F2 ${fontBoldObject} 0 R >> >> /Contents ${contentObjectNumbers[index]} 0 R >>`
+      `<< /Type /Page /Parent ${pagesObject} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontRegularObject} 0 R /F2 ${fontBoldObject} 0 R >> >> /Contents ${contentObjectNumbers[index]} 0 R >>`
     )
   }
 
