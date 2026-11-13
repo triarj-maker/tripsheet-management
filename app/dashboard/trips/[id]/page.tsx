@@ -4,13 +4,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import AdminNav from '@/app/dashboard/AdminNav'
-import DeleteTripSheetButton from '@/app/dashboard/trip-sheets/DeleteTripSheetButton'
-import DuplicateTripSheetButton from '@/app/dashboard/trip-sheets/DuplicateTripSheetButton'
 import { getConflictingTripSheetIds } from '@/app/dashboard/calendar/conflicts'
 import { getPermissionLabel, isAdminRole } from '@/lib/roles'
 import { getTripColorStyle } from '@/lib/trip-colors'
 import { getCurrentDateStringInAppTimeZone } from '@/lib/time'
-import type { TaskListItem } from '@/lib/trip-tasks'
+import { isTaskOverdue, type TaskListItem } from '@/lib/trip-tasks'
 import TaskList from '@/app/tasks/TaskList'
 import TaskDetailPanel from '@/app/tasks/TaskDetailPanel'
 import type { TaskComment } from '@/app/tasks/types'
@@ -32,6 +30,8 @@ import SendTripNotificationButton from '../SendTripNotificationButton'
 import { requireAdmin } from '../../lib'
 import BulkTripSheetAssignmentForm from './BulkTripSheetAssignmentForm'
 import DownloadTripPdfButton from './DownloadTripPdfButton'
+import TripHeader from './TripHeader'
+import { getTripDetailTab, tripDetailTabHref } from './trip-detail-presentation'
 
 type TripDetailPageProps = {
   params: Promise<{
@@ -41,6 +41,7 @@ type TripDetailPageProps = {
     error?: string
     success?: string
     task?: string
+    tab?: string
     newTask?: string
   }>
 }
@@ -141,10 +142,6 @@ function formatValue(value: string | null) {
   return value ?? '-'
 }
 
-function formatCount(value: number | null) {
-  return String(value ?? 0)
-}
-
 function formatDate(value: string | null) {
   if (!value) {
     return '-'
@@ -161,64 +158,6 @@ function formatDate(value: string | null) {
     year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(year, month - 1, day)))}`
-}
-
-function formatTime(value: string | null) {
-  if (!value) {
-    return null
-  }
-
-  const [hours, minutes] = value.split(':').map(Number)
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(1970, 0, 1, hours, minutes)))
-}
-
-function formatDateTimePoint(dateValue: string | null, timeValue: string | null) {
-  const formattedDate = formatDate(dateValue)
-
-  if (formattedDate === '-') {
-    return '-'
-  }
-
-  const formattedTime = formatTime(timeValue)
-
-  return formattedTime ? `${formattedDate}, ${formattedTime}` : formattedDate
-}
-
-function formatTripSheetSchedule(
-  startDate: string | null,
-  startTime: string | null,
-  endDate: string | null,
-  endTime: string | null
-) {
-  if (!startDate && !endDate) {
-    return '-'
-  }
-
-  const formattedStart = formatDateTimePoint(startDate, startTime)
-
-  if (!endDate) {
-    return formattedStart
-  }
-
-  const formattedEnd = formatDateTimePoint(endDate, endTime)
-
-  if (
-    startDate === endDate &&
-    (startTime ?? '') === (endTime ?? '')
-  ) {
-    return formattedStart
-  }
-
-  return `${formattedStart} → ${formattedEnd}`
 }
 
 function formatAssignedName(resource: ResourceProfile | null) {
@@ -436,6 +375,9 @@ export default async function TripDetailPage({
   const destinationName = getDestinationName(trip.destination_ref, 'Unknown destination')
   const tripColorStyle = getTripColorStyle(trip.trip_color)
   const returnPath = `/dashboard/trips/${trip.id}`
+  const tasksPath = `${returnPath}?tab=tasks`
+  const activeTab = getTripDetailTab(query)
+  const overdueCount = tasks.filter(task => isTaskOverdue(task)).length
   const calendarWeekHref = buildCalendarWeekHref(trip.start_date)
   const visibleTripState = getVisibleTripState({
     workflowState: trip.workflow_state,
@@ -458,28 +400,17 @@ export default async function TripDetailPage({
       {query.error ? <p className="app-banner-error">{query.error}</p> : null}
       {query.success ? <p className="app-banner-success">{query.success}</p> : null}
 
-      <div className="app-page-header">
-        <div>
-          <h1 className="app-page-title flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="inline-block h-2.5 w-2.5 rounded-full border"
-              style={{
-                backgroundColor: tripColorStyle.background,
-                borderColor: tripColorStyle.border,
-              }}
-            />
-            <span>{trip.title ?? 'Untitled trip'}</span>
-            <span className={getVisibleStateBadgeClasses(visibleTripState)}>
-              {formatVisibleTripStateLabel(visibleTripState)}
-            </span>
-          </h1>
-          <p className="app-page-subtitle">
-            Review the parent trip and manage its child trip sheets underneath.
-          </p>
-        </div>
+      <TripHeader
+        title={trip.title ?? 'Untitled trip'}
+        state={formatVisibleTripStateLabel(visibleTripState)}
+        badgeClass={getVisibleStateBadgeClasses(visibleTripState)}
+        colorStyle={{ backgroundColor: tripColorStyle.background, borderColor: tripColorStyle.border }}
+        customer={formatTripCustomerSummary(trip)} destination={destinationName ?? 'Unknown destination'}
+        dates={`${formatDate(trip.start_date)} – ${formatDate(trip.end_date)}`}
+        adults={trip.adult_count ?? 0} childrenCount={trip.kid_count ?? 0}
+        actions={<>
+          <Link href={`/dashboard/trips/${trip.id}/edit`} className="ui-button ui-button-secondary">Edit Trip</Link>
 
-        <div className="flex flex-wrap items-start justify-end gap-2">
           <Link
             href={calendarWeekHref}
             className="ui-button ui-button-secondary"
@@ -511,62 +442,12 @@ export default async function TripDetailPage({
               disabledReason={notifyDisabledReason}
             />
           ) : null}
-        </div>
-      </div>
-
-      {errorMessage ? <p className="app-banner-error">{errorMessage}</p> : null}
-
-      <section className="app-section-card mb-5 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Trip Summary</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Parent trip details and passenger counts for this trip.
-            </p>
-          </div>
-
-          <Link href={`/dashboard/trips/${trip.id}/edit`} className="ui-button ui-button-secondary">
-            Edit Trip
-          </Link>
-        </div>
-
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Customer</dt>
-            <dd className="mt-1 text-sm text-gray-900">
-              {formatTripCustomerSummary(trip)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Trip Type</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatTripTypeLabel(trip.trip_type)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Start Date</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatDate(trip.start_date)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">End Date</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatDate(trip.end_date)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Destination</dt>
-            <dd className="mt-1 text-sm text-gray-900">{destinationName}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Phone</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatValue(trip.phone_number)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Adult Numbers</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatCount(trip.adult_count)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-gray-500">Kid Numbers</dt>
-            <dd className="mt-1 text-sm text-gray-900">{formatCount(trip.kid_count)}</dd>
-          </div>
-        </dl>
-
+        </>}
+        secondaryDetails={<>
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <div><dt className="text-gray-500">Trip Type</dt><dd>{formatTripTypeLabel(trip.trip_type)}</dd></div>
+            <div><dt className="text-gray-500">Phone</dt><dd>{formatValue(trip.phone_number)}</dd></div>
+          </dl>
         {latestNotification ? (
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -589,170 +470,45 @@ export default async function TripDetailPage({
             </div>
           </div>
         ) : null}
-      </section>
+        </>}
+      />
+      {errorMessage ? <p className="app-banner-error">{errorMessage}</p> : null}
+      <nav aria-label="Trip workspace" className="mb-4 flex flex-wrap gap-2">
+        <Link id="trip-sheets-tab" href={tripDetailTabHref(trip.id, query, 'trip-sheets')} aria-current={activeTab === 'trip-sheets' ? 'page' : undefined} className={`ui-button ${activeTab === 'trip-sheets' ? 'ui-button-primary' : 'ui-button-secondary'}`}>
+          Trip Sheets ({tripSheets.length})
+        </Link>
+        <Link id="tasks-tab" href={tripDetailTabHref(trip.id, query, 'tasks')} aria-current={activeTab === 'tasks' ? 'page' : undefined} className={`ui-button ${activeTab === 'tasks' ? 'ui-button-primary' : 'ui-button-secondary'}`}>
+          Tasks ({tasks.length}){overdueCount ? ` · ${overdueCount} overdue` : ''}
+        </Link>
+      </nav>
 
-      <section className="app-section-card mb-5 space-y-4">
+      {activeTab === 'tasks' ? <section aria-labelledby="tasks-tab" className="app-section-card mb-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
             <p className="mt-1 text-sm text-gray-600">Operational work for this Trip.</p>
           </div>
-          <Link href={`/dashboard/trips/${trip.id}?newTask=1`} className="ui-button ui-button-primary">
+          <Link href={`${tasksPath}&newTask=1`} className="ui-button ui-button-primary">
             Create task
           </Link>
         </div>
-        <TaskList tasks={tasks} hrefForTask={(taskId) => `/dashboard/trips/${trip.id}?task=${taskId}`} />
-      </section>
+        <TaskList tasks={tasks} refreshOnStatusChange hrefForTask={(taskId) => `${tasksPath}&task=${taskId}`} />
+      </section> : null}
 
-      <section className="app-section-card space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Trip Sheets</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Execution units under this trip remain assignment-driven.
-          </p>
-        </div>
-
+      <section hidden={activeTab !== 'trip-sheets'} aria-labelledby="trip-sheets-tab" className="app-section-card space-y-4">
         <BulkTripSheetAssignmentForm
+          key={trip.id}
           tripId={trip.id}
           returnPath={returnPath}
           availableResources={activeResources.map((resource) => ({
             id: resource.id,
             label: `${resource.full_name?.trim() || resource.email?.trim() || resource.id} (${getPermissionLabel(resource)})`,
           }))}
-          tripSheetCount={tripSheets.length}
-        >
-        <div className="app-table-wrap">
-          <table className="app-table table-fixed">
-            <thead>
-              <tr>
-                <th className="w-[4%] px-4 py-3 font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    data-bulk-select-all="true"
-                    aria-label="Select all visible trip sheets"
-                    className="h-4 w-4 rounded border-zinc-300"
-                  />
-                </th>
-                <th className="w-[27%] px-4 py-3 font-medium text-gray-700">Schedule</th>
-                <th className="w-[27%] px-4 py-3 font-medium text-gray-700">Resource</th>
-                <th className="w-[10%] px-4 py-3 font-medium text-gray-700">Updated</th>
-                <th className="w-[32%] px-4 py-3 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tripSheets.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-4 text-gray-700">
-                    No trip sheets added yet.
-                  </td>
-                </tr>
-              ) : (
-                tripSheets.map((tripSheet) => {
-                  const assignedResources =
-                    assignedResourcesByTripSheetId.get(tripSheet.id) ?? []
-                  const assignedResourceLabel =
-                    assignedResources.length > 0
-                      ? assignedResources.map((resource) => resource.label).join(', ')
-                      : 'Unassigned'
-
-                  return (
-                  <tr
-                    key={tripSheet.id}
-                    className="align-top"
-                  >
-                    <td className="px-4 py-3.5 text-gray-900">
-                      <input
-                        type="checkbox"
-                        value={tripSheet.id}
-                        data-bulk-row="true"
-                        aria-label={`Select ${tripSheet.title ?? 'Untitled trip sheet'}`}
-                        className="h-4 w-4 rounded border-zinc-300"
-                      />
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-900">
-                      <div className="space-y-1">
-                        <p
-                          className="truncate text-sm text-gray-700"
-                          title={formatTripSheetSchedule(
-                            tripSheet.start_date,
-                            tripSheet.start_time,
-                            tripSheet.end_date,
-                            tripSheet.end_time
-                          )}
-                        >
-                          {formatTripSheetSchedule(
-                            tripSheet.start_date,
-                            tripSheet.start_time,
-                            tripSheet.end_date,
-                            tripSheet.end_time
-                          )}
-                        </p>
-                        <p
-                          className="truncate text-[15px] font-semibold leading-5 text-gray-900"
-                          title={tripSheet.title ?? 'Untitled trip sheet'}
-                        >
-                          {tripSheet.title ?? 'Untitled trip sheet'}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-900">
-                      <p
-                        className={`truncate text-sm font-medium ${
-                          assignedResources.length === 0 ? 'text-red-600' : 'text-gray-900'
-                        }`}
-                        title={assignedResourceLabel}
-                      >
-                        {assignedResourceLabel}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3.5 text-gray-900">
-                      <p className="whitespace-nowrap">{formatUpdatedAt(tripSheet.updated_at)}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <Link
-                          href={`/dashboard/trip-sheets/${tripSheet.id}/edit`}
-                          className="ui-button ui-button-primary ui-button-compact shrink-0 whitespace-nowrap"
-                        >
-                          Edit
-                        </Link>
-                        <Link
-                          href={`/trip-sheets/${tripSheet.id}`}
-                          className="ui-button ui-button-secondary ui-button-compact shrink-0 whitespace-nowrap"
-                        >
-                          View
-                        </Link>
-                        <DuplicateTripSheetButton
-                          tripSheetId={tripSheet.id}
-                          tripId={trip.id}
-                          className="ui-button-secondary ui-button-compact shrink-0 whitespace-nowrap"
-                        />
-                        <DeleteTripSheetButton
-                          tripSheetId={tripSheet.id}
-                          tripId={trip.id}
-                          className="ui-button-danger ui-button-compact shrink-0 whitespace-nowrap"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                )})
-              )}
-              <tr>
-                <td colSpan={5} className="px-4 pb-1 pt-3">
-                  <div className="mx-auto w-full max-w-md">
-                    <Link
-                      href={`/dashboard/trip-sheets/new?tripId=${trip.id}`}
-                      className="block rounded-xl border border-dashed border-zinc-400 bg-zinc-100 px-4 py-3 text-center text-sm font-semibold text-gray-800 transition hover:border-zinc-500 hover:bg-zinc-200 hover:text-gray-900"
-                    >
-                      + Add New Trip Sheet
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        </BulkTripSheetAssignmentForm>
+          tripSheets={tripSheets.map(sheet => ({
+            ...sheet,
+            assignedUsers: (assignedResourcesByTripSheetId.get(sheet.id) ?? []).map(({ resourceUserId, label }) => ({ resourceUserId, label })),
+          }))}
+        />
       </section>
 
       {(query.newTask === '1' || selectedTask) ? (
@@ -763,8 +519,8 @@ export default async function TripDetailPage({
           tripSheets={tripSheets.map(({ id: sheetId, trip_id, title }) => ({ id: sheetId, trip_id, title }))}
           assignees={activeResources.map(({ id: profileId, full_name, email }) => ({ id: profileId, full_name, email }))}
           isAdmin
-          returnTo={`/dashboard/trips/${trip.id}`}
-          closeHref={`/dashboard/trips/${trip.id}`}
+          returnTo={tasksPath}
+          closeHref={tasksPath}
           lockedTripId={trip.id}
         />
       ) : null}

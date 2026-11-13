@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 
 import { formatTaskDue, relationOne, type TaskListItem } from '@/lib/trip-tasks'
@@ -15,7 +16,8 @@ function label(
   return value?.full_name?.trim() || value?.email?.trim() || value?.title?.trim() || fallback
 }
 
-export default function TaskTableRow({ task, detailHref }: { task: TaskListItem; detailHref: string }) {
+export default function TaskTableRow({ task, detailHref, refreshOnStatusChange = false }: { task: TaskListItem; detailHref: string; refreshOnStatusChange?: boolean }) {
+  const router = useRouter()
   const [completed, setCompleted] = useState(task.status === 'completed')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,6 +41,8 @@ export default function TaskTableRow({ task, detailHref }: { task: TaskListItem;
       if (!result.ok) {
         setCompleted(previousCompleted)
         setError(result.error ?? 'Task status could not be updated.')
+      } else if (refreshOnStatusChange) {
+        router.refresh()
       }
     } catch {
       setCompleted(previousCompleted)
